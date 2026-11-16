@@ -39,6 +39,10 @@ const mailConfig = defineConfig({
       host: env.get('SMTP_HOST'),
       port: env.get('SMTP_PORT'),
       secure: env.get('SMTP_SECURE') ?? false,
+      requireTLS: env.get('SMTP_REQUIRE_TLS') ?? false,
+      tls: {
+        rejectUnauthorized: env.get('SMTP_REJECT_UNAUTHORIZED') ?? true,
+      },
       auth:
         smtpUsername && smtpPassword
           ? {

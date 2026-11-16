@@ -13,6 +13,7 @@
     "dev": "node ace serve --hmr",
     "alerts:check": "node ace alerts:check",
     "alerts:worker": "node ace alerts:worker",
+    "mail:test": "node ace mail:test",
     "test": "node ace test",
     "lint": "eslint .",
     "format": "prettier --write .",
