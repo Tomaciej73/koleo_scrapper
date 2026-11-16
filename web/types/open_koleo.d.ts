@@ -23,7 +23,23 @@ declare module 'open-koleo' {
     code?: string
   }
 
+  export interface KoleoStation {
+    id: number
+    name: string
+    name_slug?: string
+    localised_name?: string
+    type?: string
+  }
+
+  export interface KoleoStationSearch {
+    stations?: KoleoStation[]
+    error?: string
+  }
+
   export default class Koleo {
+    stations: {
+      findStationsByName(name: string): Promise<KoleoStationSearch | KoleoStation[]>
+    }
     connections: {
       findConnection(
         origin: string,

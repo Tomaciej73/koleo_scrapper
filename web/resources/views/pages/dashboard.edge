@@ -37,41 +37,149 @@
         'x-data': '{ submitting: false }',
         'x-on:submit': 'submitting = true',
       })
-        <label class="search-field search-field--station">
-          <span>Skąd</span>
+        <div
+          class="search-field search-field--station station-autocomplete"
+          x-data="stationAutocomplete"
+          data-endpoint="{{ urlFor('stations.search') }}"
+          data-field="origin"
+          data-min-length="{{ stationSearchMinLength }}"
+          x-on:click.outside="close()"
+        >
+          <label for="origin-station">Skąd</label>
           <div class="search-field__control">
             @svg('lucide:map-pin', { width: 18, height: 18 })
             <input
+              id="origin-station"
+              x-ref="input"
+              x-model="query"
               type="text"
               name="origin"
               value="{{ search ? search.origin : '' }}"
               placeholder="np. Wrocław Główny"
               autocomplete="off"
+              role="combobox"
+              aria-autocomplete="list"
+              aria-controls="origin-stations-list"
+              x-bind:aria-expanded="open"
+              x-bind:aria-activedescendant="activeOptionId"
+              x-on:input="queueSearch()"
+              x-on:focus="openResults()"
+              x-on:keydown.arrow-down.prevent="move(1)"
+              x-on:keydown.arrow-up.prevent="move(-1)"
+              x-on:keydown.enter="chooseActive($event)"
+              x-on:keydown.escape.prevent="close()"
               required
             />
+            <span class="station-autocomplete__spinner" x-show="loading" x-cloak>
+              @svg('lucide:loader-circle', { width: 16, height: 16 })
+            </span>
           </div>
-        </label>
+          <div
+            id="origin-stations-list"
+            class="station-suggestions"
+            role="listbox"
+            x-show="open"
+            x-transition.opacity.duration.120ms
+            x-cloak
+          >
+            <template x-for="(station, index) in stations" x-bind:key="station.id">
+              <button
+                type="button"
+                role="option"
+                class="station-suggestion"
+                x-bind:id="optionId(index)"
+                x-bind:class="{ 'station-suggestion--active': index === activeIndex }"
+                x-bind:aria-selected="index === activeIndex"
+                x-on:mouseenter="activeIndex = index"
+                x-on:click="select(station)"
+              >
+                @svg('lucide:train-front', { width: 17, height: 17 })
+                <span><strong x-text="station.name"></strong><small>Stacja kolejowa</small></span>
+              </button>
+            </template>
+            <div
+              class="station-suggestions__empty"
+              x-show="searched && !loading && !stations.length"
+            >
+              Nie znaleziono pasującej stacji
+            </div>
+          </div>
+        </div>
 
         <div class="search-swap" aria-hidden="true">
           @svg('lucide:arrow-right-left', { width: 17, height: 17 })
         </div>
 
-        <label class="search-field search-field--station">
-          <span>Dokąd</span>
+        <div
+          class="search-field search-field--station station-autocomplete"
+          x-data="stationAutocomplete"
+          data-endpoint="{{ urlFor('stations.search') }}"
+          data-field="destination"
+          data-min-length="{{ stationSearchMinLength }}"
+          x-on:click.outside="close()"
+        >
+          <label for="destination-station">Dokąd</label>
           <div class="search-field__control">
             @svg('lucide:map-pin-check', { width: 18, height: 18 })
             <input
+              id="destination-station"
+              x-ref="input"
+              x-model="query"
               type="text"
               name="destination"
               value="{{ search ? search.destination : '' }}"
               placeholder="np. Olsztyn Główny"
               autocomplete="off"
+              role="combobox"
+              aria-autocomplete="list"
+              aria-controls="destination-stations-list"
+              x-bind:aria-expanded="open"
+              x-bind:aria-activedescendant="activeOptionId"
+              x-on:input="queueSearch()"
+              x-on:focus="openResults()"
+              x-on:keydown.arrow-down.prevent="move(1)"
+              x-on:keydown.arrow-up.prevent="move(-1)"
+              x-on:keydown.enter="chooseActive($event)"
+              x-on:keydown.escape.prevent="close()"
               required
             />
+            <span class="station-autocomplete__spinner" x-show="loading" x-cloak>
+              @svg('lucide:loader-circle', { width: 16, height: 16 })
+            </span>
           </div>
-        </label>
+          <div
+            id="destination-stations-list"
+            class="station-suggestions"
+            role="listbox"
+            x-show="open"
+            x-transition.opacity.duration.120ms
+            x-cloak
+          >
+            <template x-for="(station, index) in stations" x-bind:key="station.id">
+              <button
+                type="button"
+                role="option"
+                class="station-suggestion"
+                x-bind:id="optionId(index)"
+                x-bind:class="{ 'station-suggestion--active': index === activeIndex }"
+                x-bind:aria-selected="index === activeIndex"
+                x-on:mouseenter="activeIndex = index"
+                x-on:click="select(station)"
+              >
+                @svg('lucide:train-front', { width: 17, height: 17 })
+                <span><strong x-text="station.name"></strong><small>Stacja kolejowa</small></span>
+              </button>
+            </template>
+            <div
+              class="station-suggestions__empty"
+              x-show="searched && !loading && !stations.length"
+            >
+              Nie znaleziono pasującej stacji
+            </div>
+          </div>
+        </div>
 
-        <label class="search-field">
+        <label class="search-field search-field--date">
           <span>Data</span>
           <div class="search-field__control">
             @svg('lucide:calendar-days', { width: 18, height: 18 })
@@ -84,7 +192,7 @@
           </div>
         </label>
 
-        <label class="search-field">
+        <label class="search-field search-field--time">
           <span>Godzina</span>
           <div class="search-field__control">
             @svg('lucide:clock-3', { width: 18, height: 18 })
@@ -185,9 +293,7 @@
                   <details class="watch-details">
                     <summary class="btn btn--secondary">
                       @svg('lucide:bell-plus', { width: 16, height: 16 })
-                      
                       Obserwuj cenę
-
                     </summary>
                     <div class="watch-popover">
                       @form({
@@ -215,13 +321,28 @@
                         @end
 
                         <label>
-                          <span>Cena docelowa (opcjonalnie)</span>
+                          <span>Maksymalna cena do alertu (opcjonalnie)</span>
                           <input
                             type="number"
                             name="targetPrice"
                             min="0.01"
                             step="0.01"
                             placeholder="np. 65.00"
+                          />
+                          <small>
+                            Dla 65 zł alert przyjdzie przy cenie 65,00 zł lub niższej, a potem przy każdym dalszym spadku.
+                          </small>
+                        </label>
+                        <label>
+                          <span>Sprawdzaj co ile minut</span>
+                          <input
+                            type="number"
+                            name="checkIntervalMinutes"
+                            min="{{ minimumCheckInterval }}"
+                            max="{{ maximumCheckInterval }}"
+                            step="1"
+                            value="{{ defaultCheckInterval }}"
+                            required
                           />
                         </label>
                         <label>

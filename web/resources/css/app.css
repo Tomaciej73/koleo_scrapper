@@ -96,6 +96,17 @@ input {
   color: var(--subtle);
 }
 
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 /* --- buttons --- */
 .btn {
   position: relative;
@@ -116,6 +127,12 @@ input {
     border-color 0.15s,
     color 0.15s,
     scale 0.15s;
+}
+
+.btn--compact {
+  height: 32px;
+  padding: 0 11px;
+  font-size: 12px;
 }
 .btn:focus-visible {
   outline: none;
@@ -570,6 +587,46 @@ input {
   text-align: center;
   font-size: 13px;
   color: var(--muted);
+}
+
+.verification-icon {
+  display: grid;
+  width: 52px;
+  height: 52px;
+  margin-bottom: 18px;
+  place-items: center;
+  color: var(--accent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.verification-code-input {
+  font-family: var(--mono);
+  font-size: 22px;
+  font-weight: 650;
+  letter-spacing: 0.28em;
+  text-align: center;
+}
+
+.verification-resend {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 16px;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.link-button {
+  padding: 0;
+  color: var(--ink);
+  border: 0;
+  background: transparent;
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
 }
 
 .auth__aside {
@@ -1320,10 +1377,92 @@ input {
 }
 
 .search-field > span,
+.search-field > label,
 .watch-form label > span {
   color: var(--muted);
   font-size: 11.5px;
   font-weight: 650;
+}
+
+.station-autocomplete {
+  position: relative;
+}
+
+.station-autocomplete__spinner {
+  display: inline-flex;
+  color: var(--accent);
+  animation: station-spinner 0.8s linear infinite;
+}
+
+.station-suggestions {
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + 7px);
+  left: 0;
+  width: 100%;
+  max-height: 300px;
+  overflow-y: auto;
+  padding: 6px;
+  border: 1px solid var(--line-2);
+  border-radius: 12px;
+  background: var(--card);
+  box-shadow: 0 18px 48px -20px rgba(10, 10, 11, 0.42);
+}
+
+.station-suggestion {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px;
+  color: var(--ink);
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.station-suggestion:hover,
+.station-suggestion--active {
+  background: color-mix(in srgb, var(--accent) 10%, var(--card));
+}
+
+.station-suggestion > svg {
+  flex: none;
+  color: var(--accent);
+}
+
+.station-suggestion > span {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.station-suggestion strong {
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.station-suggestion small,
+.station-suggestions__empty {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.station-suggestions__empty {
+  padding: 13px 10px;
+  text-align: center;
+}
+
+@keyframes station-spinner {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .search-field__control {
@@ -1545,6 +1684,12 @@ input {
   gap: 6px;
 }
 
+.watch-form label > small {
+  color: var(--muted);
+  font-size: 10.5px;
+  line-height: 1.45;
+}
+
 .watch-form input,
 .watch-form select {
   width: 100%;
@@ -1688,6 +1833,47 @@ input {
   background: var(--warning-soft);
 }
 
+.watch-card__schedule {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-top: 16px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--paper);
+}
+
+.watch-card__schedule > div,
+.interval-form {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.watch-card__schedule > div {
+  color: var(--muted);
+  font-size: 11.5px;
+}
+
+.interval-form {
+  flex: none;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.interval-form input {
+  width: 72px;
+  height: 32px;
+  padding: 0 8px;
+  color: var(--ink);
+  border: 1px solid var(--line-2);
+  border-radius: 7px;
+  outline: 0;
+  background: var(--field);
+}
+
 .watch-card__footer {
   flex-wrap: wrap;
   margin-top: 18px;
@@ -1733,11 +1919,11 @@ input {
     grid-template-columns: minmax(0, 1fr) 38px minmax(0, 1fr);
   }
 
-  .search-field:nth-of-type(3) {
+  .search-field--date {
     grid-column: 1 / 2;
   }
 
-  .search-field:nth-of-type(4) {
+  .search-field--time {
     grid-column: 3 / 4;
   }
 
@@ -1809,8 +1995,8 @@ input {
   }
 
   .search-field,
-  .search-field:nth-of-type(3),
-  .search-field:nth-of-type(4),
+  .search-field--date,
+  .search-field--time,
   .direct-check,
   .search-submit {
     grid-column: 1;
@@ -1836,6 +2022,11 @@ input {
 
   .connection-price {
     text-align: left;
+  }
+
+  .watch-card__schedule {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .watch-details,

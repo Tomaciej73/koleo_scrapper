@@ -24,3 +24,10 @@ export const loginValidator = vine.create({
   email: email(),
   password: vine.string(),
 })
+
+export const emailVerificationValidator = vine.create({
+  code: vine
+    .string()
+    .trim()
+    .regex(/^\d{6,8}$/),
+})

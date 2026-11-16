@@ -1,0 +1,54 @@
+@layouts.auth()
+  <div class="verification-icon" aria-hidden="true">
+    @svg('lucide:mail-check', { width: 28, height: 28 })
+  </div>
+  <h1 class="auth__title">Potwierdź adres e-mail</h1>
+  <p class="auth__sub">
+    Wysłaliśmy kod na
+    <strong>{{ email }}</strong>. Wpisz go poniżej, aby aktywować konto.
+  </p>
+  @form({
+    route: 'email_verification.store',
+    method: 'POST',
+    class: 'auth__form',
+    'x-data': '{ submitting: false }',
+    'x-on:submit': 'submitting = true',
+  })
+    @field.root({ name: 'code' })
+      @!field.label({ text: 'Kod aktywacyjny' })
+      @!input.control({
+        type: 'text',
+        inputmode: 'numeric',
+        autocomplete: 'one-time-code',
+        pattern: '[0-9]{6,8}',
+        minlength: '6',
+        maxlength: '8',
+        placeholder: '000000',
+        class: 'verification-code-input',
+        autofocus: true,
+      })
+      @!field.error()
+    @end
+    @!button({
+      text: 'Aktywuj konto',
+      type: 'submit',
+      block: true,
+      style: 'margin-top: 4px;',
+      'x-bind:disabled': 'submitting',
+      'x-text': "submitting ? 'Sprawdzam…' : 'Aktywuj konto'",
+    })
+  @end
+
+  <div class="verification-resend">
+    <span>Kod nie dotarł albo wygasł?</span>
+    @form({ route: 'email_verification.resend', method: 'POST' })
+      <button type="submit" class="link-button">Wyślij nowy kod</button>
+    @end
+  </div>
+
+  <p class="auth__foot">
+    @link({ route: 'session.create', class: 'il' })
+      Wróć do logowania
+    @end
+  </p>
+@end

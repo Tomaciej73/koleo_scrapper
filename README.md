@@ -5,12 +5,12 @@ połączeń i obserwowania zmian cen.
 
 ## Co jest gotowe
 
-- rejestracja i logowanie użytkownika,
-- formularz trasy, daty i opcjonalnej godziny,
+- rejestracja z 6-cyfrowym kodem e-mail i logowanie użytkownika,
+- formularz trasy z podpowiedziami stacji, daty i opcjonalnej godziny,
 - lista połączeń z czasem przejazdu, przesiadkami i ceną,
 - zapis połączenia do obserwowanych,
 - historia ostatniej i najniższej ceny,
-- ręczne oraz cykliczne sprawdzanie alertów,
+- ręczne oraz cykliczne sprawdzanie alertów z osobnym interwałem dla każdej obserwacji,
 - powiadomienia e-mail przez konfigurowalny serwer SMTP,
 - przygotowane kanały SMS i WhatsApp, oczekujące na wybór dostawcy.
 
@@ -53,8 +53,25 @@ Set-Location -LiteralPath 'M:\GIT\koleo_scrapper\web'
 npm run alerts:worker
 ```
 
-Częstotliwość określa `ALERT_CHECK_INTERVAL_MINUTES`. Proces workera trzeba
-uruchomić jako osobną usługę obok serwera WWW.
+Worker budzi się co `ALERT_WORKER_TICK_SECONDS` i wybiera tylko obserwacje,
+których termin sprawdzenia już nadszedł. Domyślny interwał nowej obserwacji
+określa `ALERT_CHECK_INTERVAL_MINUTES`; użytkownik może go zmienić przy
+dodawaniu połączenia albo później na ekranie obserwowanych. Dozwolony zakres
+kontrolują `ALERT_MIN_CHECK_INTERVAL_MINUTES` i
+`ALERT_MAX_CHECK_INTERVAL_MINUTES`. Proces workera trzeba uruchomić jako
+osobną usługę obok serwera WWW.
+
+Obserwacja automatycznie kończy się w chwili odjazdu pociągu. Przycisk
+„Sprawdź teraz” pomija harmonogram i od razu sprawdza wszystkie aktywne
+obserwacje użytkownika.
+
+### Zasada ceny docelowej
+
+- bez ceny docelowej alert jest wysyłany dla każdej nowej, niższej ceny,
+- dla ceny docelowej 55 zł alert jest wysyłany przy cenie `<= 55,00 zł`,
+- po pierwszym osiągnięciu progu kolejne alerty przychodzą tylko dla dalszych
+  spadków, np. 55 zł, potem 52 zł i 49 zł,
+- spadek z 80 zł do 70 zł nie wyśle alertu, jeśli próg wynosi 55 zł.
 
 ## Powiadomienia
 
@@ -63,13 +80,32 @@ skonfiguruj w `.env` wartości `MAIL_FROM_*` i `SMTP_*`, a następnie ustaw
 `MAIL_ENABLED=true`. Haseł i tokenów nie należy commitować; `.env` jest
 ignorowany przez Git.
 
+Dla SMTPS na porcie 465 ustaw `SMTP_SECURE=true` i
+`SMTP_REQUIRE_TLS=false`. Dla SMTP z obowiązkowym STARTTLS, zwykle na porcie
+587, ustaw `SMTP_SECURE=false` i `SMTP_REQUIRE_TLS=true`. Weryfikację
+certyfikatu kontroluje `SMTP_REJECT_UNAUTHORIZED`; na prawidłowo
+skonfigurowanym serwerze powinna pozostać włączona.
+
+Po uzupełnieniu danych i ustawieniu `MAIL_ENABLED=true` wyślij niezależną
+wiadomość testową:
+
+```powershell
+Set-Location -LiteralPath 'M:\GIT\koleo_scrapper\web'
+npm run mail:test -- odbiorca@example.com
+```
+
 SMS i WhatsApp mają wspólny interfejs w warstwie powiadomień, ale nie wysyłają
 wiadomości do czasu wyboru i skonfigurowania dostawcy.
+
+Nowe konto pozostaje nieaktywne do czasu wpisania kodu z wiadomości e-mail.
+Długość kodu, ważność, limit prób i czas przed ponowną wysyłką określają
+zmienne `EMAIL_VERIFICATION_*` w `.env`.
 
 ## Prawdziwe dane
 
 `PRICE_PROVIDER=koleo` przełącza wyszukiwanie na klienta z katalogu głównego.
-Nie włączaj tego trybu bez potwierdzonego uprawnienia. Punkt 1.6 aktualnego
+Włączaj ten tryb wyłącznie z potwierdzonym uprawnieniem administratora. Punkt
+1.6 aktualnego
 [regulaminu KOLEO](https://koleo.pl/terms-of-use) zabrania automatycznego
 dostępu do serwisu. Z tego powodu aplikacja startuje bez ruchu sieciowego i z
 `ALERTS_ENABLED=false`.

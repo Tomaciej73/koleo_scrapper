@@ -11,7 +11,7 @@ const dbConfig = defineConfig({
   /**
    * Pretty-print SQL debug output in development logs.
    */
-  prettyPrintDebugQueries: true,
+  prettyPrintDebugQueries: env.get('DB_DEBUG') ?? false,
 
   connections: {
     /**
@@ -36,7 +36,7 @@ const dbConfig = defineConfig({
       /**
        * Emit SQL queries to the logger in development.
        */
-      debug: app.inDev,
+      debug: env.get('DB_DEBUG') ?? false,
     },
 
     /**

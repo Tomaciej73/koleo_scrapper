@@ -11,9 +11,7 @@
           @form({ route: 'price_watches.check', method: 'POST' })
             <button type="submit" class="btn btn--secondary">
               @svg('lucide:refresh-cw', { width: 16, height: 16 })
-              
               Sprawdź teraz
-
             </button>
           @end
         @end
@@ -91,38 +89,78 @@
               </div>
               @if(watch.targetPriceCents !== null)
                 <div>
-                  <span>Cel</span><strong>{{ formatPrice(watch.targetPriceCents) }}</strong>
+                  <span>Alert przy cenie ≤</span><strong>
+                    {{ formatPrice(watch.targetPriceCents) }}
+                  </strong>
                 </div>
               @end
             </div>
             @if(priceChange !== null && priceChange < 0)
               <div class="price-change price-change--down">
                 @svg('lucide:trending-down', { width: 15, height: 15 })
-                
                 Spadek o
                 {{ formatPrice(priceChange * -1) }}
               </div>
             @elseif(priceChange !== null && priceChange > 0)
               <div class="price-change price-change--up">
                 @svg('lucide:trending-up', { width: 15, height: 15 })
-                
                 Wzrost o
                 {{ formatPrice(priceChange) }}
               </div>
             @end
 
+            <div class="watch-card__schedule">
+              <div>
+                @svg('lucide:timer-reset', { width: 16, height: 16 })
+                <span>
+                  Sprawdzanie co
+                  <strong>{{ watch.checkIntervalMinutes }} min</strong>
+                  @if(watch.status === 'active' && watch.nextCheckAt)
+                    · następne około
+                    {{
+                      watch.nextCheckAt
+                        .setZone(appTimezone)
+                        .toFormat('dd.LL HH:mm')
+                    }}
+                  @end
+                </span>
+              </div>
+              @if(watch.status === 'active')
+                @form({
+                  route: 'price_watches.interval',
+                  routeParams: { id: watch.id },
+                  method: 'POST',
+                  class: 'interval-form',
+                })
+                  <label>
+                    <span class="sr-only">Interwał sprawdzania w minutach</span>
+                    <input
+                      type="number"
+                      name="checkIntervalMinutes"
+                      min="{{ minimumCheckInterval }}"
+                      max="{{ maximumCheckInterval }}"
+                      step="1"
+                      value="{{ watch.checkIntervalMinutes }}"
+                      aria-label="Interwał sprawdzania w minutach"
+                      required
+                    />
+                  </label>
+                  <span>min</span>
+                  <button type="submit" class="btn btn--secondary btn--compact">Zapisz</button>
+                @end
+              @end
+            </div>
+
             <div class="watch-card__footer">
               <span>
                 @svg('lucide:send', { width: 14, height: 14 })
-                {{ watch.notificationChannel }}
-                 ·
-                {{ watch.notificationDestination }}
+                {{ watch.notificationChannel }} · {{ watch.notificationDestination }}
               </span>
               <span>
                 Ostatnie sprawdzenie:
                 {{
                   watch.lastCheckedAt
-                    ? watch.lastCheckedAt.toFormat('dd.LL HH:mm')
+                    ? watch.lastCheckedAt.setZone(appTimezone).toFormat('dd.LL HH:mm')
                     : 'jeszcze nie sprawdzano'
                 }}
               </span>

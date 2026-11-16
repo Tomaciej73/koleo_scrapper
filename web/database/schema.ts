@@ -11,6 +11,7 @@ export class PriceWatchSchema extends BaseModel {
   static $columns = [
     'arrivalTime',
     'baselinePriceCents',
+    'checkIntervalMinutes',
     'connectionUuid',
     'createdAt',
     'departureTime',
@@ -18,8 +19,10 @@ export class PriceWatchSchema extends BaseModel {
     'id',
     'lastCheckedAt',
     'lastNotifiedAt',
+    'lastNotifiedPriceCents',
     'lastPriceCents',
     'lowestPriceCents',
+    'nextCheckAt',
     'notificationChannel',
     'notificationDestination',
     'origin',
@@ -36,6 +39,8 @@ export class PriceWatchSchema extends BaseModel {
   @column()
   declare baselinePriceCents: number | null
   @column()
+  declare checkIntervalMinutes: number
+  @column()
   declare connectionUuid: string | null
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
@@ -50,9 +55,13 @@ export class PriceWatchSchema extends BaseModel {
   @column.dateTime()
   declare lastNotifiedAt: DateTime | null
   @column()
+  declare lastNotifiedPriceCents: number | null
+  @column()
   declare lastPriceCents: number | null
   @column()
   declare lowestPriceCents: number | null
+  @column.dateTime()
+  declare nextCheckAt: DateTime | null
   @column()
   declare notificationChannel: string
   @column()
@@ -74,12 +83,34 @@ export class PriceWatchSchema extends BaseModel {
 }
 
 export class UserSchema extends BaseModel {
-  static $columns = ['createdAt', 'email', 'fullName', 'id', 'password', 'updatedAt'] as const
+  static $columns = [
+    'createdAt',
+    'email',
+    'emailVerificationAttempts',
+    'emailVerificationCodeHash',
+    'emailVerificationExpiresAt',
+    'emailVerificationSentAt',
+    'emailVerifiedAt',
+    'fullName',
+    'id',
+    'password',
+    'updatedAt',
+  ] as const
   $columns = UserSchema.$columns
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
   @column()
   declare email: string
+  @column()
+  declare emailVerificationAttempts: number
+  @column()
+  declare emailVerificationCodeHash: string | null
+  @column.dateTime()
+  declare emailVerificationExpiresAt: DateTime | null
+  @column.dateTime()
+  declare emailVerificationSentAt: DateTime | null
+  @column.dateTime()
+  declare emailVerifiedAt: DateTime | null
   @column()
   declare fullName: string | null
   @column({ isPrimary: true })

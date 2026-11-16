@@ -73,10 +73,11 @@ export default class ConnectionSearchService {
 
   private async searchKoleo(input: ConnectionSearchInput): Promise<ConnectionResult[]> {
     const client = new Koleo()
+    const departureTime = input.departureTime ?? '00:00'
     const response = await client.connections.findConnection(
       input.origin,
       input.destination,
-      `${input.travelDate}T00:00:00`,
+      `${input.travelDate}T${departureTime}:00`,
       input.onlyDirect
     )
 
@@ -87,9 +88,6 @@ export default class ConnectionSearchService {
     const resultLimit = env.get('SEARCH_RESULT_LIMIT') ?? 20
     const matching = response
       .filter((connection) => connection.departure?.startsWith(`${input.travelDate}T`))
-      .filter((connection) => {
-        return !input.departureTime || connection.departure.slice(11, 16) === input.departureTime
-      })
       .slice(0, resultLimit)
 
     const results: ConnectionResult[] = []

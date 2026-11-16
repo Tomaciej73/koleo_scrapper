@@ -26,10 +26,10 @@ export default class AlertsWorker extends BaseCommand {
       return
     }
 
-    const intervalMinutes = Math.max(1, env.get('ALERT_CHECK_INTERVAL_MINUTES') ?? 15)
+    const tickSeconds = Math.max(10, env.get('ALERT_WORKER_TICK_SECONDS') ?? 60)
     await this.check()
-    this.timer = setInterval(() => void this.check(), intervalMinutes * 60_000)
-    this.logger.info(`Worker alertów działa co ${intervalMinutes} min.`)
+    this.timer = setInterval(() => void this.check(), tickSeconds * 1_000)
+    this.logger.info(`Worker harmonogramu działa co ${tickSeconds} s.`)
   }
 
   private async check() {

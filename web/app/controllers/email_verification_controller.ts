@@ -1,0 +1,97 @@
+import User from '#models/user'
+import EmailVerificationService, {
+  EMAIL_VERIFICATION_SESSION_KEY,
+  EmailVerificationDeliveryError,
+} from '#services/email_verification_service'
+import { emailVerificationValidator } from '#validators/user'
+import type { HttpContext } from '@adonisjs/core/http'
+
+export default class EmailVerificationController {
+  async create({ session, response, view }: HttpContext) {
+    const user = await this.getPendingUser(session.get(EMAIL_VERIFICATION_SESSION_KEY))
+    if (!user) {
+      session.forget(EMAIL_VERIFICATION_SESSION_KEY)
+      return response.redirect().toRoute('new_account.create')
+    }
+
+    if (user.emailVerifiedAt) {
+      session.forget(EMAIL_VERIFICATION_SESSION_KEY)
+      return response.redirect().toRoute('session.create')
+    }
+
+    return view.render('pages/auth/verify_email', {
+      email: this.maskEmail(user.email),
+    })
+  }
+
+  async store({ request, session, response, auth }: HttpContext) {
+    const { code } = await request.validateUsing(emailVerificationValidator)
+    const user = await this.getPendingUser(session.get(EMAIL_VERIFICATION_SESSION_KEY))
+    if (!user) {
+      session.forget(EMAIL_VERIFICATION_SESSION_KEY)
+      return response.redirect().toRoute('new_account.create')
+    }
+
+    const result = await new EmailVerificationService().verifyCode(user, code)
+    if (result === 'verified') {
+      session.forget(EMAIL_VERIFICATION_SESSION_KEY)
+      await auth.use('web').login(user)
+      session.flash('success', 'Adres e-mail został potwierdzony. Konto jest aktywne.')
+      return response.redirect().toRoute('dashboard')
+    }
+
+    const message =
+      result === 'invalid'
+        ? 'Kod jest nieprawidłowy.'
+        : result === 'locked'
+          ? 'Przekroczono limit prób. Wyślij nowy kod.'
+          : 'Kod wygasł. Wyślij nowy kod.'
+
+    session.flash('error', message)
+    return response.redirect().toRoute('email_verification.create')
+  }
+
+  async resend({ session, response, logger }: HttpContext) {
+    const user = await this.getPendingUser(session.get(EMAIL_VERIFICATION_SESSION_KEY))
+    if (!user) {
+      session.forget(EMAIL_VERIFICATION_SESSION_KEY)
+      return response.redirect().toRoute('new_account.create')
+    }
+
+    try {
+      const result = await new EmailVerificationService().issueCode(user, true)
+      if (!result.sent) {
+        session.flash(
+          'error',
+          `Poczekaj ${result.retryAfterSeconds} s przed wysłaniem kolejnego kodu.`
+        )
+      } else {
+        session.flash('success', 'Nowy kod aktywacyjny został wysłany.')
+      }
+    } catch (error) {
+      logger.error({ err: error }, 'Email verification resend failed')
+      const message =
+        error instanceof EmailVerificationDeliveryError
+          ? error.message
+          : 'Nie udało się wysłać nowego kodu.'
+      session.flash('error', message)
+    }
+
+    return response.redirect().toRoute('email_verification.create')
+  }
+
+  private async getPendingUser(value: unknown) {
+    const userId = Number(value)
+    return Number.isSafeInteger(userId) && userId > 0 ? User.find(userId) : null
+  }
+
+  private maskEmail(email: string) {
+    const [localPart, domain] = email.split('@')
+    if (!localPart || !domain) {
+      return email
+    }
+
+    const visible = localPart.slice(0, Math.min(2, localPart.length))
+    return `${visible}${'*'.repeat(Math.max(2, localPart.length - visible.length))}@${domain}`
+  }
+}

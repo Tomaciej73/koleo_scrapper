@@ -1,4 +1,5 @@
 import User from '#models/user'
+import { EMAIL_VERIFICATION_SESSION_KEY } from '#services/email_verification_service'
 import { loginValidator } from '#validators/user'
 import type { HttpContext } from '@adonisjs/core/http'
 
@@ -18,12 +19,18 @@ export default class SessionController {
   /**
    * Authenticate user credentials and create a new session
    */
-  async store({ request, auth, response }: HttpContext) {
+  async store({ request, auth, response, session }: HttpContext) {
     const { email, password } = await request.validateUsing(loginValidator)
     const user = await User.verifyCredentials(email, password)
 
+    if (!user.emailVerifiedAt) {
+      session.put(EMAIL_VERIFICATION_SESSION_KEY, user.id)
+      session.flash('error', 'Najpierw potwierdź adres e-mail kodem aktywacyjnym.')
+      return response.redirect().toRoute('email_verification.create')
+    }
+
     await auth.use('web').login(user)
-    response.redirect().toRoute('dashboard')
+    return response.redirect().toRoute('dashboard')
   }
 
   /**
@@ -31,6 +38,6 @@ export default class SessionController {
    */
   async destroy({ auth, response }: HttpContext) {
     await auth.use('web').logout()
-    response.redirect().toRoute('session.create')
+    return response.redirect().toRoute('session.create')
   }
 }

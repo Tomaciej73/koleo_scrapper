@@ -23,6 +23,7 @@ export default await Env.create(new URL('../', import.meta.url), {
   APP_KEY: Env.schema.secret(),
   APP_URL: Env.schema.string({ format: 'url', tld: false }),
   DB_DATABASE: Env.schema.string.optional(),
+  DB_DEBUG: Env.schema.boolean.optional(),
 
   // Session
   SESSION_DRIVER: Env.schema.enum(['cookie', 'memory', 'database'] as const),
@@ -46,8 +47,18 @@ export default await Env.create(new URL('../', import.meta.url), {
   // Price search and alerts
   PRICE_PROVIDER: Env.schema.enum.optional(['demo', 'koleo'] as const),
   SEARCH_RESULT_LIMIT: Env.schema.number.optional(),
+  STATION_SEARCH_MIN_LENGTH: Env.schema.number.optional(),
+  STATION_SEARCH_RESULT_LIMIT: Env.schema.number.optional(),
+  STATION_SEARCH_CACHE_SECONDS: Env.schema.number.optional(),
   DEMO_PRICE_OFFSET_CENTS: Env.schema.number.optional(),
   ALERTS_ENABLED: Env.schema.boolean.optional(),
   ALERT_CHECK_INTERVAL_MINUTES: Env.schema.number.optional(),
+  ALERT_MIN_CHECK_INTERVAL_MINUTES: Env.schema.number.optional(),
+  ALERT_MAX_CHECK_INTERVAL_MINUTES: Env.schema.number.optional(),
+  ALERT_WORKER_TICK_SECONDS: Env.schema.number.optional(),
   MAIL_ENABLED: Env.schema.boolean.optional(),
+  EMAIL_VERIFICATION_CODE_LENGTH: Env.schema.number.optional(),
+  EMAIL_VERIFICATION_CODE_TTL_MINUTES: Env.schema.number.optional(),
+  EMAIL_VERIFICATION_MAX_ATTEMPTS: Env.schema.number.optional(),
+  EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS: Env.schema.number.optional(),
 })

@@ -61,7 +61,8 @@ export default class Stations extends BaseModule {
     if (!name) {
       throw new Error("Name is required");
     }
-    return await this.request(`/main/livesearch?q=${name.toLowerCase()}`);
+    const query = new URLSearchParams({ q: name.trim().toLocaleLowerCase("pl-PL") });
+    return await this.request(`/main/livesearch?${query.toString()}`);
   }
 
   /**

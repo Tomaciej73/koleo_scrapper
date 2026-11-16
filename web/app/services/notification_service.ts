@@ -8,6 +8,34 @@ export interface NotificationResult {
 }
 
 export default class NotificationService {
+  async sendEmailVerification(
+    recipient: string,
+    code: string,
+    validForMinutes: number
+  ): Promise<NotificationResult> {
+    if (!(env.get('MAIL_ENABLED') ?? false)) {
+      return { delivered: false, reason: 'Powiadomienia e-mail są wyłączone.' }
+    }
+
+    await mail.send((message) => {
+      message
+        .to(recipient)
+        .subject('Kod aktywacyjny — Koleo Watch')
+        .text(
+          [
+            'Dokończ zakładanie konta w Koleo Watch.',
+            '',
+            `Twój kod aktywacyjny: ${code}`,
+            `Kod jest ważny przez ${validForMinutes} min.`,
+            '',
+            'Jeśli to nie Ty zakładasz konto, zignoruj tę wiadomość.',
+          ].join('\n')
+        )
+    })
+
+    return { delivered: true }
+  }
+
   async sendPriceDrop(watch: PriceWatch, previousPriceCents: number): Promise<NotificationResult> {
     if (!(env.get('MAIL_ENABLED') ?? false)) {
       return { delivered: false, reason: 'Powiadomienia e-mail są wyłączone.' }
@@ -26,9 +54,12 @@ export default class NotificationService {
 
     const previous = this.formatPrice(previousPriceCents)
     const current = this.formatPrice(watch.lastPriceCents)
-    const subject = `Cena spadła: ${watch.origin} → ${watch.destination}`
+    const priceDropped = watch.lastPriceCents < previousPriceCents
+    const subject = `${priceDropped ? 'Cena spadła' : 'Cena osiągnęła próg'}: ${watch.origin} → ${watch.destination}`
     const content = [
-      `Cena połączenia ${watch.origin} → ${watch.destination} spadła z ${previous} do ${current}.`,
+      priceDropped
+        ? `Cena połączenia ${watch.origin} → ${watch.destination} spadła z ${previous} do ${current}.`
+        : `Cena połączenia ${watch.origin} → ${watch.destination} wynosi ${current} i spełnia ustawiony próg.`,
       `Wyjazd: ${watch.travelDate.toISODate()} o ${watch.departureTime}.`,
       watch.trainName ? `Pociąg: ${watch.trainName}.` : null,
     ]
