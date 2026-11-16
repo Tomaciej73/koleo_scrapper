@@ -1,9 +1,18 @@
 import env from '#start/env'
 import { defineConfig, transports } from '@adonisjs/mail'
 import type { InferMailers } from '@adonisjs/mail/types'
+import { readFileSync } from 'node:fs'
+import { isAbsolute, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 const smtpUsername = env.get('SMTP_USERNAME')
 const smtpPassword = env.get('SMTP_PASSWORD')
+const smtpCaFile = env.get('SMTP_CA_FILE')
+const smtpTlsServername = env.get('SMTP_TLS_SERVERNAME')
+const applicationRoot = fileURLToPath(new URL('../', import.meta.url))
+const smtpCa = smtpCaFile
+  ? readFileSync(isAbsolute(smtpCaFile) ? smtpCaFile : resolve(applicationRoot, smtpCaFile), 'utf8')
+  : undefined
 
 const mailConfig = defineConfig({
   default: env.get('MAIL_MAILER'),
@@ -42,6 +51,8 @@ const mailConfig = defineConfig({
       requireTLS: env.get('SMTP_REQUIRE_TLS') ?? false,
       tls: {
         rejectUnauthorized: env.get('SMTP_REJECT_UNAUTHORIZED') ?? true,
+        ca: smtpCa,
+        servername: smtpTlsServername,
       },
       auth:
         smtpUsername && smtpPassword

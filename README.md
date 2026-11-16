@@ -86,6 +86,29 @@ Dla SMTPS na porcie 465 ustaw `SMTP_SECURE=true` i
 certyfikatu kontroluje `SMTP_REJECT_UNAUTHORIZED`; na prawidłowo
 skonfigurowanym serwerze powinna pozostać włączona.
 
+Jeśli sieć firmowa podpisuje połączenia własnym CA, ustaw `SMTP_CA_FILE` na
+plik PEM z tym CA. Ścieżka może być względna wobec katalogu `web` lub
+bezwzględna. Dla `mail.zetosoftware.pl` w sieci z Axence nVision:
+
+```dotenv
+SMTP_REJECT_UNAUTHORIZED=true
+SMTP_CA_FILE=certs/axence-nvision-agent-ca-3.pem
+```
+
+Serwer `mail.euslugi.zetosoftware.pl:587` używa samopodpisanego certyfikatu
+wystawionego dla nazwy backendu `serafin.zeto.olsztyn.pl`. Dla tego endpointu
+ustaw:
+
+```dotenv
+SMTP_HOST=mail.euslugi.zetosoftware.pl
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_REQUIRE_TLS=true
+SMTP_REJECT_UNAUTHORIZED=true
+SMTP_CA_FILE=certs/mail-euslugi-zetosoftware-pl.pem
+SMTP_TLS_SERVERNAME=serafin.zeto.olsztyn.pl
+```
+
 Po uzupełnieniu danych i ustawieniu `MAIL_ENABLED=true` wyślij niezależną
 wiadomość testową:
 
