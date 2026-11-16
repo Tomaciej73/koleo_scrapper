@@ -2,6 +2,14 @@ name: ${COMPOSE_PROJECT_NAME}
 
 x-koleo-service: &koleo-service
   image: ${KOLEO_IMAGE}:${KOLEO_IMAGE_TAG}
+  read_only: ${CONTAINER_READ_ONLY}
+  cap_drop:
+    - ${CONTAINER_CAP_DROP}
+  security_opt:
+    - ${CONTAINER_SECURITY_OPT}
+  pids_limit: ${CONTAINER_PIDS_LIMIT}
+  mem_limit: ${CONTAINER_MEMORY_LIMIT}
+  cpus: ${CONTAINER_CPU_LIMIT}
   environment:
     NODE_ENV: ${NODE_ENV}
     HOST: ${CONTAINER_HOST}
@@ -36,6 +44,9 @@ x-koleo-service: &koleo-service
   volumes:
     - ${APP_ENV_FILE}:${CONTAINER_ENV_FILE}:ro
     - koleo_data:${CONTAINER_DATA_DIR}
+  tmpfs:
+    - ${CONTAINER_SYSTEM_TMPFS}
+    - ${CONTAINER_APP_TMPFS}
   working_dir: ${CONTAINER_WEB_HOME}
   init: ${CONTAINER_INIT}
   stop_grace_period: ${STOP_GRACE_PERIOD}

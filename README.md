@@ -172,6 +172,27 @@ bez edycji pliku Compose:
 docker compose --env-file .env_conf up -d
 ```
 
+Wspólne zabezpieczenia kontenerów są konfigurowane wyłącznie w ignorowanym
+pliku `.env_conf` przez `CONTAINER_*`: system plików tylko do odczytu,
+`cap_drop`, `no-new-privileges`, limit PID-ów, pamięci i CPU oraz osobne tmpfs-y
+dla systemowego i aplikacyjnego katalogu tymczasowego. Domyślna konfiguracja
+usuwa wszystkie capabilities; aplikacja zapisuje trwale wyłącznie do wolumenu
+`koleo_data`. Jeżeli zmienisz użytkownika obrazu, dostosuj `uid` i `gid` w
+`CONTAINER_APP_TMPFS`.
+
+Zalecane wartości dla serwera:
+
+```dotenv
+CONTAINER_READ_ONLY=true
+CONTAINER_CAP_DROP=ALL
+CONTAINER_SECURITY_OPT=no-new-privileges:true
+CONTAINER_PIDS_LIMIT=128
+CONTAINER_MEMORY_LIMIT=512m
+CONTAINER_CPU_LIMIT=1.0
+CONTAINER_SYSTEM_TMPFS=/tmp:rw,noexec,nosuid,nodev,size=64m,mode=1777
+CONTAINER_APP_TMPFS=/opt/koleo/web/tmp:rw,noexec,nosuid,nodev,size=32m,mode=1770,uid=1000,gid=1000
+```
+
 Logi i zatrzymanie:
 
 ```powershell
