@@ -154,6 +154,11 @@ produkcyjne `APP_KEY`, publiczny `APP_URL`, konfigurację SMTP oraz provider cen
 Ustawienia samego Compose znajdują się w ignorowanym przez Git pliku
 `.env_conf`; skopiuj go osobno na serwer razem z `web/.env`.
 
+Parametry operacyjne wymagane także podczas kompilacji, takie jak typ bazy,
+limity parsera i zakres sprzedaży, są przekazywane z `.env_conf` jako build
+args. Nie trzeba ich powielać w `web/.env`; sekret ten nadal przechowuje klucz
+aplikacji, SMTP i pozostałe ustawienia wrażliwe.
+
 Uruchomienie z katalogu głównego repozytorium:
 
 ```powershell

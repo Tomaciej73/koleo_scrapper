@@ -11,6 +11,15 @@ FROM ${NODE_IMAGE} AS build
 ARG APP_HOME
 ARG APP_DATA_DIR
 ARG NATIVE_BUILD_PACKAGES
+ARG BUILD_DB_CONNECTION
+ARG BUILD_SQLITE_BUSY_TIMEOUT_MS
+ARG BUILD_DB_BACKUP_DIR
+ARG BUILD_DB_BACKUP_RETENTION_COUNT
+ARG BUILD_TICKET_SALES_MAX_ADVANCE_DAYS
+ARG BUILD_BODY_PARSER_FORM_LIMIT
+ARG BUILD_BODY_PARSER_JSON_LIMIT
+ARG BUILD_BODY_PARSER_MULTIPART_LIMIT
+ARG BUILD_HEALTH_WORKER_STALE_SECONDS
 ENV CI=true
 
 WORKDIR ${APP_HOME}
@@ -31,10 +40,21 @@ RUN npm ci
 
 COPY web ./
 
-# Adonis validates configuration during the build. BuildKit exposes the
-# existing .env only for this command and does not persist it in an image layer.
+# Adonis validates configuration during the build. BuildKit exposes secrets
+# from web/.env only for this command. Non-secret operational settings come
+# from .env_conf through build args, so they do not have to be duplicated in
+# web/.env and are not persisted as ENV entries in the runtime image.
 RUN --mount=type=secret,id=app_env,target=${APP_HOME}/web/.env,required=true \
-    node ace codegen \
+    export DB_CONNECTION="${BUILD_DB_CONNECTION}" \
+    SQLITE_BUSY_TIMEOUT_MS="${BUILD_SQLITE_BUSY_TIMEOUT_MS}" \
+    DB_BACKUP_DIR="${BUILD_DB_BACKUP_DIR}" \
+    DB_BACKUP_RETENTION_COUNT="${BUILD_DB_BACKUP_RETENTION_COUNT}" \
+    TICKET_SALES_MAX_ADVANCE_DAYS="${BUILD_TICKET_SALES_MAX_ADVANCE_DAYS}" \
+    BODY_PARSER_FORM_LIMIT="${BUILD_BODY_PARSER_FORM_LIMIT}" \
+    BODY_PARSER_JSON_LIMIT="${BUILD_BODY_PARSER_JSON_LIMIT}" \
+    BODY_PARSER_MULTIPART_LIMIT="${BUILD_BODY_PARSER_MULTIPART_LIMIT}" \
+    HEALTH_WORKER_STALE_SECONDS="${BUILD_HEALTH_WORKER_STALE_SECONDS}" \
+    && node ace codegen \
     && npm run build
 
 RUN npm prune --omit=dev && npm cache clean --force
