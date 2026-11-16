@@ -1,0 +1,258 @@
+@layouts.app({ title: 'Wyszukiwarka' })
+  @page()
+    <section class="dashboard-hero">
+      <div>
+        <span class="eyebrow">Znajdź połączenie</span>
+        <h1>Dokąd jedziesz?</h1>
+        <p>Wybierz trasę i termin, a potem dodaj konkretny kurs do obserwowanych.</p>
+      </div>
+      <div class="mode-badges">
+        <span
+          class="status-pill {{ providerMode === 'demo' ? 'status-pill--demo' : 'status-pill--ok' }}"
+        >
+          {{ providerMode === 'demo' ? 'Tryb demo' : 'Dane na żywo' }}
+        </span>
+        <span class="status-pill {{ alertsEnabled ? 'status-pill--ok' : 'status-pill--muted' }}">
+          {{ alertsEnabled ? 'Alerty aktywne' : 'Alerty wyłączone' }}
+        </span>
+      </div>
+    </section>
+    @if(providerMode === 'demo')
+      <div class="notice notice--info">
+        @svg('lucide:flask-conical', { width: 18, height: 18 })
+        <div>
+          <strong>Bezpieczny tryb demonstracyjny</strong>
+          <span>
+            Wyniki są generowane lokalnie. Cały interfejs można przetestować bez zapytań do KOLEO.
+          </span>
+        </div>
+      </div>
+    @end
+
+    <section class="search-card">
+      @form({
+        route: 'connections.search',
+        method: 'POST',
+        class: 'search-form',
+        'x-data': '{ submitting: false }',
+        'x-on:submit': 'submitting = true',
+      })
+        <label class="search-field search-field--station">
+          <span>Skąd</span>
+          <div class="search-field__control">
+            @svg('lucide:map-pin', { width: 18, height: 18 })
+            <input
+              type="text"
+              name="origin"
+              value="{{ search ? search.origin : '' }}"
+              placeholder="np. Wrocław Główny"
+              autocomplete="off"
+              required
+            />
+          </div>
+        </label>
+
+        <div class="search-swap" aria-hidden="true">
+          @svg('lucide:arrow-right-left', { width: 17, height: 17 })
+        </div>
+
+        <label class="search-field search-field--station">
+          <span>Dokąd</span>
+          <div class="search-field__control">
+            @svg('lucide:map-pin-check', { width: 18, height: 18 })
+            <input
+              type="text"
+              name="destination"
+              value="{{ search ? search.destination : '' }}"
+              placeholder="np. Olsztyn Główny"
+              autocomplete="off"
+              required
+            />
+          </div>
+        </label>
+
+        <label class="search-field">
+          <span>Data</span>
+          <div class="search-field__control">
+            @svg('lucide:calendar-days', { width: 18, height: 18 })
+            <input
+              type="date"
+              name="travelDate"
+              value="{{ search ? search.travelDate : defaultDate }}"
+              required
+            />
+          </div>
+        </label>
+
+        <label class="search-field">
+          <span>Godzina</span>
+          <div class="search-field__control">
+            @svg('lucide:clock-3', { width: 18, height: 18 })
+            <input
+              type="time"
+              name="departureTime"
+              value="{{ search && search.departureTime ? search.departureTime : '' }}"
+            />
+          </div>
+        </label>
+
+        <label class="direct-check">
+          <input
+            type="checkbox"
+            name="onlyDirect"
+            value="true"
+            {{ search && search.onlyDirect ? 'checked' : '' }}
+          />
+          <span>Bez przesiadek</span>
+        </label>
+
+        <button type="submit" class="btn btn--primary search-submit" x-bind:disabled="submitting">
+          @svg('lucide:search', { width: 17, height: 17 })
+          <span x-text="submitting ? 'Szukam…' : 'Szukaj połączeń'">Szukaj połączeń</span>
+        </button>
+      @end
+    </section>
+    @if(searchError)
+      <div class="notice notice--error">
+        @svg('lucide:circle-alert', { width: 18, height: 18 })
+        <div><strong>Nie udało się wyszukać</strong><span>{{ searchError }}</span></div>
+      </div>
+    @end
+    @if(results)
+      <section class="results-section">
+        <div class="results-heading">
+          <div>
+            <span class="eyebrow">Wyniki</span>
+            <h2>{{ search.origin }} → {{ search.destination }}</h2>
+          </div>
+          <span>{{ results.length }} {{ results.length === 1 ? 'połączenie' : 'połączeń' }}</span>
+        </div>
+        @if(results.length === 0)
+          <div class="empty-state">
+            @svg('lucide:train-front-tunnel', { width: 28, height: 28 })
+            <h3>Brak połączeń dla wybranych parametrów</h3>
+            <p>Zmień godzinę albo wyłącz filtr połączeń bezpośrednich.</p>
+          </div>
+        @else
+          <div class="connection-list">
+            @each(connection in results)
+              <article class="connection-card">
+                <div class="connection-card__main">
+                  <div class="connection-time">
+                    <strong>{{ connection.departure }}</strong>
+                    <span>{{ search.origin }}</span>
+                  </div>
+                  <div class="connection-track">
+                    <div class="connection-track__line"><span></span></div>
+                    <span>{{ formatDuration(connection.durationMinutes) }}</span>
+                  </div>
+                  <div class="connection-time connection-time--right">
+                    <strong>{{ connection.arrival }}</strong>
+                    <span>{{ search.destination }}</span>
+                  </div>
+                </div>
+
+                <div class="connection-card__meta">
+                  <span>
+                    @svg('lucide:train', { width: 15, height: 15 })
+                    {{ connection.trains }}
+                  </span>
+                  <span>
+                    @svg('lucide:shuffle', { width: 15, height: 15 })
+                    {{
+                      connection.changes === 0
+                        ? 'bez przesiadek'
+                        : `${connection.changes} przesiadki`
+                    }}
+                  </span>
+                </div>
+
+                <div class="connection-card__action">
+                  <div class="connection-price">
+                    <span>od</span>
+                    <strong>{{ formatPrice(connection.priceCents) }}</strong>
+                    @if(connection.purchasable === false)
+                      <small>
+                        {{
+                          connection.provider === 'demo'
+                            ? 'cena demonstracyjna'
+                            : 'brak zakupu online'
+                        }}
+                      </small>
+                    @end
+                  </div>
+
+                  <details class="watch-details">
+                    <summary class="btn btn--secondary">
+                      @svg('lucide:bell-plus', { width: 16, height: 16 })
+                      
+                      Obserwuj cenę
+
+                    </summary>
+                    <div class="watch-popover">
+                      @form({
+                        route: 'price_watches.store',
+                        method: 'POST',
+                        class: 'watch-form',
+                      })
+                        <input type="hidden" name="origin" value="{{ search.origin }}" />
+                        <input type="hidden" name="destination" value="{{ search.destination }}" />
+                        <input type="hidden" name="travelDate" value="{{ search.travelDate }}" />
+                        <input
+                          type="hidden"
+                          name="departureTime"
+                          value="{{ connection.departure }}"
+                        />
+                        <input type="hidden" name="arrivalTime" value="{{ connection.arrival }}" />
+                        <input type="hidden" name="connectionUuid" value="{{ connection.uuid }}" />
+                        <input type="hidden" name="trainName" value="{{ connection.trains }}" />
+                        @if(connection.priceCents !== null)
+                          <input
+                            type="hidden"
+                            name="priceCents"
+                            value="{{ connection.priceCents }}"
+                          />
+                        @end
+
+                        <label>
+                          <span>Cena docelowa (opcjonalnie)</span>
+                          <input
+                            type="number"
+                            name="targetPrice"
+                            min="0.01"
+                            step="0.01"
+                            placeholder="np. 65.00"
+                          />
+                        </label>
+                        <label>
+                          <span>Kanał powiadomienia</span>
+                          <select name="notificationChannel">
+                            <option value="email">E-mail</option>
+                            <option value="sms">SMS — provider później</option>
+                            <option value="whatsapp">WhatsApp — provider później</option>
+                          </select>
+                        </label>
+                        <label>
+                          <span>Adres e-mail lub numer</span>
+                          <input
+                            type="text"
+                            name="notificationDestination"
+                            value="{{ auth.user.email }}"
+                            required
+                          />
+                        </label>
+                        <button type="submit" class="btn btn--primary btn--block">
+                          Zapisz obserwację
+                        </button>
+                      @end
+                    </div>
+                  </details>
+                </div>
+              </article>
+            @end
+          </div>
+        @end
+      </section>
+    @end
+  @end
+@end

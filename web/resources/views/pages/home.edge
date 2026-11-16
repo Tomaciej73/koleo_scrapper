@@ -1,0 +1,74 @@
+@layouts.marketing()
+  <main class="landing">
+    <section class="landing__hero">
+      <div class="landing__copy">
+        <span class="eyebrow">Połączenia kolejowe pod kontrolą</span>
+        <h1>Wybierz trasę. Obserwuj cenę. Nie przegap spadku.</h1>
+        <p>
+          Prosty panel do wyszukiwania połączeń, zapisywania ulubionych kursów i przygotowania alertów e-mail, SMS oraz WhatsApp.
+        </p>
+        <div class="landing__actions">
+          @if(auth?.user)
+            @link({ route: 'dashboard', class: 'btn btn--primary btn--lg' })
+              Otwórz wyszukiwarkę
+              @svg('lucide:arrow-right', { width: 17, height: 17 })
+            @end
+          @else
+            @link({ route: 'new_account.create', class: 'btn btn--primary btn--lg' })
+              Zacznij bezpłatnie
+              @svg('lucide:arrow-right', { width: 17, height: 17 })
+            @end
+            @link({ route: 'session.create', class: 'btn btn--secondary btn--lg' })
+              Mam już konto
+            @end
+          @end
+        </div>
+      </div>
+
+      <div class="route-preview" aria-label="Przykład obserwowanego połączenia">
+        <div class="route-preview__top">
+          <span class="status-pill status-pill--ok">
+            <span class="status-dot"></span>
+            Obserwowane
+          </span>
+          <span class="route-preview__date">17 lis 2026</span>
+        </div>
+        <div class="route-preview__route">
+          <div><strong>14:54</strong> <span>Wrocław Główny</span></div>
+          <div class="route-line"><span></span></div>
+          <div class="route-preview__destination">
+            <strong>20:01</strong>
+            <span>Olsztyn Główny</span>
+          </div>
+        </div>
+        <div class="route-preview__price">
+          <div><span>Aktualna cena</span> <strong>79,00 zł</strong></div>
+          <div class="price-drop">
+            @svg('lucide:trending-down', { width: 16, height: 16 })
+            
+            alert po spadku
+
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="landing__features" aria-label="Możliwości aplikacji">
+      <article>
+        @svg('lucide:search', { width: 20, height: 20 })
+        <h2>Proste wyszukiwanie</h2>
+        <p>Stacje, data, opcjonalna godzina i połączenia bezpośrednie.</p>
+      </article>
+      <article>
+        @svg('lucide:bookmark-plus', { width: 20, height: 20 })
+        <h2>Ulubione kursy</h2>
+        <p>Zapisuj konkretne połączenia wraz z ceną początkową i docelową.</p>
+      </article>
+      <article>
+        @svg('lucide:bell-ring', { width: 20, height: 20 })
+        <h2>Alerty cenowe</h2>
+        <p>Warstwa powiadomień jest gotowa na e-mail, SMS i WhatsApp.</p>
+      </article>
+    </section>
+  </main>
+@end

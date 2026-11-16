@@ -1,0 +1,51 @@
+@layouts.auth()
+  <h1 class="auth__title">Witaj ponownie</h1>
+  <p class="auth__sub">Zaloguj się, aby zobaczyć obserwowane połączenia.</p>
+  @form({
+    route: 'session.store',
+    method: 'POST',
+    class: 'auth__form',
+    'x-data': '{ submitting: false }',
+    'x-on:submit': 'submitting = true',
+  })
+    @field.root({ name: 'email' })
+      @!field.label({ text: 'Email' })
+      @!input.control({
+        type: 'email',
+        autocomplete: 'username',
+        placeholder: 'you@example.com',
+      })
+      @!field.error()
+    @end
+    @field.root({ name: 'password' })
+      @!field.label({ text: 'Hasło' })
+      @!input.control({
+        type: 'password',
+        autocomplete: 'current-password',
+        placeholder: '••••••••',
+      })
+      @!field.error()
+    @end
+    @!button({
+      text: 'Zaloguj się',
+      type: 'submit',
+      block: true,
+      style: 'margin-top: 4px;',
+      'x-bind:disabled': 'submitting',
+      'x-text': "submitting ? 'Logowanie…' : 'Zaloguj się'",
+    })
+  @end
+
+  <p class="auth__foot">
+    
+    
+
+    Nie masz konta?
+
+
+
+    @link({ route: 'new_account.create', class: 'il' })
+      Załóż konto
+    @end
+  </p>
+@end
