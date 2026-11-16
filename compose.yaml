@@ -1,0 +1,73 @@
+name: ${COMPOSE_PROJECT_NAME}
+
+x-koleo-service: &koleo-service
+  image: ${KOLEO_IMAGE}:${KOLEO_IMAGE_TAG}
+  environment:
+    NODE_ENV: ${NODE_ENV}
+    HOST: ${CONTAINER_HOST}
+    PORT: ${CONTAINER_PORT}
+    DB_DATABASE: ${CONTAINER_DB_DATABASE}
+    HEALTHCHECK_HOST: ${CONTAINER_HEALTHCHECK_HOST}
+    HEALTHCHECK_PATH: ${HEALTHCHECK_PATH}
+  volumes:
+    - ${APP_ENV_FILE}:${CONTAINER_ENV_FILE}:ro
+    - koleo_data:${CONTAINER_DATA_DIR}
+  working_dir: ${CONTAINER_WEB_HOME}
+  init: ${CONTAINER_INIT}
+  stop_grace_period: ${STOP_GRACE_PERIOD}
+
+services:
+  migrate:
+    <<: *koleo-service
+    command: ["node", "ace.js", "migration:run", "--force"]
+    restart: ${MIGRATION_RESTART_POLICY}
+
+  web:
+    <<: *koleo-service
+    build:
+      context: ${BUILD_CONTEXT}
+      dockerfile: ${DOCKERFILE_PATH}
+      args:
+        NODE_IMAGE: ${NODE_IMAGE}
+        APP_HOME: ${CONTAINER_APP_HOME}
+        APP_PORT: ${CONTAINER_PORT}
+        APP_DATA_DIR: ${CONTAINER_DATA_DIR}
+        NATIVE_BUILD_PACKAGES: ${NATIVE_BUILD_PACKAGES}
+      secrets:
+        - app_env
+    command: ["node", "bin/server.js"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    ports:
+      - "${PUBLISHED_PORT}:${CONTAINER_PORT}"
+    restart: ${SERVICE_RESTART_POLICY}
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - >-
+          fetch('http://' + process.env.HEALTHCHECK_HOST + ':' + process.env.PORT + process.env.HEALTHCHECK_PATH)
+          .then((response) => process.exit(response.ok ? 0 : 1))
+          .catch(() => process.exit(1))
+      interval: ${HEALTHCHECK_INTERVAL}
+      timeout: ${HEALTHCHECK_TIMEOUT}
+      retries: ${HEALTHCHECK_RETRIES}
+      start_period: ${HEALTHCHECK_START_PERIOD}
+
+  worker:
+    <<: *koleo-service
+    command: ["node", "ace.js", "alerts:worker"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: ${SERVICE_RESTART_POLICY}
+
+volumes:
+  koleo_data:
+    name: ${KOLEO_DATA_VOLUME}
+
+secrets:
+  app_env:
+    file: ${APP_ENV_FILE}

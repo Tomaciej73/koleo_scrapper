@@ -127,6 +127,46 @@ zmienne `EMAIL_VERIFICATION_*` w `.env`.
 ## Prawdziwe dane
 
 `PRICE_PROVIDER=koleo` przełącza wyszukiwanie na klienta z katalogu głównego.
+
+## Docker Compose
+
+Obraz zawiera produkcyjny build aplikacji, ale nie zawiera `.env`. Compose
+udostępnia ten plik jako sekret podczas budowania i montuje go tylko do odczytu
+podczas działania kontenerów. Przed wdrożeniem ustaw w `web/.env` co najmniej
+produkcyjne `APP_KEY`, publiczny `APP_URL`, konfigurację SMTP oraz provider cen.
+Ustawienia samego Compose znajdują się w ignorowanym przez Git pliku
+`.env_conf`; skopiuj go osobno na serwer razem z `web/.env`.
+
+Uruchomienie z katalogu głównego repozytorium:
+
+```powershell
+Set-Location -LiteralPath 'M:\GIT\koleo_scrapper'
+docker compose --env-file .env_conf build
+docker compose --env-file .env_conf up -d
+docker compose --env-file .env_conf ps
+```
+
+Compose uruchamia jednorazową migrację, serwer WWW oraz osobny worker alertów.
+Aplikacja jest domyślnie dostępna na porcie `3333`. Port publiczny można zmienić
+bez edycji pliku Compose:
+
+```powershell
+# Zmień PUBLISHED_PORT w .env_conf, a następnie:
+docker compose --env-file .env_conf up -d
+```
+
+Logi i zatrzymanie:
+
+```powershell
+docker compose --env-file .env_conf logs -f web worker
+docker compose --env-file .env_conf down
+```
+
+Baza SQLite znajduje się na trwałym wolumenie `koleo-watch-data`; zwykłe
+`docker compose down` jej nie usuwa. Polecenie `docker compose down -v` usuwa
+również bazę i powinno być używane tylko świadomie. Ten wariant jest przeznaczony
+dla pojedynczego serwera. Przy wielu replikach aplikacji należy przejść na
+PostgreSQL zamiast współdzielić SQLite między hostami.
 Włączaj ten tryb wyłącznie z potwierdzonym uprawnieniem administratora. Punkt
 1.6 aktualnego
 [regulaminu KOLEO](https://koleo.pl/terms-of-use) zabrania automatycznego
