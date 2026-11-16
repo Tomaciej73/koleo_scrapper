@@ -58,6 +58,7 @@ export default await Env.create(new URL('../', import.meta.url), {
   ALERT_MIN_CHECK_INTERVAL_MINUTES: Env.schema.number.optional(),
   ALERT_MAX_CHECK_INTERVAL_MINUTES: Env.schema.number.optional(),
   ALERT_WORKER_TICK_SECONDS: Env.schema.number.optional(),
+  PRICE_HISTORY_DISPLAY_LIMIT: Env.schema.number.optional(),
   MAIL_ENABLED: Env.schema.boolean.optional(),
   EMAIL_VERIFICATION_CODE_LENGTH: Env.schema.number.optional(),
   EMAIL_VERIFICATION_CODE_TTL_MINUTES: Env.schema.number.optional(),

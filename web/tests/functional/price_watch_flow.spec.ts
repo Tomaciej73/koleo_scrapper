@@ -1,3 +1,4 @@
+import PriceObservation from '#models/price_observation'
 import PriceWatch from '#models/price_watch'
 import User from '#models/user'
 import PriceAlertService from '#services/price_alert_service'
@@ -29,7 +30,9 @@ test.group('Price watch flow', (group) => {
 
     const search = await client.post('/search').loginAs(user).withCsrfToken().form({
       origin: 'Wrocław Główny',
+      originStationId: '1',
       destination: 'Olsztyn Główny',
+      destinationStationId: '4',
       travelDate: '2026-11-17',
       departureTime: '14:54',
       onlyDirect: 'true',
@@ -41,10 +44,13 @@ test.group('Price watch flow', (group) => {
 
     const store = await client.post('/favorites').redirects(0).loginAs(user).withCsrfToken().form({
       origin: 'Wrocław Główny',
+      originStationId: '1',
       destination: 'Olsztyn Główny',
+      destinationStationId: '4',
       travelDate: '2026-11-17',
       departureTime: '14:54',
       arrivalTime: '20:01',
+      arrivalDate: '2026-11-17',
       connectionUuid: 'demo-flow-1',
       trainName: 'POŁĄCZENIE DEMO 100',
       priceCents: '7900',
@@ -59,14 +65,27 @@ test.group('Price watch flow', (group) => {
 
     const favorite = await PriceWatch.query().where('userId', user.id).firstOrFail()
     assert.equal(favorite.origin, 'Wrocław Główny')
+    assert.equal(favorite.originStationId, 1)
+    assert.equal(favorite.destinationStationId, 4)
+    assert.equal(favorite.arrivalDate!.toISODate(), '2026-11-17')
     assert.equal(favorite.targetPriceCents, 6500)
     assert.equal(favorite.checkIntervalMinutes, 30)
+    assert.equal(
+      await PriceObservation.query()
+        .where('priceWatchId', favorite.id)
+        .count('* as total')
+        .first()
+        .then((row) => Number(row!.$extras.total)),
+      1
+    )
 
     const favorites = await client.get('/favorites').loginAs(user)
     favorites.assertStatus(200)
     favorites.assertTextIncludes('Obserwowane połączenia')
     favorites.assertTextIncludes('Wrocław Główny')
     favorites.assertTextIncludes('79,00')
+    favorites.assertTextIncludes('qa•••@example.test')
+    assert.notInclude(favorites.text(), user.email)
   })
 
   test('detects a lower price and sends a fake notification', async ({ assert }) => {
@@ -99,6 +118,11 @@ test.group('Price watch flow', (group) => {
     assert.isNotNull(watch.lastCheckedAt)
     assert.isNotNull(watch.lastNotifiedAt)
     assert.equal(watch.lastNotifiedPriceCents, watch.lastPriceCents)
+    const observationCount = await PriceObservation.query()
+      .where('priceWatchId', watch.id)
+      .count('* as total')
+      .firstOrFail()
+    assert.equal(Number(observationCount.$extras.total), 1)
   })
 
   test('notifies at an inclusive target but ignores decreases above it', async ({ assert }) => {
@@ -184,5 +208,60 @@ test.group('Price watch flow', (group) => {
     await scheduled.refresh()
     assert.equal(scheduled.status, 'expired')
     assert.isNull(scheduled.nextCheckAt)
+  })
+
+  test('updates threshold and lets the owner pause and resume a watch', async ({
+    client,
+    assert,
+  }) => {
+    const user = await User.create({
+      fullName: 'Konto ustawień',
+      email: 'settings@example.test',
+      password: 'Qa-Test-2026!',
+    })
+    const watch = await PriceWatch.create({
+      userId: user.id,
+      origin: 'Wrocław Główny',
+      destination: 'Olsztyn Główny',
+      travelDate: DateTime.utc().plus({ days: 2 }),
+      departureTime: '14:54',
+      checkIntervalMinutes: 30,
+      notificationChannel: 'email',
+      notificationDestination: user.email,
+      status: 'active',
+    })
+
+    const settings = await client
+      .post(`/favorites/${watch.id}/settings`)
+      .redirects(0)
+      .loginAs(user)
+      .withCsrfToken()
+      .form({ targetPrice: '55.50', checkIntervalMinutes: '60' })
+    settings.assertStatus(302)
+    await watch.refresh()
+    assert.equal(watch.targetPriceCents, 5550)
+    assert.equal(watch.checkIntervalMinutes, 60)
+
+    const pause = await client
+      .post(`/favorites/${watch.id}/status`)
+      .redirects(0)
+      .loginAs(user)
+      .withCsrfToken()
+      .form({ status: 'paused' })
+    pause.assertStatus(302)
+    await watch.refresh()
+    assert.equal(watch.status, 'paused')
+    assert.isNull(watch.nextCheckAt)
+
+    const resume = await client
+      .post(`/favorites/${watch.id}/status`)
+      .redirects(0)
+      .loginAs(user)
+      .withCsrfToken()
+      .form({ status: 'active' })
+    resume.assertStatus(302)
+    await watch.refresh()
+    assert.equal(watch.status, 'active')
+    assert.isNotNull(watch.nextCheckAt)
   })
 })

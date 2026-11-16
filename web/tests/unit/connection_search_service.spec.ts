@@ -34,4 +34,21 @@ test.group('Connection search service', () => {
       ['08:00', '10:00', '12:00']
     )
   })
+
+  test('marks an overnight arrival with the next calendar date', async ({ assert }) => {
+    const [connection] = await new ConnectionSearchService().search({
+      origin: 'Wrocław Główny',
+      originStationId: 1,
+      destination: 'Olsztyn Główny',
+      destinationStationId: 4,
+      travelDate: '2026-11-17',
+      departureTime: '22:30',
+      onlyDirect: true,
+    })
+
+    assert.equal(connection.departureDate, '2026-11-17')
+    assert.equal(connection.arrivalDate, '2026-11-18')
+    assert.equal(connection.arrivalDateLabel, '18.11.2026')
+    assert.equal(connection.arrivalDayOffset, 1)
+  })
 })

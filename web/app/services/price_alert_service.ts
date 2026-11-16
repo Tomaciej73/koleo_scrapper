@@ -1,5 +1,6 @@
+import PriceObservation from '#models/price_observation'
 import PriceWatch from '#models/price_watch'
-import ConnectionSearchService from '#services/connection_search_service'
+import ConnectionSearchService, { ConnectionSearchError } from '#services/connection_search_service'
 import NotificationService from '#services/notification_service'
 import env from '#start/env'
 import { DateTime } from 'luxon'
@@ -67,7 +68,16 @@ export default class PriceAlertService {
         const connection =
           results.find((result) => result.uuid === watch.connectionUuid) ?? results.at(0)
 
-        if (!connection || connection.priceCents === null) {
+        if (!connection) {
+          watch.lastErrorMessage = 'Nie znaleziono obserwowanego połączenia w aktualnych wynikach.'
+          watch.lastErrorAt = now
+          await watch.save()
+          continue
+        }
+
+        if (connection.priceCents === null) {
+          watch.lastErrorMessage = 'Cena tego połączenia jest obecnie niedostępna.'
+          watch.lastErrorAt = now
           await watch.save()
           continue
         }
@@ -90,7 +100,10 @@ export default class PriceAlertService {
           connection.priceCents
         )
         watch.arrivalTime = connection.arrival
+        watch.arrivalDate = DateTime.fromISO(connection.arrivalDate, { zone: timezone })
         watch.trainName = connection.trains
+        watch.lastErrorMessage = null
+        watch.lastErrorAt = null
 
         if (shouldNotify) {
           summary.priceDrops += 1
@@ -103,8 +116,15 @@ export default class PriceAlertService {
         }
 
         await watch.save()
-      } catch {
+        await PriceObservation.create({
+          priceWatchId: watch.id,
+          priceCents: connection.priceCents,
+          observedAt: now,
+        })
+      } catch (error) {
         summary.errors += 1
+        watch.lastErrorMessage = this.userFacingError(error)
+        watch.lastErrorAt = now
         await watch.save()
       }
     }
@@ -116,5 +136,13 @@ export default class PriceAlertService {
     const minimum = Math.max(1, env.get('ALERT_MIN_CHECK_INTERVAL_MINUTES') ?? 5)
     const maximum = Math.max(minimum, env.get('ALERT_MAX_CHECK_INTERVAL_MINUTES') ?? 1_440)
     return Math.min(maximum, Math.max(minimum, watch.checkIntervalMinutes))
+  }
+
+  private userFacingError(error: unknown) {
+    if (error instanceof ConnectionSearchError && error.message.trim()) {
+      return error.message.trim().slice(0, 500)
+    }
+
+    return 'Nie udało się sprawdzić ceny. Próba zostanie ponowiona zgodnie z harmonogramem.'
   }
 }

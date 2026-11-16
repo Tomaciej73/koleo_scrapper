@@ -24,7 +24,9 @@ export default class SearchController {
     const payload = await request.validateUsing(connectionSearchValidator)
     const searchInput: ConnectionSearchInput = {
       origin: payload.origin,
+      originStationId: payload.originStationId,
       destination: payload.destination,
+      destinationStationId: payload.destinationStationId,
       travelDate: payload.travelDate,
       departureTime: payload.departureTime,
       onlyDirect: payload.onlyDirect ?? false,

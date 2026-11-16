@@ -141,6 +141,12 @@ input {
 .btn:active:not(:disabled) {
   scale: 0.96;
 }
+.btn:disabled,
+.icon-button:disabled,
+.link-button:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
 .btn--primary {
   background: var(--btn);
   color: var(--btn-fg);
@@ -600,12 +606,29 @@ input {
   background: color-mix(in srgb, var(--accent) 12%, transparent);
 }
 
-.verification-code-input {
+.verification-code {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+.verification-code__digit {
+  width: 42px;
+  height: 50px;
+  color: var(--ink);
+  border: 1px solid var(--line-2);
+  border-radius: 9px;
+  outline: 0;
+  background: var(--field);
   font-family: var(--mono);
   font-size: 22px;
   font-weight: 650;
-  letter-spacing: 0.28em;
   text-align: center;
+}
+
+.verification-code__digit:focus {
+  border-color: var(--accent, var(--ink));
+  box-shadow: 0 0 0 3px var(--ring);
 }
 
 .verification-resend {
@@ -1499,8 +1522,23 @@ input {
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 38px;
   height: 44px;
   color: var(--muted);
+  border: 1px solid transparent;
+  border-radius: 10px;
+  transition:
+    color 0.15s,
+    border-color 0.15s,
+    background 0.15s;
+}
+
+.search-swap:hover,
+.search-swap:focus-visible {
+  color: var(--accent);
+  border-color: var(--line-2);
+  outline: 0;
+  background: var(--field);
 }
 
 .direct-check {
@@ -1548,6 +1586,31 @@ input {
   font-size: 12px;
 }
 
+.results-heading__tools,
+.results-sort {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.results-heading__tools > span,
+.results-sort > span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.results-sort select {
+  height: 36px;
+  padding: 0 30px 0 10px;
+  color: var(--ink);
+  border: 1px solid var(--line-2);
+  border-radius: 8px;
+  outline: 0;
+  background: var(--field);
+  font: inherit;
+  font-size: 12px;
+}
+
 .connection-list,
 .watch-list {
   display: flex;
@@ -1592,6 +1655,15 @@ input {
   font-size: 12px;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.arrival-next-day {
+  display: block;
+  margin-top: 4px;
+  color: var(--accent-ink);
+  font-size: 10.5px;
+  font-weight: 650;
   white-space: nowrap;
 }
 
@@ -1787,6 +1859,34 @@ input {
   font-size: 12px;
 }
 
+.watch-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 16px;
+  padding: 12px;
+  color: #b45309;
+  border: 1px solid color-mix(in srgb, #b45309 28%, var(--line));
+  border-radius: 10px;
+  background: var(--warning-soft);
+}
+
+.watch-error > svg {
+  flex: none;
+  margin-top: 2px;
+}
+
+.watch-error > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 11.5px;
+}
+
+.watch-error small {
+  opacity: 0.78;
+}
+
 .watch-card__prices {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1833,6 +1933,104 @@ input {
   background: var(--warning-soft);
 }
 
+.price-history {
+  margin-top: 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--paper);
+}
+
+.price-history > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 11px 12px;
+  list-style: none;
+  color: var(--muted);
+  font-size: 11.5px;
+  cursor: pointer;
+}
+
+.price-history > summary::-webkit-details-marker,
+.watch-settings > summary::-webkit-details-marker {
+  display: none;
+}
+
+.price-history > summary > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.price-history[open] > summary > svg {
+  transform: rotate(180deg);
+}
+
+.price-history__content {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(200px, 0.6fr);
+  gap: 20px;
+  padding: 8px 12px 14px;
+  border-top: 1px solid var(--line);
+}
+
+.price-chart svg {
+  display: block;
+  width: 100%;
+  height: 130px;
+  overflow: visible;
+}
+
+.price-chart line {
+  stroke: var(--line-2);
+  stroke-width: 0.5;
+}
+
+.price-chart polyline {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.8;
+  vector-effect: non-scaling-stroke;
+}
+
+.price-chart circle {
+  fill: var(--accent);
+  stroke: var(--card);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.price-chart__legend {
+  display: flex;
+  justify-content: space-between;
+  color: var(--muted);
+  font-size: 10.5px;
+}
+
+.price-history__list {
+  display: flex;
+  max-height: 160px;
+  flex-direction: column;
+  gap: 5px;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.price-history__list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 5px 0;
+  color: var(--muted);
+  border-bottom: 1px solid var(--line);
+  font-size: 10.5px;
+}
+
+.price-history__list strong {
+  color: var(--ink);
+}
+
 .watch-card__schedule {
   display: flex;
   align-items: center;
@@ -1850,6 +2048,34 @@ input {
   display: flex;
   align-items: center;
   gap: 7px;
+}
+
+.watch-card__status-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+}
+
+.watch-settings {
+  position: relative;
+}
+
+.watch-settings > summary {
+  list-style: none;
+}
+
+.watch-settings__popover {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 9px);
+  z-index: 20;
+  width: min(320px, calc(100vw - 48px));
+  padding: 16px;
+  border: 1px solid var(--line-2);
+  border-radius: 12px;
+  background: var(--card);
+  box-shadow: 0 18px 50px -20px rgba(10, 10, 11, 0.4);
 }
 
 .watch-card__schedule > div {
@@ -2003,7 +2229,9 @@ input {
   }
 
   .search-swap {
-    display: none;
+    grid-column: 1;
+    width: 44px;
+    transform: rotate(90deg);
   }
 
   .connection-card__main {
@@ -2027,6 +2255,22 @@ input {
   .watch-card__schedule {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .watch-card__status-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .price-history__content {
+    grid-template-columns: 1fr;
+  }
+
+  .watch-settings__popover {
+    position: static;
+    width: 100%;
+    margin-top: 8px;
+    box-shadow: none;
   }
 
   .watch-details,

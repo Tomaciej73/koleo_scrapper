@@ -34,8 +34,8 @@
         route: 'connections.search',
         method: 'POST',
         class: 'search-form',
-        'x-data': '{ submitting: false }',
-        'x-on:submit': 'submitting = true',
+        'x-data': 'journeySearch',
+        'x-on:submit': 'handleSubmit($event)',
       })
         <div
           class="search-field search-field--station station-autocomplete"
@@ -43,7 +43,9 @@
           data-endpoint="{{ urlFor('stations.search') }}"
           data-field="origin"
           data-min-length="{{ stationSearchMinLength }}"
+          data-selected-id="{{ search && search.originStationId ? search.originStationId : '' }}"
           x-on:click.outside="close()"
+          x-on:journey-stations-swapped.window="applyExternalValue($event.detail)"
         >
           <label for="origin-station">Skąd</label>
           <div class="search-field__control">
@@ -62,13 +64,21 @@
               aria-controls="origin-stations-list"
               x-bind:aria-expanded="open"
               x-bind:aria-activedescendant="activeOptionId"
-              x-on:input="queueSearch()"
+              x-on:input="onInput()"
               x-on:focus="openResults()"
               x-on:keydown.arrow-down.prevent="move(1)"
               x-on:keydown.arrow-up.prevent="move(-1)"
               x-on:keydown.enter="chooseActive($event)"
               x-on:keydown.escape.prevent="close()"
               required
+            />
+            <input
+              x-ref="stationId"
+              x-model="stationId"
+              type="hidden"
+              name="originStationId"
+              value="{{ search && search.originStationId ? search.originStationId : '' }}"
+              data-station-id
             />
             <span class="station-autocomplete__spinner" x-show="loading" x-cloak>
               @svg('lucide:loader-circle', { width: 16, height: 16 })
@@ -100,15 +110,22 @@
             <div
               class="station-suggestions__empty"
               x-show="searched && !loading && !stations.length"
+              aria-live="polite"
             >
-              Nie znaleziono pasującej stacji
+              <span x-text="errorMessage || 'Nie znaleziono pasującej stacji'"></span>
             </div>
           </div>
         </div>
 
-        <div class="search-swap" aria-hidden="true">
+        <button
+          type="button"
+          class="search-swap"
+          x-on:click="swapStations()"
+          aria-label="Zamień stację początkową z docelową"
+          title="Zamień stacje"
+        >
           @svg('lucide:arrow-right-left', { width: 17, height: 17 })
-        </div>
+        </button>
 
         <div
           class="search-field search-field--station station-autocomplete"
@@ -116,7 +133,9 @@
           data-endpoint="{{ urlFor('stations.search') }}"
           data-field="destination"
           data-min-length="{{ stationSearchMinLength }}"
+          data-selected-id="{{ search && search.destinationStationId ? search.destinationStationId : '' }}"
           x-on:click.outside="close()"
+          x-on:journey-stations-swapped.window="applyExternalValue($event.detail)"
         >
           <label for="destination-station">Dokąd</label>
           <div class="search-field__control">
@@ -135,13 +154,21 @@
               aria-controls="destination-stations-list"
               x-bind:aria-expanded="open"
               x-bind:aria-activedescendant="activeOptionId"
-              x-on:input="queueSearch()"
+              x-on:input="onInput()"
               x-on:focus="openResults()"
               x-on:keydown.arrow-down.prevent="move(1)"
               x-on:keydown.arrow-up.prevent="move(-1)"
               x-on:keydown.enter="chooseActive($event)"
               x-on:keydown.escape.prevent="close()"
               required
+            />
+            <input
+              x-ref="stationId"
+              x-model="stationId"
+              type="hidden"
+              name="destinationStationId"
+              value="{{ search && search.destinationStationId ? search.destinationStationId : '' }}"
+              data-station-id
             />
             <span class="station-autocomplete__spinner" x-show="loading" x-cloak>
               @svg('lucide:loader-circle', { width: 16, height: 16 })
@@ -173,8 +200,9 @@
             <div
               class="station-suggestions__empty"
               x-show="searched && !loading && !stations.length"
+              aria-live="polite"
             >
-              Nie znaleziono pasującej stacji
+              <span x-text="errorMessage || 'Nie znaleziono pasującej stacji'"></span>
             </div>
           </div>
         </div>
@@ -227,13 +255,26 @@
       </div>
     @end
     @if(results)
-      <section class="results-section">
+      <section class="results-section" x-data="connectionResults">
         <div class="results-heading">
           <div>
             <span class="eyebrow">Wyniki</span>
             <h2>{{ search.origin }} → {{ search.destination }}</h2>
           </div>
-          <span>{{ results.length }} {{ results.length === 1 ? 'połączenie' : 'połączeń' }}</span>
+          <div class="results-heading__tools">
+            <span>{{ results.length }} {{ results.length === 1 ? 'połączenie' : 'połączeń' }}</span>
+            @if(results.length > 1)
+              <label class="results-sort">
+                <span>Sortuj</span>
+                <select x-model="sortKey" x-on:change="sortResults()">
+                  <option value="departure">godzina odjazdu</option>
+                  <option value="price">najniższa cena</option>
+                  <option value="duration">najkrótszy czas</option>
+                  <option value="changes">najmniej przesiadek</option>
+                </select>
+              </label>
+            @end
+          </div>
         </div>
         @if(results.length === 0)
           <div class="empty-state">
@@ -242,9 +283,15 @@
             <p>Zmień godzinę albo wyłącz filtr połączeń bezpośrednich.</p>
           </div>
         @else
-          <div class="connection-list">
+          <div class="connection-list" x-ref="list">
             @each(connection in results)
-              <article class="connection-card">
+              <article
+                class="connection-card"
+                data-departure-sort="{{ connection.departureMinutes }}"
+                data-price-sort="{{ connection.priceCents === null ? 9007199254740991 : connection.priceCents }}"
+                data-duration-sort="{{ connection.durationMinutes }}"
+                data-changes-sort="{{ connection.changes }}"
+              >
                 <div class="connection-card__main">
                   <div class="connection-time">
                     <strong>{{ connection.departure }}</strong>
@@ -256,6 +303,15 @@
                   </div>
                   <div class="connection-time connection-time--right">
                     <strong>{{ connection.arrival }}</strong>
+                    @if(connection.arrivalDayOffset > 0)
+                      <small class="arrival-next-day">
+                        +{{ connection.arrivalDayOffset }}
+                        {{ connection.arrivalDayOffset === 1 ? 'dzień' : 'dni' }}
+                        ·
+                        {{ connection.arrivalDateLabel }}
+                      </small>
+                    @end
+
                     <span>{{ search.destination }}</span>
                   </div>
                 </div>
@@ -300,9 +356,27 @@
                         route: 'price_watches.store',
                         method: 'POST',
                         class: 'watch-form',
+                        'x-data': 'submittingForm',
+                        'x-on:submit': 'handleSubmit($event)',
                       })
                         <input type="hidden" name="origin" value="{{ search.origin }}" />
+                        @if(search.originStationId)
+                          <input
+                            type="hidden"
+                            name="originStationId"
+                            value="{{ search.originStationId }}"
+                          />
+                        @end
+
                         <input type="hidden" name="destination" value="{{ search.destination }}" />
+                        @if(search.destinationStationId)
+                          <input
+                            type="hidden"
+                            name="destinationStationId"
+                            value="{{ search.destinationStationId }}"
+                          />
+                        @end
+
                         <input type="hidden" name="travelDate" value="{{ search.travelDate }}" />
                         <input
                           type="hidden"
@@ -310,6 +384,11 @@
                           value="{{ connection.departure }}"
                         />
                         <input type="hidden" name="arrivalTime" value="{{ connection.arrival }}" />
+                        <input
+                          type="hidden"
+                          name="arrivalDate"
+                          value="{{ connection.arrivalDate }}"
+                        />
                         <input type="hidden" name="connectionUuid" value="{{ connection.uuid }}" />
                         <input type="hidden" name="trainName" value="{{ connection.trains }}" />
                         @if(connection.priceCents !== null)
@@ -362,8 +441,14 @@
                             required
                           />
                         </label>
-                        <button type="submit" class="btn btn--primary btn--block">
-                          Zapisz obserwację
+                        <button
+                          type="submit"
+                          class="btn btn--primary btn--block"
+                          x-bind:disabled="submitting"
+                        >
+                          <span x-text="submitting ? 'Zapisuję…' : 'Zapisz obserwację'">
+                            Zapisz obserwację
+                          </span>
                         </button>
                       @end
                     </div>

@@ -4,7 +4,9 @@ import EmailVerificationService, {
   EmailVerificationDeliveryError,
 } from '#services/email_verification_service'
 import { emailVerificationValidator } from '#validators/user'
+import env from '#start/env'
 import type { HttpContext } from '@adonisjs/core/http'
+import { DateTime } from 'luxon'
 
 export default class EmailVerificationController {
   async create({ session, response, view }: HttpContext) {
@@ -19,8 +21,18 @@ export default class EmailVerificationController {
       return response.redirect().toRoute('session.create')
     }
 
+    const codeLength = Math.trunc(
+      Math.min(8, Math.max(6, env.get('EMAIL_VERIFICATION_CODE_LENGTH') ?? 6))
+    )
+    const cooldownSeconds = Math.max(1, env.get('EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS') ?? 60)
+    const elapsedSeconds = user.emailVerificationSentAt
+      ? DateTime.now().diff(user.emailVerificationSentAt, 'seconds').seconds
+      : cooldownSeconds
+
     return view.render('pages/auth/verify_email', {
       email: this.maskEmail(user.email),
+      codeIndexes: Array.from({ length: codeLength }, (_, index) => index),
+      resendAfterSeconds: Math.max(0, Math.ceil(cooldownSeconds - elapsedSeconds)),
     })
   }
 

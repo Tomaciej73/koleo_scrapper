@@ -6,7 +6,9 @@ export type PriceProviderName = 'demo' | 'koleo'
 
 export interface ConnectionSearchInput {
   origin: string
+  originStationId?: number
   destination: string
+  destinationStationId?: number
   travelDate: string
   departureTime?: string
   onlyDirect: boolean
@@ -15,7 +17,12 @@ export interface ConnectionSearchInput {
 export interface ConnectionResult {
   uuid: string
   departure: string
+  departureMinutes: number
+  departureDate: string
   arrival: string
+  arrivalDate: string
+  arrivalDateLabel: string
+  arrivalDayOffset: number
   durationMinutes: number
   trains: string
   changes: number
@@ -49,7 +56,9 @@ export default class ConnectionSearchService {
 
     const count = input.departureTime ? 1 : 3
     const offset = env.get('DEMO_PRICE_OFFSET_CENTS') ?? 0
-    const routeSeed = this.hash(`${input.origin}|${input.destination}|${input.travelDate}`)
+    const routeSeed = this.hash(
+      `${input.originStationId ?? input.origin}|${input.destinationStationId ?? input.destination}|${input.travelDate}`
+    )
 
     return Array.from({ length: count }, (_, index) => {
       const departure = baseDeparture.plus({ hours: index * 2 })
@@ -60,7 +69,12 @@ export default class ConnectionSearchService {
       return {
         uuid: `demo-${routeSeed}-${index}`,
         departure: departure.toFormat('HH:mm'),
+        departureMinutes: departure.hour * 60 + departure.minute,
+        departureDate: departure.toISODate()!,
         arrival: arrival.toFormat('HH:mm'),
+        arrivalDate: arrival.toISODate()!,
+        arrivalDateLabel: arrival.toFormat('dd.LL.yyyy'),
+        arrivalDayOffset: this.dayOffset(departure, arrival),
         durationMinutes,
         trains: `POŁĄCZENIE DEMO ${100 + index}`,
         changes: input.onlyDirect ? 0 : index % 2,
@@ -114,7 +128,14 @@ export default class ConnectionSearchService {
     return {
       uuid: connection.uuid,
       departure: connection.departure.slice(11, 16),
+      departureMinutes: departure.hour * 60 + departure.minute,
+      departureDate: departure.toISODate() ?? connection.departure.slice(0, 10),
       arrival: connection.arrival.slice(11, 16),
+      arrivalDate: arrival.toISODate() ?? connection.arrival.slice(0, 10),
+      arrivalDateLabel: arrival.isValid
+        ? arrival.toFormat('dd.LL.yyyy')
+        : connection.arrival.slice(0, 10),
+      arrivalDayOffset: this.dayOffset(departure, arrival),
       durationMinutes,
       trains: trains || 'Brak nazwy pociągu',
       changes: connection.changes ?? 0,
@@ -131,5 +152,16 @@ export default class ConnectionSearchService {
       result = (result * 31 + character.charCodeAt(0)) >>> 0
     }
     return result
+  }
+
+  private dayOffset(departure: DateTime, arrival: DateTime) {
+    if (!departure.isValid || !arrival.isValid) {
+      return 0
+    }
+
+    return Math.max(
+      0,
+      Math.round(arrival.startOf('day').diff(departure.startOf('day'), 'days').days)
+    )
   }
 }

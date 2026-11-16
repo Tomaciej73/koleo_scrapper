@@ -7,8 +7,24 @@
 import { BaseModel, column } from '@adonisjs/lucid/orm'
 import { DateTime } from 'luxon'
 
+export class PriceObservationSchema extends BaseModel {
+  static $columns = ['createdAt', 'id', 'observedAt', 'priceCents', 'priceWatchId'] as const
+  $columns = PriceObservationSchema.$columns
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column({ isPrimary: true })
+  declare id: number
+  @column.dateTime()
+  declare observedAt: DateTime
+  @column()
+  declare priceCents: number
+  @column()
+  declare priceWatchId: number
+}
+
 export class PriceWatchSchema extends BaseModel {
   static $columns = [
+    'arrivalDate',
     'arrivalTime',
     'baselinePriceCents',
     'checkIntervalMinutes',
@@ -16,8 +32,11 @@ export class PriceWatchSchema extends BaseModel {
     'createdAt',
     'departureTime',
     'destination',
+    'destinationStationId',
     'id',
     'lastCheckedAt',
+    'lastErrorAt',
+    'lastErrorMessage',
     'lastNotifiedAt',
     'lastNotifiedPriceCents',
     'lastPriceCents',
@@ -26,6 +45,7 @@ export class PriceWatchSchema extends BaseModel {
     'notificationChannel',
     'notificationDestination',
     'origin',
+    'originStationId',
     'status',
     'targetPriceCents',
     'trainName',
@@ -34,6 +54,8 @@ export class PriceWatchSchema extends BaseModel {
     'userId',
   ] as const
   $columns = PriceWatchSchema.$columns
+  @column.date()
+  declare arrivalDate: DateTime | null
   @column()
   declare arrivalTime: string | null
   @column()
@@ -48,10 +70,16 @@ export class PriceWatchSchema extends BaseModel {
   declare departureTime: string
   @column()
   declare destination: string
+  @column()
+  declare destinationStationId: number | null
   @column({ isPrimary: true })
   declare id: number
   @column.dateTime()
   declare lastCheckedAt: DateTime | null
+  @column.dateTime()
+  declare lastErrorAt: DateTime | null
+  @column()
+  declare lastErrorMessage: string | null
   @column.dateTime()
   declare lastNotifiedAt: DateTime | null
   @column()
@@ -68,6 +96,8 @@ export class PriceWatchSchema extends BaseModel {
   declare notificationDestination: string
   @column()
   declare origin: string
+  @column()
+  declare originStationId: number | null
   @column()
   declare status: string
   @column()

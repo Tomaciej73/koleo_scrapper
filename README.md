@@ -6,10 +6,13 @@ połączeń i obserwowania zmian cen.
 ## Co jest gotowe
 
 - rejestracja z 6-cyfrowym kodem e-mail i logowanie użytkownika,
-- formularz trasy z podpowiedziami stacji, daty i opcjonalnej godziny,
-- lista połączeń z czasem przejazdu, przesiadkami i ceną,
+- formularz trasy z podpowiedziami i identyfikatorami stacji, zamianą kierunku,
+  datą i opcjonalną godziną,
+- sortowana lista połączeń z czasem przejazdu, przesiadkami, ceną i oznaczeniem
+  przyjazdu następnego dnia,
 - zapis połączenia do obserwowanych,
-- historia ostatniej i najniższej ceny,
+- pełna historia pomiarów ceny z wykresem oraz ostatnim błędem sprawdzania,
+- edycja progu i interwału oraz pauza/wznowienie obserwacji,
 - ręczne oraz cykliczne sprawdzanie alertów z osobnym interwałem dla każdej obserwacji,
 - powiadomienia e-mail przez konfigurowalny serwer SMTP,
 - przygotowane kanały SMS i WhatsApp, oczekujące na wybór dostawcy.
@@ -60,6 +63,10 @@ dodawaniu połączenia albo później na ekranie obserwowanych. Dozwolony zakres
 kontrolują `ALERT_MIN_CHECK_INTERVAL_MINUTES` i
 `ALERT_MAX_CHECK_INTERVAL_MINUTES`. Proces workera trzeba uruchomić jako
 osobną usługę obok serwera WWW.
+
+Liczbę ostatnich pomiarów prezentowanych na wykresie ustawia
+`PRICE_HISTORY_DISPLAY_LIMIT`. Wszystkie pomiary pozostają zapisane w tabeli
+historii; parametr ogranicza jedynie zakres prezentowany w interfejsie.
 
 Obserwacja automatycznie kończy się w chwili odjazdu pociągu. Przycisk
 „Sprawdź teraz” pomija harmonogram i od razu sprawdza wszystkie aktywne

@@ -40,6 +40,14 @@ test.group('Account verification', (group) => {
     const code = content.match(/\b\d{6}\b/)?.[0]
     assert.match(code ?? '', /^\d{6}$/)
 
+    const verificationPage = await client
+      .get('/verify-email')
+      .withSession({ [EMAIL_VERIFICATION_SESSION_KEY]: user.id })
+    verificationPage.assertStatus(200)
+    assert.include(verificationPage.text(), 'data-code-index="0"')
+    assert.include(verificationPage.text(), 'data-code-index="5"')
+    assert.include(verificationPage.text(), 'data-seconds=')
+
     const verification = await client
       .post('/verify-email')
       .redirects(0)

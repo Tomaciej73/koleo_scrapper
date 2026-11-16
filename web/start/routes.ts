@@ -47,6 +47,12 @@ router
     router
       .post('/favorites/:id/interval', [PriceWatchesController, 'updateInterval'])
       .as('price_watches.interval')
+    router
+      .post('/favorites/:id/settings', [PriceWatchesController, 'updateSettings'])
+      .as('price_watches.settings')
+    router
+      .post('/favorites/:id/status', [PriceWatchesController, 'updateStatus'])
+      .as('price_watches.status')
     router.delete('/favorites/:id', [PriceWatchesController, 'destroy']).as('price_watches.destroy')
     router.post('/favorites/check', [PriceWatchesController, 'checkNow']).as('price_watches.check')
     router.post('logout', [controllers.Session, 'destroy'])
