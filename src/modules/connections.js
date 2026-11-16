@@ -22,8 +22,8 @@ export default class Connections extends BaseModule {
     if (!stationFrom || !stationTo || !departureAfter) {
       throw new Error("Station from, station to and departure after are required");
     }
-    const conv = new Converters();
-    const stations = new Stations();
+    const conv = new Converters(this.clientOptions);
+    const stations = new Stations(this.clientOptions);
 
     const stationFromSlug = await conv.nameToSlug(stationFrom, true);
     const stationToSlug = await conv.nameToSlug(stationTo, true);
@@ -45,14 +45,36 @@ export default class Connections extends BaseModule {
       };
     }
 
-    let searchObject = {
+    return this.findConnectionByStationIds(
+      stationFromObj.id,
+      stationToObj.id,
+      departureAfter,
+      onlyDirect
+    );
+  }
+
+  async findConnectionByStationIds(startId, endId, departureAfter = Types.DEP_DATE.now, onlyDirect = false, requestOptions = {}) {
+    if (!Number.isInteger(startId) || startId <= 0 || !Number.isInteger(endId) || endId <= 0) {
+      throw new Error('Station IDs must be positive integers');
+    }
+    if (startId === endId) {
+      throw new Error('Departure and arrival stations must be different');
+    }
+    if (!departureAfter) {
+      throw new Error('Departure after is required');
+    }
+
+    const searchObject = {
         departure_after: departureAfter,
-        start_id: stationFromObj.id,
-        end_id: stationToObj.id,
+        start_id: startId,
+        end_id: endId,
         only_direct: onlyDirect
     };
 
-    let resp = await this.request('/main/eol_connections/search', searchObject);
+    const resp = await this.request('/main/eol_connections/search', searchObject, {
+      ...requestOptions,
+      retryable: true,
+    });
     if (resp.length === 0) {
       return {
         error: `No connections found.`,

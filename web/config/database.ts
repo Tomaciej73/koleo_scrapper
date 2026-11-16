@@ -6,7 +6,7 @@ const dbConfig = defineConfig({
   /**
    * Default connection used for all queries.
    */
-  connection: 'sqlite',
+  connection: env.get('DB_CONNECTION'),
 
   /**
    * Pretty-print SQL debug output in development logs.
@@ -20,11 +20,18 @@ const dbConfig = defineConfig({
     sqlite: {
       client: 'better-sqlite3',
       connection: {
-        filename: env.get('DB_DATABASE')
-          ? app.makePath(env.get('DB_DATABASE')!)
-          : app.tmpPath('db.sqlite3'),
+        filename: app.makePath(env.get('DB_DATABASE')),
       },
       useNullAsDefault: true,
+      pool: {
+        afterCreate(connection: { pragma: (statement: string) => unknown }, done) {
+          connection.pragma(`busy_timeout = ${env.get('SQLITE_BUSY_TIMEOUT_MS')}`)
+          connection.pragma('foreign_keys = ON')
+          connection.pragma('journal_mode = WAL')
+          connection.pragma('synchronous = NORMAL')
+          done(null, connection)
+        },
+      },
       migrations: {
         naturalSort: true,
         paths: ['database/migrations'],
@@ -39,29 +46,25 @@ const dbConfig = defineConfig({
       debug: env.get('DB_DEBUG') ?? false,
     },
 
-    /**
-     * PostgreSQL connection.
-     * Install package to switch: npm install pg
-     */
-    // pg: {
-    //   client: 'pg',
-    //   connection: {
-    //     host: env.get('DB_HOST'),
-    //     port: env.get('DB_PORT'),
-    //     user: env.get('DB_USER'),
-    //     password: env.get('DB_PASSWORD'),
-    //     database: env.get('DB_DATABASE'),
-    //   },
-    //   migrations: {
-    //     naturalSort: true,
-    //     paths: ['database/migrations'],
-    //   },
-    //   schemaGeneration: {
-    //     enabled: true,
-    //     rulesPaths: ['./database/schema_rules.js'],
-    //   },
-    //   debug: app.inDev,
-    // },
+    pg: {
+      client: 'pg',
+      connection: {
+        host: env.get('DB_HOST'),
+        port: env.get('DB_PORT'),
+        user: env.get('DB_USER'),
+        password: env.get('DB_PASSWORD')?.release(),
+        database: env.get('DB_DATABASE'),
+      },
+      migrations: {
+        naturalSort: true,
+        paths: ['database/migrations'],
+      },
+      schemaGeneration: {
+        enabled: true,
+        rulesPaths: ['./database/schema_rules.js'],
+      },
+      debug: env.get('DB_DEBUG') ?? false,
+    },
 
     /**
      * MySQL / MariaDB connection.

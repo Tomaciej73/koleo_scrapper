@@ -1,7 +1,9 @@
 import PriceAlertService from '#services/price_alert_service'
+import MetricsService from '#services/metrics_service'
 import env from '#start/env'
 import { BaseCommand } from '@adonisjs/core/ace'
 import type { CommandOptions } from '@adonisjs/core/types/ace'
+import logger from '@adonisjs/core/services/logger'
 
 export default class AlertsWorker extends BaseCommand {
   static commandName = 'alerts:worker'
@@ -38,12 +40,21 @@ export default class AlertsWorker extends BaseCommand {
     }
 
     this.running = true
+    const metrics = new MetricsService()
     try {
+      await Promise.all([
+        metrics.increment('worker_runs_total'),
+        metrics.set('worker_last_heartbeat_epoch_seconds', Date.now() / 1_000),
+      ])
       const summary = await new PriceAlertService().checkAllActive()
       this.logger.info(
         `Sprawdzono: ${summary.checked}, spadki: ${summary.priceDrops}, wysłano: ${summary.delivered}, błędy: ${summary.errors}`
       )
+    } catch (error) {
+      await metrics.increment('worker_errors_total')
+      logger.error({ err: error }, 'Alert worker cycle failed')
     } finally {
+      await metrics.set('worker_last_heartbeat_epoch_seconds', Date.now() / 1_000)
       this.running = false
     }
   }

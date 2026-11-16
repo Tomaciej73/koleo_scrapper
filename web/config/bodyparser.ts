@@ -1,4 +1,5 @@
 import { defineConfig } from '@adonisjs/core/bodyparser'
+import env from '#start/env'
 
 /**
  * Body parser configuration.
@@ -17,6 +18,7 @@ const bodyParserConfig = defineConfig({
    * content-type parser
    */
   form: {
+    limit: env.get('BODY_PARSER_FORM_LIMIT'),
     /**
      * Convert empty strings to null values.
      * Helps maintain consistent data types in your application.
@@ -38,6 +40,7 @@ const bodyParserConfig = defineConfig({
    * Config for the JSON parser
    */
   json: {
+    limit: env.get('BODY_PARSER_JSON_LIMIT'),
     /**
      * Convert empty strings to null values.
      * Helps maintain consistent data types in your application.
@@ -71,7 +74,7 @@ const bodyParserConfig = defineConfig({
      * move all uploaded files inside the tmp folder of your
      * operating system
      */
-    autoProcess: true,
+    autoProcess: false,
 
     /**
      * Convert empty strings to null values.
@@ -94,12 +97,12 @@ const bodyParserConfig = defineConfig({
      * Maximum limit of data to parse including all files
      * and fields
      */
-    limit: '20mb',
+    limit: env.get('BODY_PARSER_MULTIPART_LIMIT'),
 
     /**
      * Content types that should be parsed as multipart form data.
      */
-    types: ['multipart/form-data'],
+    types: [],
   },
 })
 

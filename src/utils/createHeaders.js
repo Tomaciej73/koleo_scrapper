@@ -1,12 +1,9 @@
-const UA =
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
-
-const createHeaders = (eolAdditionalHeader=true, accessToken=null) => {
+const createHeaders = (config, eolAdditionalHeader=true, accessToken=null) => {
     let HDR = {
       accept: "application/json, text/plain, */*",
-      "user-agent": UA,
-      "x-koleo-client": "Nuxt-bbc58bc",
-      "x-koleo-version": "2",
+      "user-agent": config.userAgent,
+      "x-koleo-client": config.clientName,
+      "x-koleo-version": config.clientVersion,
     };
     
     if (accessToken) {
@@ -16,7 +13,7 @@ const createHeaders = (eolAdditionalHeader=true, accessToken=null) => {
     if (eolAdditionalHeader) {
       HDR = {
         ...HDR,
-        "accept-eol-response-version": "1",
+        "accept-eol-response-version": config.eolResponseVersion,
         "content-type": "application/json",
       }
     }

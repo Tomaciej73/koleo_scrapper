@@ -1,14 +1,17 @@
 import env from '#start/env'
-import Koleo, { type KoleoConnection } from 'open-koleo'
+import { createKoleoClient } from '#services/koleo_client_factory'
+import MetricsService from '#services/metrics_service'
+import type Koleo from 'open-koleo'
+import type { KoleoConnection } from 'open-koleo'
 import { DateTime } from 'luxon'
 
 export type PriceProviderName = 'demo' | 'koleo'
 
 export interface ConnectionSearchInput {
   origin: string
-  originStationId?: number
+  originStationId: number
   destination: string
-  destinationStationId?: number
+  destinationStationId: number
   travelDate: string
   departureTime?: string
   onlyDirect: boolean
@@ -38,7 +41,16 @@ export default class ConnectionSearchService {
 
   async search(input: ConnectionSearchInput): Promise<ConnectionResult[]> {
     if (this.provider === 'koleo') {
-      return this.searchKoleo(input)
+      const startedAt = performance.now()
+      let failed = false
+      try {
+        return await this.searchKoleo(input)
+      } catch (error) {
+        failed = true
+        throw error
+      } finally {
+        await new MetricsService().recordKoleoRequest(performance.now() - startedAt, failed)
+      }
     }
 
     return this.searchDemo(input)
@@ -86,11 +98,11 @@ export default class ConnectionSearchService {
   }
 
   private async searchKoleo(input: ConnectionSearchInput): Promise<ConnectionResult[]> {
-    const client = new Koleo()
+    const client = createKoleoClient()
     const departureTime = input.departureTime ?? '00:00'
-    const response = await client.connections.findConnection(
-      input.origin,
-      input.destination,
+    const response = await client.connections.findConnectionByStationIds(
+      input.originStationId,
+      input.destinationStationId,
       `${input.travelDate}T${departureTime}:00`,
       input.onlyDirect
     )
@@ -104,13 +116,7 @@ export default class ConnectionSearchService {
       .filter((connection) => connection.departure?.startsWith(`${input.travelDate}T`))
       .slice(0, resultLimit)
 
-    const results: ConnectionResult[] = []
-
-    for (const connection of matching) {
-      results.push(await this.mapKoleoConnection(client, connection))
-    }
-
-    return results
+    return Promise.all(matching.map((connection) => this.mapKoleoConnection(client, connection)))
   }
 
   private async mapKoleoConnection(client: Koleo, connection: KoleoConnection) {

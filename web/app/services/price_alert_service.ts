@@ -2,7 +2,9 @@ import PriceObservation from '#models/price_observation'
 import PriceWatch from '#models/price_watch'
 import ConnectionSearchService, { ConnectionSearchError } from '#services/connection_search_service'
 import NotificationService from '#services/notification_service'
+import MetricsService from '#services/metrics_service'
 import env from '#start/env'
+import logger from '@adonisjs/core/services/logger'
 import { DateTime } from 'luxon'
 
 export interface AlertCheckSummary {
@@ -58,9 +60,16 @@ export default class PriceAlertService {
       watch.nextCheckAt = now.plus({ minutes: this.checkIntervalFor(watch) })
 
       try {
+        if (watch.originStationId === null || watch.destinationStationId === null) {
+          throw new ConnectionSearchError(
+            'Obserwacja nie ma identyfikatorów stacji. Usuń ją i dodaj ponownie z listy podpowiedzi.'
+          )
+        }
         const results = await searchService.search({
           origin: watch.origin,
+          originStationId: watch.originStationId,
           destination: watch.destination,
+          destinationStationId: watch.destinationStationId,
           travelDate: watch.travelDate.toISODate()!,
           departureTime: watch.departureTime,
           onlyDirect: false,
@@ -69,16 +78,20 @@ export default class PriceAlertService {
           results.find((result) => result.uuid === watch.connectionUuid) ?? results.at(0)
 
         if (!connection) {
+          summary.errors += 1
           watch.lastErrorMessage = 'Nie znaleziono obserwowanego połączenia w aktualnych wynikach.'
           watch.lastErrorAt = now
           await watch.save()
+          await new MetricsService().increment('worker_watch_errors_total')
           continue
         }
 
         if (connection.priceCents === null) {
+          summary.errors += 1
           watch.lastErrorMessage = 'Cena tego połączenia jest obecnie niedostępna.'
           watch.lastErrorAt = now
           await watch.save()
+          await new MetricsService().increment('worker_watch_errors_total')
           continue
         }
 
@@ -126,6 +139,8 @@ export default class PriceAlertService {
         watch.lastErrorMessage = this.userFacingError(error)
         watch.lastErrorAt = now
         await watch.save()
+        logger.error({ err: error, watchId: watch.id }, 'Price watch check failed')
+        await new MetricsService().increment('worker_watch_errors_total')
       }
     }
 

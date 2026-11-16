@@ -5,9 +5,9 @@ const timePattern = /^([01]\d|2[0-3]):[0-5]\d$/
 
 export const connectionSearchValidator = vine.create({
   origin: vine.string().trim().minLength(2).maxLength(120),
-  originStationId: vine.number().withoutDecimals().positive().optional(),
+  originStationId: vine.number().withoutDecimals().positive(),
   destination: vine.string().trim().minLength(2).maxLength(120),
-  destinationStationId: vine.number().withoutDecimals().positive().optional(),
+  destinationStationId: vine.number().withoutDecimals().positive(),
   travelDate: vine.string().regex(datePattern),
   departureTime: vine.string().regex(timePattern).optional(),
   onlyDirect: vine.boolean().optional(),
@@ -15,9 +15,9 @@ export const connectionSearchValidator = vine.create({
 
 export const priceWatchValidator = vine.create({
   origin: vine.string().trim().minLength(2).maxLength(120),
-  originStationId: vine.number().withoutDecimals().positive().optional(),
+  originStationId: vine.number().withoutDecimals().positive(),
   destination: vine.string().trim().minLength(2).maxLength(120),
-  destinationStationId: vine.number().withoutDecimals().positive().optional(),
+  destinationStationId: vine.number().withoutDecimals().positive(),
   travelDate: vine.string().regex(datePattern),
   departureTime: vine.string().regex(timePattern),
   arrivalTime: vine.string().regex(timePattern).optional(),

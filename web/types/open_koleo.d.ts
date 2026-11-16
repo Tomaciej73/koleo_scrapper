@@ -23,6 +23,19 @@ declare module 'open-koleo' {
     code?: string
   }
 
+  export interface KoleoClientOptions {
+    apiBaseUrl: string
+    userAgent: string
+    clientName: string
+    clientVersion: string
+    eolResponseVersion: string
+    requestTimeoutMs: number
+    maxRetries: number
+    retryBaseDelayMs: number
+    retryMaxDelayMs: number
+    maxConcurrency: number
+  }
+
   export interface KoleoStation {
     id: number
     name: string
@@ -37,6 +50,7 @@ declare module 'open-koleo' {
   }
 
   export default class Koleo {
+    constructor(options?: KoleoClientOptions)
     stations: {
       findStationsByName(name: string): Promise<KoleoStationSearch | KoleoStation[]>
     }
@@ -44,6 +58,12 @@ declare module 'open-koleo' {
       findConnection(
         origin: string,
         destination: string,
+        departureAfter?: string,
+        onlyDirect?: boolean
+      ): Promise<KoleoConnection[] | KoleoError>
+      findConnectionByStationIds(
+        originStationId: number,
+        destinationStationId: number,
         departureAfter?: string,
         onlyDirect?: boolean
       ): Promise<KoleoConnection[] | KoleoError>

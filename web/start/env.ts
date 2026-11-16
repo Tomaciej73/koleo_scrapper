@@ -22,8 +22,16 @@ export default await Env.create(new URL('../', import.meta.url), {
   // App
   APP_KEY: Env.schema.secret(),
   APP_URL: Env.schema.string({ format: 'url', tld: false }),
-  DB_DATABASE: Env.schema.string.optional(),
+  DB_CONNECTION: Env.schema.enum(['sqlite', 'pg'] as const),
+  DB_DATABASE: Env.schema.string(),
   DB_DEBUG: Env.schema.boolean.optional(),
+  DB_HOST: Env.schema.string.optional(),
+  DB_PORT: Env.schema.number.optional(),
+  DB_USER: Env.schema.string.optional(),
+  DB_PASSWORD: Env.schema.secret.optional(),
+  SQLITE_BUSY_TIMEOUT_MS: Env.schema.number(),
+  DB_BACKUP_DIR: Env.schema.string(),
+  DB_BACKUP_RETENTION_COUNT: Env.schema.number(),
 
   // Session
   SESSION_DRIVER: Env.schema.enum(['cookie', 'memory', 'database'] as const),
@@ -48,6 +56,16 @@ export default await Env.create(new URL('../', import.meta.url), {
 
   // Price search and alerts
   PRICE_PROVIDER: Env.schema.enum.optional(['demo', 'koleo'] as const),
+  KOLEO_API_BASE_URL: Env.schema.string.optional({ format: 'url', tld: false }),
+  KOLEO_CLIENT_USER_AGENT: Env.schema.string.optional(),
+  KOLEO_CLIENT_NAME: Env.schema.string.optional(),
+  KOLEO_CLIENT_VERSION: Env.schema.string.optional(),
+  KOLEO_EOL_RESPONSE_VERSION: Env.schema.string.optional(),
+  KOLEO_REQUEST_TIMEOUT_MS: Env.schema.number.optional(),
+  KOLEO_REQUEST_MAX_RETRIES: Env.schema.number.optional(),
+  KOLEO_REQUEST_RETRY_BASE_DELAY_MS: Env.schema.number.optional(),
+  KOLEO_REQUEST_RETRY_MAX_DELAY_MS: Env.schema.number.optional(),
+  KOLEO_REQUEST_MAX_CONCURRENCY: Env.schema.number.optional(),
   SEARCH_RESULT_LIMIT: Env.schema.number.optional(),
   STATION_SEARCH_MIN_LENGTH: Env.schema.number.optional(),
   STATION_SEARCH_RESULT_LIMIT: Env.schema.number.optional(),
@@ -64,4 +82,12 @@ export default await Env.create(new URL('../', import.meta.url), {
   EMAIL_VERIFICATION_CODE_TTL_MINUTES: Env.schema.number.optional(),
   EMAIL_VERIFICATION_MAX_ATTEMPTS: Env.schema.number.optional(),
   EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS: Env.schema.number.optional(),
+  TICKET_SALES_MAX_ADVANCE_DAYS: Env.schema.number(),
+
+  // HTTP and observability
+  BODY_PARSER_FORM_LIMIT: Env.schema.string(),
+  BODY_PARSER_JSON_LIMIT: Env.schema.string(),
+  BODY_PARSER_MULTIPART_LIMIT: Env.schema.string(),
+  HEALTH_WORKER_STALE_SECONDS: Env.schema.number(),
+  METRICS_TOKEN: Env.schema.secret.optional(),
 })

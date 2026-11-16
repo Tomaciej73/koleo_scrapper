@@ -1,4 +1,5 @@
 import type PriceWatch from '#models/price_watch'
+import MetricsService from '#services/metrics_service'
 import env from '#start/env'
 import mail from '@adonisjs/mail/services/main'
 
@@ -17,21 +18,23 @@ export default class NotificationService {
       return { delivered: false, reason: 'Powiadomienia e-mail są wyłączone.' }
     }
 
-    await mail.send((message) => {
-      message
-        .to(recipient)
-        .subject('Kod aktywacyjny — Koleo Watch')
-        .text(
-          [
-            'Dokończ zakładanie konta w Koleo Watch.',
-            '',
-            `Twój kod aktywacyjny: ${code}`,
-            `Kod jest ważny przez ${validForMinutes} min.`,
-            '',
-            'Jeśli to nie Ty zakładasz konto, zignoruj tę wiadomość.',
-          ].join('\n')
-        )
-    })
+    await this.sendMail(() =>
+      mail.send((message) => {
+        message
+          .to(recipient)
+          .subject('Kod aktywacyjny — Koleo Watch')
+          .text(
+            [
+              'Dokończ zakładanie konta w Koleo Watch.',
+              '',
+              `Twój kod aktywacyjny: ${code}`,
+              `Kod jest ważny przez ${validForMinutes} min.`,
+              '',
+              'Jeśli to nie Ty zakładasz konto, zignoruj tę wiadomość.',
+            ].join('\n')
+          )
+      })
+    )
 
     return { delivered: true }
   }
@@ -66,9 +69,11 @@ export default class NotificationService {
       .filter(Boolean)
       .join('\n')
 
-    await mail.send((message) => {
-      message.to(watch.notificationDestination).subject(subject).text(content)
-    })
+    await this.sendMail(() =>
+      mail.send((message) => {
+        message.to(watch.notificationDestination).subject(subject).text(content)
+      })
+    )
 
     return { delivered: true }
   }
@@ -78,5 +83,14 @@ export default class NotificationService {
       style: 'currency',
       currency: 'PLN',
     }).format(priceCents / 100)
+  }
+
+  private async sendMail(operation: () => Promise<unknown>) {
+    try {
+      await operation()
+    } catch (error) {
+      await new MetricsService().increment('smtp_errors_total')
+      throw error
+    }
   }
 }

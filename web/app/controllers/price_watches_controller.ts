@@ -1,6 +1,9 @@
 import PriceObservation from '#models/price_observation'
 import PriceWatch from '#models/price_watch'
 import PriceAlertService from '#services/price_alert_service'
+import JourneyValidationService, {
+  JourneyValidationError,
+} from '#services/journey_validation_service'
 import env from '#start/env'
 import {
   priceWatchIntervalValidator,
@@ -104,6 +107,17 @@ export default class PriceWatchesController {
 
   async store({ auth, request, response, session }: HttpContext) {
     const payload = await request.validateUsing(priceWatchValidator)
+    try {
+      await new JourneyValidationService().validate(payload)
+    } catch (error) {
+      session.flash(
+        'error',
+        error instanceof JourneyValidationError
+          ? error.message
+          : 'Nie udało się zweryfikować wybranych stacji.'
+      )
+      return response.redirect().back()
+    }
     const timezone = env.get('APP_TIMEZONE') ?? 'Europe/Warsaw'
     const travelDate = DateTime.fromISO(payload.travelDate, { zone: timezone })
     const arrivalDate = payload.arrivalDate
@@ -125,8 +139,8 @@ export default class PriceWatchesController {
       .first()
 
     const attributes = {
-      originStationId: payload.originStationId ?? null,
-      destinationStationId: payload.destinationStationId ?? null,
+      originStationId: payload.originStationId,
+      destinationStationId: payload.destinationStationId,
       arrivalTime: payload.arrivalTime ?? null,
       arrivalDate,
       connectionUuid: payload.connectionUuid ?? null,

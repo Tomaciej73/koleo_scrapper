@@ -8,6 +8,8 @@ import mail from '@adonisjs/mail/services/main'
 import { test } from '@japa/runner'
 import { DateTime } from 'luxon'
 
+const futureDate = () => DateTime.now().setZone('Europe/Warsaw').plus({ days: 2 }).toISODate()!
+
 test.group('Price watch flow', (group) => {
   group.setup(() => testUtils.db().migrate())
   group.each.setup(() => testUtils.db().truncate())
@@ -17,6 +19,7 @@ test.group('Price watch flow', (group) => {
   })
 
   test('renders search results and saves a watched connection', async ({ client, assert }) => {
+    const travelDate = futureDate()
     const user = await User.create({
       fullName: 'Konto testowe',
       email: 'qa@example.test',
@@ -33,7 +36,7 @@ test.group('Price watch flow', (group) => {
       originStationId: '1',
       destination: 'Olsztyn Główny',
       destinationStationId: '4',
-      travelDate: '2026-11-17',
+      travelDate,
       departureTime: '14:54',
       onlyDirect: 'true',
     })
@@ -47,10 +50,10 @@ test.group('Price watch flow', (group) => {
       originStationId: '1',
       destination: 'Olsztyn Główny',
       destinationStationId: '4',
-      travelDate: '2026-11-17',
+      travelDate,
       departureTime: '14:54',
       arrivalTime: '20:01',
-      arrivalDate: '2026-11-17',
+      arrivalDate: travelDate,
       connectionUuid: 'demo-flow-1',
       trainName: 'POŁĄCZENIE DEMO 100',
       priceCents: '7900',
@@ -67,7 +70,7 @@ test.group('Price watch flow', (group) => {
     assert.equal(favorite.origin, 'Wrocław Główny')
     assert.equal(favorite.originStationId, 1)
     assert.equal(favorite.destinationStationId, 4)
-    assert.equal(favorite.arrivalDate!.toISODate(), '2026-11-17')
+    assert.equal(favorite.arrivalDate!.toISODate(), travelDate)
     assert.equal(favorite.targetPriceCents, 6500)
     assert.equal(favorite.checkIntervalMinutes, 30)
     assert.equal(
@@ -97,8 +100,10 @@ test.group('Price watch flow', (group) => {
     const watch = await PriceWatch.create({
       userId: user.id,
       origin: 'Olsztyn Główny',
+      originStationId: 4,
       destination: 'Wrocław Główny',
-      travelDate: DateTime.fromISO('2026-12-01'),
+      destinationStationId: 1,
+      travelDate: DateTime.fromISO(futureDate()),
       departureTime: '08:00',
       baselinePriceCents: 20_000,
       lastPriceCents: 20_000,
@@ -133,8 +138,10 @@ test.group('Price watch flow', (group) => {
     })
     const [connection] = await new ConnectionSearchService().search({
       origin: 'Wrocław Główny',
+      originStationId: 1,
       destination: 'Olsztyn Główny',
-      travelDate: '2026-11-17',
+      destinationStationId: 4,
+      travelDate: futureDate(),
       departureTime: '14:54',
       onlyDirect: false,
     })
@@ -142,8 +149,10 @@ test.group('Price watch flow', (group) => {
     const watch = await PriceWatch.create({
       userId: user.id,
       origin: 'Wrocław Główny',
+      originStationId: 1,
       destination: 'Olsztyn Główny',
-      travelDate: DateTime.fromISO('2026-11-17'),
+      destinationStationId: 4,
+      travelDate: DateTime.fromISO(futureDate()),
       departureTime: '14:54',
       baselinePriceCents: currentPrice + 5_000,
       lastPriceCents: currentPrice + 5_000,
@@ -178,7 +187,9 @@ test.group('Price watch flow', (group) => {
     const scheduled = await PriceWatch.create({
       userId: user.id,
       origin: 'Wrocław Główny',
+      originStationId: 1,
       destination: 'Olsztyn Główny',
+      destinationStationId: 4,
       travelDate: futureDeparture,
       departureTime: futureDeparture.toFormat('HH:mm'),
       checkIntervalMinutes: 30,
@@ -222,7 +233,9 @@ test.group('Price watch flow', (group) => {
     const watch = await PriceWatch.create({
       userId: user.id,
       origin: 'Wrocław Główny',
+      originStationId: 1,
       destination: 'Olsztyn Główny',
+      destinationStationId: 4,
       travelDate: DateTime.utc().plus({ days: 2 }),
       departureTime: '14:54',
       checkIntervalMinutes: 30,
@@ -263,5 +276,30 @@ test.group('Price watch flow', (group) => {
     await watch.refresh()
     assert.equal(watch.status, 'active')
     assert.isNotNull(watch.nextCheckAt)
+  })
+
+  test('persists the reason when a legacy watch cannot be checked', async ({ assert }) => {
+    const user = await User.create({
+      fullName: 'Konto błędu',
+      email: 'failure@example.test',
+      password: 'Qa-Test-2026!',
+    })
+    const watch = await PriceWatch.create({
+      userId: user.id,
+      origin: 'Wrocław Główny',
+      destination: 'Olsztyn Główny',
+      travelDate: DateTime.fromISO(futureDate()),
+      departureTime: '14:54',
+      notificationChannel: 'email',
+      notificationDestination: user.email,
+      status: 'active',
+    })
+
+    const summary = await new PriceAlertService().checkForUser(user.id)
+    await watch.refresh()
+
+    assert.equal(summary.errors, 1)
+    assert.include(watch.lastErrorMessage!, 'identyfikatorów stacji')
+    assert.isNotNull(watch.lastErrorAt)
   })
 })

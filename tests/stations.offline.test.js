@@ -3,6 +3,18 @@ import assert from 'node:assert';
 import Stations from '../src/modules/stations.js';
 
 const originalFetch = globalThis.fetch;
+const clientOptions = {
+  apiBaseUrl: 'https://example.test/v2',
+  userAgent: 'open-koleo-offline-test',
+  clientName: 'offline-test',
+  clientVersion: '1',
+  eolResponseVersion: '1',
+  requestTimeoutMs: 1_000,
+  maxRetries: 0,
+  retryBaseDelayMs: 1,
+  retryMaxDelayMs: 1,
+  maxConcurrency: 2,
+};
 
 afterEach(() => {
   globalThis.fetch = originalFetch;
@@ -19,7 +31,7 @@ describe('Stations Module offline', () => {
       });
     };
 
-    await new Stations().findStationsByName('  WrOcŁaW & okolice  ');
+    await new Stations(clientOptions).findStationsByName('  WrOcŁaW & okolice  ');
 
     const url = new URL(requestedUrl);
     assert.equal(url.pathname, '/v2/main/livesearch');

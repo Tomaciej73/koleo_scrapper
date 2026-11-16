@@ -15,6 +15,12 @@ const SearchController = () => import('#controllers/search_controller')
 const PriceWatchesController = () => import('#controllers/price_watches_controller')
 const StationSearchController = () => import('#controllers/station_search_controller')
 const EmailVerificationController = () => import('#controllers/email_verification_controller')
+const HealthController = () => import('#controllers/health_controller')
+const MetricsController = () => import('#controllers/metrics_controller')
+
+router.get('/health/live', [HealthController, 'live'])
+router.get('/health/ready', [HealthController, 'ready'])
+router.get('/metrics', [MetricsController, 'index'])
 
 router.on('/').render('pages/home').as('home')
 

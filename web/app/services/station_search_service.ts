@@ -1,5 +1,6 @@
 import env from '#start/env'
-import Koleo, { type KoleoStation, type KoleoStationSearch } from 'open-koleo'
+import { createKoleoClient } from '#services/koleo_client_factory'
+import { type KoleoStation, type KoleoStationSearch } from 'open-koleo'
 
 export interface StationSuggestion {
   id: number
@@ -67,7 +68,7 @@ export default class StationSearchService {
   }
 
   private async searchKoleo(query: string) {
-    const response = await new Koleo().stations.findStationsByName(query)
+    const response = await createKoleoClient().stations.findStationsByName(query)
     if (!Array.isArray(response) && response.error) {
       throw new StationSearchError('Nie udało się pobrać listy stacji.')
     }

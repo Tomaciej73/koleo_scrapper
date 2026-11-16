@@ -7,14 +7,14 @@ import Types from "./modules/types.js";
 import User from "./modules/user.js";
 
 class Koleo {
-  constructor() {
-    this.brands = new Brands();
-    this.discounts = new Discounts();
-    this.stations = new Stations();
-    this.connections = new Connections();
-    this.converters = new Converters();
-    this.types = new Types();
-    this.user = new User();
+  constructor(clientOptions = {}) {
+    this.brands = new Brands(clientOptions);
+    this.discounts = new Discounts(clientOptions);
+    this.stations = new Stations(clientOptions);
+    this.connections = new Connections(clientOptions);
+    this.converters = new Converters(clientOptions);
+    this.types = new Types(clientOptions);
+    this.user = new User(clientOptions);
   }
 }
 

@@ -2,6 +2,9 @@ import ConnectionSearchService, {
   ConnectionSearchError,
   type ConnectionSearchInput,
 } from '#services/connection_search_service'
+import JourneyValidationService, {
+  JourneyValidationError,
+} from '#services/journey_validation_service'
 import env from '#start/env'
 import { connectionSearchValidator } from '#validators/connections'
 import type { HttpContext } from '@adonisjs/core/http'
@@ -34,6 +37,7 @@ export default class SearchController {
     const service = new ConnectionSearchService()
 
     try {
+      await new JourneyValidationService().validate(searchInput)
       const results = await service.search(searchInput)
       return view.render('pages/dashboard', {
         defaultDate: this.defaultDate(),
@@ -48,7 +52,7 @@ export default class SearchController {
       })
     } catch (error) {
       const message =
-        error instanceof ConnectionSearchError
+        error instanceof ConnectionSearchError || error instanceof JourneyValidationError
           ? error.message
           : 'Nie udało się pobrać połączeń. Spróbuj ponownie później.'
 

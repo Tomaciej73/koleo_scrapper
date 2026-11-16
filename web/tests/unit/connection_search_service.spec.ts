@@ -1,13 +1,18 @@
 import ConnectionSearchService from '#services/connection_search_service'
 import { test } from '@japa/runner'
+import { DateTime } from 'luxon'
+
+const futureDate = () => DateTime.now().setZone('Europe/Warsaw').plus({ days: 2 }).toISODate()!
 
 test.group('Connection search service', () => {
   test('returns deterministic offline results in demo mode', async ({ assert }) => {
     const service = new ConnectionSearchService()
     const results = await service.search({
       origin: 'Wrocław Główny',
+      originStationId: 1,
       destination: 'Olsztyn Główny',
-      travelDate: '2026-11-17',
+      destinationStationId: 4,
+      travelDate: futureDate(),
       departureTime: '14:54',
       onlyDirect: true,
     })
@@ -23,8 +28,10 @@ test.group('Connection search service', () => {
   test('returns several suggestions when time is omitted', async ({ assert }) => {
     const results = await new ConnectionSearchService().search({
       origin: 'Olsztyn Główny',
+      originStationId: 4,
       destination: 'Wrocław Główny',
-      travelDate: '2026-12-01',
+      destinationStationId: 1,
+      travelDate: futureDate(),
       onlyDirect: false,
     })
 
@@ -41,14 +48,16 @@ test.group('Connection search service', () => {
       originStationId: 1,
       destination: 'Olsztyn Główny',
       destinationStationId: 4,
-      travelDate: '2026-11-17',
+      travelDate: futureDate(),
       departureTime: '22:30',
       onlyDirect: true,
     })
 
-    assert.equal(connection.departureDate, '2026-11-17')
-    assert.equal(connection.arrivalDate, '2026-11-18')
-    assert.equal(connection.arrivalDateLabel, '18.11.2026')
+    const expectedDeparture = futureDate()
+    const expectedArrival = DateTime.fromISO(expectedDeparture).plus({ days: 1 })
+    assert.equal(connection.departureDate, expectedDeparture)
+    assert.equal(connection.arrivalDate, expectedArrival.toISODate())
+    assert.equal(connection.arrivalDateLabel, expectedArrival.toFormat('dd.LL.yyyy'))
     assert.equal(connection.arrivalDayOffset, 1)
   })
 })

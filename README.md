@@ -134,6 +134,16 @@ zmienne `EMAIL_VERIFICATION_*` w `.env`.
 ## Prawdziwe dane
 
 `PRICE_PROVIDER=koleo` przełącza wyszukiwanie na klienta z katalogu głównego.
+Wymaga to uzupełnienia wszystkich zmiennych `KOLEO_*` w `.env_conf` (Docker)
+lub `web/.env` (uruchomienie bez Dockera). URL API, identyfikacja klienta,
+timeout, liczba retry, opóźnienia backoff i maksymalna równoległość nie są
+zaszyte w kodzie. Ponawiane są tylko odczyty oraz wyszukiwanie połączeń;
+operacje logowania nie są automatycznie powtarzane.
+
+Formularz przyjmuje wyłącznie stacje wybrane z podpowiedzi i przesyła ich ID.
+Backend ponownie sprawdza parę ID/nazwa, rzeczywistą datę kalendarzową,
+godzinę, różne stacje oraz zakres sprzedaży określony przez
+`TICKET_SALES_MAX_ADVANCE_DAYS`.
 
 ## Docker Compose
 
@@ -174,6 +184,46 @@ Baza SQLite znajduje się na trwałym wolumenie `koleo-watch-data`; zwykłe
 również bazę i powinno być używane tylko świadomie. Ten wariant jest przeznaczony
 dla pojedynczego serwera. Przy wielu replikach aplikacji należy przejść na
 PostgreSQL zamiast współdzielić SQLite między hostami.
+
+SQLite działa w trybie WAL z konfigurowalnym `SQLITE_BUSY_TIMEOUT_MS`. Ręczna,
+spójna kopia online z kontrolą integralności:
+
+```powershell
+Set-Location -LiteralPath 'M:\GIT\koleo_scrapper'
+docker compose --env-file .env_conf exec web node ace.js db:backup
+```
+
+Przed odtworzeniem zatrzymaj procesy korzystające z bazy. Nazwę kopii odczytaj
+z wyniku poprzedniego polecenia, a następnie wykonaj:
+
+```powershell
+Set-Location -LiteralPath 'M:\GIT\koleo_scrapper'
+docker compose --env-file .env_conf stop web worker
+docker compose --env-file .env_conf run --rm --no-deps web node ace.js db:restore --file=nazwa-kopii.sqlite3 --confirm
+docker compose --env-file .env_conf up -d
+```
+
+Liczbę zachowanych kopii ustawia `DB_BACKUP_RETENTION_COUNT`, a katalog
+`CONTAINER_DB_BACKUP_DIR`. Odtwarzanie najpierw weryfikuje kopię i plik
+tymczasowy; w razie błędu zachowuje poprzednią bazę. Dla wielu replik ustaw
+`DB_CONNECTION=pg` i uzupełnij `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`
+oraz nazwę bazy w `CONTAINER_DB_DATABASE`. Sterownik PostgreSQL jest już częścią
+obrazu.
+
+## Healthchecki i metryki
+
+- `GET /health/live` potwierdza, że proces HTTP odpowiada,
+- `GET /health/ready` sprawdza bazę oraz — gdy alerty są włączone — świeżość
+  heartbeat workera,
+- `GET /metrics` zwraca format Prometheus i wymaga nagłówka
+  `Authorization: Bearer <METRICS_TOKEN>`; bez tokenu endpoint zwraca 404.
+
+Metryki obejmują liczbę i czas zapytań KOLEO, błędy KOLEO i SMTP, przebiegi i
+błędy workera, błędy pojedynczych obserwacji, heartbeat oraz wiek najstarszego
+oczekującego zadania. Multipart jest wyłączony, ponieważ aplikacja nie ma
+uploadów; limity zwykłych formularzy i JSON są ustawiane przez
+`BODY_PARSER_*_LIMIT`.
+
 Włączaj ten tryb wyłącznie z potwierdzonym uprawnieniem administratora. Punkt
 1.6 aktualnego
 [regulaminu KOLEO](https://koleo.pl/terms-of-use) zabrania automatycznego
