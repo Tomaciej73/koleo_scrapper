@@ -2,6 +2,9 @@ import User from '#models/user'
 import { EMAIL_VERIFICATION_SESSION_KEY } from '#services/email_verification_service'
 import { loginValidator } from '#validators/user'
 import type { HttpContext } from '@adonisjs/core/http'
+import RateLimitKeyService from '#services/rate_limit_key_service'
+import env from '#start/env'
+import limiter from '@adonisjs/limiter/services/main'
 
 /**
  * SessionController handles user authentication and session management.
@@ -21,7 +24,26 @@ export default class SessionController {
    */
   async store({ request, auth, response, session }: HttpContext) {
     const { email, password } = await request.validateUsing(loginValidator)
-    const user = await User.verifyCredentials(email, password)
+    const loginLimiter = limiter.multi([
+      {
+        key: `login:ip:${request.ip()}`,
+        requests: env.get('RATE_LIMIT_LOGIN_FAILURES'),
+        duration: env.get('RATE_LIMIT_AUTH_WINDOW_SECONDS'),
+        blockDuration: env.get('RATE_LIMIT_BLOCK_SECONDS'),
+      },
+      {
+        key: RateLimitKeyService.email('login', email),
+        requests: env.get('RATE_LIMIT_LOGIN_FAILURES'),
+        duration: env.get('RATE_LIMIT_AUTH_WINDOW_SECONDS'),
+        blockDuration: env.get('RATE_LIMIT_BLOCK_SECONDS'),
+      },
+    ])
+    const [limitError, user] = await loginLimiter.penalize(() =>
+      User.verifyCredentials(email, password)
+    )
+    if (limitError) {
+      throw limitError.setMessage('Zbyt wiele nieudanych prób logowania. Spróbuj ponownie później.')
+    }
 
     if (!user.emailVerifiedAt) {
       session.put(EMAIL_VERIFICATION_SESSION_KEY, user.id)

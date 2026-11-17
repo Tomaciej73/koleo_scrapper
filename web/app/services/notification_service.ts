@@ -1,4 +1,5 @@
 import type PriceWatch from '#models/price_watch'
+import type AlertOutbox from '#models/alert_outbox'
 import MetricsService from '#services/metrics_service'
 import env from '#start/env'
 import mail from '@adonisjs/mail/services/main'
@@ -39,25 +40,10 @@ export default class NotificationService {
     return { delivered: true }
   }
 
-  async sendPriceDrop(watch: PriceWatch, previousPriceCents: number): Promise<NotificationResult> {
-    if (!(env.get('MAIL_ENABLED') ?? false)) {
-      return { delivered: false, reason: 'Powiadomienia e-mail są wyłączone.' }
-    }
-
-    if (watch.notificationChannel !== 'email') {
-      return {
-        delivered: false,
-        reason: `Kanał ${watch.notificationChannel} nie ma jeszcze skonfigurowanego dostawcy.`,
-      }
-    }
-
-    if (watch.lastPriceCents === null) {
-      return { delivered: false, reason: 'Brak aktualnej ceny.' }
-    }
-
+  buildPriceDrop(watch: PriceWatch, previousPriceCents: number, currentPriceCents: number) {
     const previous = this.formatPrice(previousPriceCents)
-    const current = this.formatPrice(watch.lastPriceCents)
-    const priceDropped = watch.lastPriceCents < previousPriceCents
+    const current = this.formatPrice(currentPriceCents)
+    const priceDropped = currentPriceCents < previousPriceCents
     const subject = `${priceDropped ? 'Cena spadła' : 'Cena osiągnęła próg'}: ${watch.origin} → ${watch.destination}`
     const content = [
       priceDropped
@@ -69,9 +55,26 @@ export default class NotificationService {
       .filter(Boolean)
       .join('\n')
 
+    return { subject, content }
+  }
+
+  async sendQueuedAlert(alert: AlertOutbox, recipient: string): Promise<NotificationResult> {
+    if (!(env.get('MAIL_ENABLED') ?? false)) {
+      return { delivered: false, reason: 'Powiadomienia e-mail są wyłączone.' }
+    }
+
+    const messageIdDomain = env.get('MAIL_FROM_ADDRESS').split('@').at(1)
+    if (!messageIdDomain) {
+      throw new Error('MAIL_FROM_ADDRESS nie zawiera poprawnej domeny dla Message-ID.')
+    }
+
     await this.sendMail(() =>
       mail.send((message) => {
-        message.to(watch.notificationDestination).subject(subject).text(content)
+        message
+          .to(recipient)
+          .messageId(`<${alert.deliveryId}@${messageIdDomain}>`)
+          .subject(alert.subject)
+          .text(alert.body)
       })
     )
 

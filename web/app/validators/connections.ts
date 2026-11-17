@@ -22,13 +22,11 @@ export const priceWatchValidator = vine.create({
   departureTime: vine.string().regex(timePattern),
   arrivalTime: vine.string().regex(timePattern).optional(),
   arrivalDate: vine.string().regex(datePattern).optional(),
-  connectionUuid: vine.string().trim().maxLength(80).optional(),
+  connectionUuid: vine.string().trim().minLength(1).maxLength(80),
   trainName: vine.string().trim().maxLength(255).optional(),
   priceCents: vine.number().min(0).optional(),
   targetPrice: vine.number().positive().optional(),
   checkIntervalMinutes: vine.number().withoutDecimals().min(1).max(10_080).optional(),
-  notificationChannel: vine.enum(['email', 'sms', 'whatsapp'] as const),
-  notificationDestination: vine.string().trim().minLength(3).maxLength(254),
 })
 
 export const priceWatchIntervalValidator = vine.create({

@@ -3,6 +3,9 @@ import EmailVerificationService, {
   EMAIL_VERIFICATION_SESSION_KEY,
 } from '#services/email_verification_service'
 import { signupValidator } from '#validators/user'
+import RateLimitKeyService from '#services/rate_limit_key_service'
+import env from '#start/env'
+import limiter from '@adonisjs/limiter/services/main'
 import type { HttpContext } from '@adonisjs/core/http'
 
 /**
@@ -23,6 +26,13 @@ export default class NewAccountController {
    */
   async store({ request, response, session, logger }: HttpContext) {
     const { fullName, email, password } = await request.validateUsing(signupValidator)
+    const registrationLimiter = limiter.use({
+      requests: env.get('RATE_LIMIT_OTP_REQUESTS'),
+      duration: env.get('RATE_LIMIT_AUTH_WINDOW_SECONDS'),
+      blockDuration: env.get('RATE_LIMIT_BLOCK_SECONDS'),
+    })
+    await registrationLimiter.consume(RateLimitKeyService.email('signup', email))
+
     const user = await User.create({ fullName, email, password })
     session.put(EMAIL_VERIFICATION_SESSION_KEY, user.id)
 

@@ -36,6 +36,18 @@ export default await Env.create(new URL('../', import.meta.url), {
   // Session
   SESSION_DRIVER: Env.schema.enum(['cookie', 'memory', 'database'] as const),
 
+  // Abuse protection
+  LIMITER_STORE: Env.schema.enum(['database', 'memory'] as const),
+  RATE_LIMIT_AUTH_REQUESTS: Env.schema.number(),
+  RATE_LIMIT_LOGIN_FAILURES: Env.schema.number(),
+  RATE_LIMIT_OTP_REQUESTS: Env.schema.number(),
+  RATE_LIMIT_SEARCH_REQUESTS: Env.schema.number(),
+  RATE_LIMIT_CHECK_NOW_REQUESTS: Env.schema.number(),
+  RATE_LIMIT_AUTH_WINDOW_SECONDS: Env.schema.number(),
+  RATE_LIMIT_SEARCH_WINDOW_SECONDS: Env.schema.number(),
+  RATE_LIMIT_CHECK_NOW_WINDOW_SECONDS: Env.schema.number(),
+  RATE_LIMIT_BLOCK_SECONDS: Env.schema.number(),
+
   /*
   |----------------------------------------------------------
   | Variables for configuring the mail package
@@ -76,6 +88,14 @@ export default await Env.create(new URL('../', import.meta.url), {
   ALERT_MIN_CHECK_INTERVAL_MINUTES: Env.schema.number.optional(),
   ALERT_MAX_CHECK_INTERVAL_MINUTES: Env.schema.number.optional(),
   ALERT_WORKER_TICK_SECONDS: Env.schema.number.optional(),
+  PRICE_WATCH_MAX_PER_USER: Env.schema.number(),
+  ALERT_DAILY_MAX_MESSAGES_PER_USER: Env.schema.number(),
+  ALERT_WATCH_LOCK_TIMEOUT_SECONDS: Env.schema.number(),
+  ALERT_OUTBOX_BATCH_SIZE: Env.schema.number(),
+  ALERT_OUTBOX_MAX_ATTEMPTS: Env.schema.number(),
+  ALERT_OUTBOX_RETRY_BASE_SECONDS: Env.schema.number(),
+  ALERT_OUTBOX_RETRY_MAX_SECONDS: Env.schema.number(),
+  ALERT_OUTBOX_LOCK_TIMEOUT_SECONDS: Env.schema.number(),
   PRICE_HISTORY_DISPLAY_LIMIT: Env.schema.number.optional(),
   MAIL_ENABLED: Env.schema.boolean.optional(),
   EMAIL_VERIFICATION_CODE_LENGTH: Env.schema.number.optional(),

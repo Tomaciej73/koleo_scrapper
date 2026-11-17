@@ -3,10 +3,12 @@ import { EMAIL_VERIFICATION_SESSION_KEY } from '#services/email_verification_ser
 import testUtils from '@adonisjs/core/services/test_utils'
 import mail from '@adonisjs/mail/services/main'
 import { test } from '@japa/runner'
+import limiter from '@adonisjs/limiter/services/main'
 
 test.group('Account verification', (group) => {
   group.setup(() => testUtils.db().migrate())
   group.each.setup(() => testUtils.db().truncate())
+  group.each.setup(() => limiter.clear(['memory']))
   group.each.setup(() => {
     mail.fake()
     return () => mail.restore()
@@ -79,5 +81,44 @@ test.group('Account verification', (group) => {
     const names = response.body().stations.map((station: { name: string }) => station.name)
     assert.include(names, 'Wrocław Główny')
     assert.include(names, 'Wrocław Mikołajów')
+  })
+
+  test('rate limits expensive station searches per IP and user', async ({ client }) => {
+    const user = await User.create({
+      fullName: 'Tester limitów',
+      email: 'limits@example.test',
+      password: 'Qa-Test-2026!',
+    })
+
+    for (let attempt = 0; attempt < 30; attempt += 1) {
+      const response = await client.get('/stations/search?q=WROCLAW').loginAs(user)
+      response.assertStatus(200)
+    }
+
+    const blocked = await client.get('/stations/search?q=WROCLAW').loginAs(user)
+    blocked.assertStatus(429)
+    blocked.assertHeader('retry-after')
+  })
+
+  test('rate limits failed logins by IP and normalized email', async ({ client }) => {
+    await User.create({
+      fullName: 'Konto logowania',
+      email: 'login-limits@example.test',
+      password: 'Qa-Test-2026!',
+    })
+
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      await client.post('/login').redirects(0).withCsrfToken().form({
+        email: 'LOGIN-LIMITS@example.test',
+        password: 'nieprawidłowe-hasło',
+      })
+    }
+
+    const blocked = await client.post('/login').redirects(0).withCsrfToken().form({
+      email: 'login-limits@example.test',
+      password: 'nieprawidłowe-hasło',
+    })
+    blocked.assertStatus(429)
+    blocked.assertHeader('retry-after')
   })
 })

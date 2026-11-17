@@ -72,6 +72,11 @@ Obserwacja automatycznie kończy się w chwili odjazdu pociągu. Przycisk
 „Sprawdź teraz” pomija harmonogram i od razu sprawdza wszystkie aktywne
 obserwacje użytkownika.
 
+Każda kontrola najpierw atomowo przejmuje obserwację na czas określony przez
+`ALERT_WATCH_LOCK_TIMEOUT_SECONDS`. Brak dokładnego dopasowania zapisanego UUID
+ustawia status `connection_missing`; pierwszy wynik wyszukiwania nigdy nie jest
+używany zastępczo.
+
 ### Zasada ceny docelowej
 
 - bez ceny docelowej alert jest wysyłany dla każdej nowej, niższej ceny,
@@ -124,8 +129,16 @@ Set-Location -LiteralPath 'M:\GIT\koleo_scrapper\web'
 npm run mail:test -- odbiorca@example.com
 ```
 
-SMS i WhatsApp mają wspólny interfejs w warstwie powiadomień, ale nie wysyłają
-wiadomości do czasu wyboru i skonfigurowania dostawcy.
+Alert cenowy jest zawsze wysyłany na aktualny, potwierdzony adres e-mail
+właściciela konta. Formularz nie przyjmuje dowolnego adresu odbiorcy. Kanały
+SMS i WhatsApp pozostają wyłączone do czasu dodania osobnej weryfikacji numeru.
+
+Wiadomości cenowe trafiają najpierw do tabeli `alert_outbox`. Każdy alert ma
+unikalny identyfikator i stabilny nagłówek `Message-ID`. Wysyłka jest atomowo
+przejmowana przez jednego workera, a błędy SMTP są ponawiane z wykładniczym
+backoffem. Liczbę prób, opóźnienia, czas wygaśnięcia blokady i rozmiar partii
+ustawiają `ALERT_OUTBOX_*`. `ALERT_DAILY_MAX_MESSAGES_PER_USER` ogranicza liczbę
+alertów użytkownika na dobę, a `PRICE_WATCH_MAX_PER_USER` liczbę obserwacji.
 
 Nowe konto pozostaje nieaktywne do czasu wpisania kodu z wiadomości e-mail.
 Długość kodu, ważność, limit prób i czas przed ponowną wysyłką określają
@@ -144,6 +157,20 @@ Formularz przyjmuje wyłącznie stacje wybrane z podpowiedzi i przesyła ich ID.
 Backend ponownie sprawdza parę ID/nazwa, rzeczywistą datę kalendarzową,
 godzinę, różne stacje oraz zakres sprzedaży określony przez
 `TICKET_SALES_MAX_ADVANCE_DAYS`.
+
+## Ochrona przed nadużyciami
+
+Rejestracja, logowanie, weryfikacja i ponowne wysłanie kodu, wyszukiwanie stacji
+i połączeń oraz „Sprawdź teraz” korzystają z `@adonisjs/limiter`. Limity są
+liczone niezależnie dla IP oraz e-maila, konta lub zalogowanego użytkownika.
+Adresy e-mail w kluczach limitera są haszowane. Produkcja używa trwałej tabeli
+`rate_limits`, natomiast testy używają pamięci.
+
+Wartości konfiguruje się bez zmian w kodzie przez `LIMITER_STORE`,
+`RATE_LIMIT_*`, `PRICE_WATCH_MAX_PER_USER`,
+`ALERT_DAILY_MAX_MESSAGES_PER_USER`, `ALERT_WATCH_LOCK_TIMEOUT_SECONDS` oraz
+`ALERT_OUTBOX_*`. Przekroczenie limitu HTTP zwraca `429 Too Many Requests` z
+nagłówkiem `Retry-After`.
 
 ## Docker Compose
 

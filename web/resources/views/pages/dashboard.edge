@@ -424,23 +424,9 @@
                             required
                           />
                         </label>
-                        <label>
-                          <span>Kanał powiadomienia</span>
-                          <select name="notificationChannel">
-                            <option value="email">E-mail</option>
-                            <option value="sms">SMS — provider później</option>
-                            <option value="whatsapp">WhatsApp — provider później</option>
-                          </select>
-                        </label>
-                        <label>
-                          <span>Adres e-mail lub numer</span>
-                          <input
-                            type="text"
-                            name="notificationDestination"
-                            value="{{ auth.user.email }}"
-                            required
-                          />
-                        </label>
+                        <p class="field__hint">
+                          Alert zostanie wysłany na potwierdzony adres e-mail przypisany do Twojego konta.
+                        </p>
                         <button
                           type="submit"
                           class="btn btn--primary btn--block"

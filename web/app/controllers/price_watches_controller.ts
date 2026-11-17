@@ -1,5 +1,6 @@
 import PriceObservation from '#models/price_observation'
 import PriceWatch from '#models/price_watch'
+import User from '#models/user'
 import PriceAlertService from '#services/price_alert_service'
 import JourneyValidationService, {
   JourneyValidationError,
@@ -12,6 +13,7 @@ import {
   priceWatchValidator,
 } from '#validators/connections'
 import type { HttpContext } from '@adonisjs/core/http'
+import db from '@adonisjs/lucid/services/db'
 import { DateTime } from 'luxon'
 
 export default class PriceWatchesController {
@@ -130,14 +132,6 @@ export default class PriceWatchesController {
       return response.redirect().back()
     }
 
-    const existing = await PriceWatch.query()
-      .where('userId', auth.user!.id)
-      .where('origin', payload.origin)
-      .where('destination', payload.destination)
-      .where('travelDate', travelDate.toISODate()!)
-      .where('departureTime', payload.departureTime)
-      .first()
-
     const attributes = {
       originStationId: payload.originStationId,
       destinationStationId: payload.destinationStationId,
@@ -149,8 +143,8 @@ export default class PriceWatchesController {
       lastPriceCents: payload.priceCents ?? null,
       lowestPriceCents: payload.priceCents ?? null,
       targetPriceCents: payload.targetPrice ? Math.round(payload.targetPrice * 100) : null,
-      notificationChannel: payload.notificationChannel,
-      notificationDestination: payload.notificationDestination,
+      notificationChannel: 'email',
+      notificationDestination: auth.user!.email,
       checkIntervalMinutes,
       nextCheckAt: DateTime.utc(),
       lastNotifiedAt: null,
@@ -160,31 +154,74 @@ export default class PriceWatchesController {
       status: 'active',
     }
 
-    let watch: PriceWatch
-    if (existing) {
-      existing.merge(attributes)
-      await existing.save()
-      watch = existing
-      session.flash('success', 'Zaktualizowano obserwację tego połączenia.')
-    } else {
-      watch = await PriceWatch.create({
-        userId: auth.user!.id,
-        origin: payload.origin,
-        destination: payload.destination,
-        travelDate,
-        departureTime: payload.departureTime,
-        ...attributes,
-      })
-      session.flash('success', 'Połączenie dodano do obserwowanych.')
+    const result = await db.transaction(async (trx) => {
+      await User.query({ client: trx }).where('id', auth.user!.id).forUpdate().firstOrFail()
+      const existing = await PriceWatch.query({ client: trx })
+        .where('userId', auth.user!.id)
+        .where('origin', payload.origin)
+        .where('destination', payload.destination)
+        .where('travelDate', travelDate.toISODate()!)
+        .where('departureTime', payload.departureTime)
+        .first()
+
+      if (!existing) {
+        const watchCount = await PriceWatch.query({ client: trx })
+          .where('userId', auth.user!.id)
+          .count('* as total')
+          .firstOrFail()
+          .then((row) => Number(row.$extras.total))
+        if (watchCount >= env.get('PRICE_WATCH_MAX_PER_USER')) {
+          return { watch: null, updated: false }
+        }
+      }
+
+      let watch: PriceWatch
+      if (existing) {
+        existing.merge(attributes)
+        await existing.save()
+        watch = existing
+      } else {
+        watch = await PriceWatch.create(
+          {
+            userId: auth.user!.id,
+            origin: payload.origin,
+            destination: payload.destination,
+            travelDate,
+            departureTime: payload.departureTime,
+            ...attributes,
+          },
+          { client: trx }
+        )
+      }
+
+      if (payload.priceCents !== undefined) {
+        await PriceObservation.create(
+          {
+            priceWatchId: watch.id,
+            priceCents: payload.priceCents,
+            observedAt: DateTime.utc(),
+          },
+          { client: trx }
+        )
+      }
+
+      return { watch, updated: Boolean(existing) }
+    })
+
+    if (!result.watch) {
+      session.flash(
+        'error',
+        `Osiągnięto limit ${env.get('PRICE_WATCH_MAX_PER_USER')} obserwowanych połączeń.`
+      )
+      return response.redirect().back()
     }
 
-    if (payload.priceCents !== undefined) {
-      await PriceObservation.create({
-        priceWatchId: watch.id,
-        priceCents: payload.priceCents,
-        observedAt: DateTime.utc(),
-      })
-    }
+    session.flash(
+      'success',
+      result.updated
+        ? 'Zaktualizowano obserwację tego połączenia.'
+        : 'Połączenie dodano do obserwowanych.'
+    )
 
     return response.redirect().toRoute('price_watches.index')
   }
@@ -233,8 +270,13 @@ export default class PriceWatchesController {
       .where('userId', auth.user!.id)
       .firstOrFail()
 
-    if (watch.status === 'expired') {
-      session.flash('error', 'Nie można wznowić obserwacji po odjeździe pociągu.')
+    if (!['active', 'paused'].includes(watch.status)) {
+      session.flash(
+        'error',
+        watch.status === 'connection_missing'
+          ? 'Nie można wznowić obserwacji bez dokładnie dopasowanego połączenia. Dodaj ją ponownie.'
+          : 'Nie można wznowić obserwacji po odjeździe pociągu.'
+      )
       return response.redirect().toRoute('price_watches.index')
     }
 

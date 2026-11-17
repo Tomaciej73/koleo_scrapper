@@ -68,7 +68,9 @@
                     ? 'Aktywne'
                     : watch.status === 'paused'
                       ? 'Wstrzymane'
-                      : 'Zakończone'
+                      : watch.status === 'connection_missing'
+                        ? 'Brak połączenia'
+                        : 'Zakończone'
                 }}
               </span>
               <span>{{ watch.travelDate.toFormat('dd.LL.yyyy') }}</span>
@@ -226,7 +228,7 @@
                 </span>
               </div>
               <div class="watch-card__status-actions">
-                @if(watch.status !== 'expired')
+                @if(['active', 'paused'].includes(watch.status))
                   @form({
                     route: 'price_watches.status',
                     routeParams: { id: watch.id },
