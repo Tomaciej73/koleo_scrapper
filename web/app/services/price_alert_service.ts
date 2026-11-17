@@ -130,6 +130,12 @@ export default class PriceAlertService {
           watch.lastErrorMessage = 'Cena tego połączenia jest obecnie niedostępna.'
           watch.lastErrorAt = now
           await watch.save()
+          this.logWatchWarning(
+            watch,
+            'price_unavailable',
+            watch.lastErrorMessage,
+            'Nie udało się odczytać ceny obserwowanego połączenia'
+          )
           await new MetricsService().increment('worker_watch_errors_total')
           continue
         }
@@ -180,6 +186,12 @@ export default class PriceAlertService {
             watch.lastErrorMessage = `Osiągnięto dzienny limit ${env.get('ALERT_DAILY_MAX_MESSAGES_PER_USER')} alertów.`
             watch.lastErrorAt = now
             await watch.save()
+            this.logWatchWarning(
+              watch,
+              'daily_alert_limit',
+              watch.lastErrorMessage,
+              'Alert cenowy nie został dodany do kolejki'
+            )
             await new MetricsService().increment('worker_watch_errors_total')
           }
         }
@@ -189,7 +201,7 @@ export default class PriceAlertService {
         watch.lastErrorAt = now
         await watch.save()
         logger.error(
-          { err: error, watchId: watch.id },
+          { err: error, event: 'watch_check_failed', ...this.watchLogContext(watch) },
           'Sprawdzenie obserwowanej ceny nie powiodło się'
         )
         await new MetricsService().increment('worker_watch_errors_total')
@@ -248,7 +260,29 @@ export default class PriceAlertService {
     watch.lastErrorMessage = message
     watch.lastErrorAt = now
     await watch.save()
+    this.logWatchWarning(
+      watch,
+      'connection_missing',
+      message,
+      'Obserwowane połączenie nie jest już dostępne'
+    )
     await new MetricsService().increment('worker_watch_errors_total')
+  }
+
+  private logWatchWarning(watch: PriceWatch, event: string, reason: string, logMessage: string) {
+    logger.warn({ event, reason, ...this.watchLogContext(watch) }, logMessage)
+  }
+
+  private watchLogContext(watch: PriceWatch) {
+    return {
+      watchId: watch.id,
+      status: watch.status,
+      originStationId: watch.originStationId,
+      destinationStationId: watch.destinationStationId,
+      travelDate: watch.travelDate.toISODate(),
+      departureTime: watch.departureTime,
+      connectionUuid: watch.connectionUuid,
+    }
   }
 
   private checkIntervalFor(watch: PriceWatch) {

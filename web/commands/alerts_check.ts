@@ -15,8 +15,11 @@ export default class AlertsCheck extends BaseCommand {
     }
 
     const summary = await new PriceAlertService().checkAllActive()
-    this.logger.info(
-      `Sprawdzono: ${summary.checked}, spadki: ${summary.priceDrops}, wysłano: ${summary.delivered}, błędy: ${summary.errors}`
-    )
+    const message = `Sprawdzono: ${summary.checked}, spadki: ${summary.priceDrops}, wysłano: ${summary.delivered}, błędy: ${summary.errors}`
+    if (summary.errors > 0) {
+      this.logger.warning(message)
+    } else {
+      this.logger.info(message)
+    }
   }
 }

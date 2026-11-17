@@ -52,13 +52,20 @@ export default class AlertsWorker extends BaseCommand {
       if (env.get('ALERTS_ENABLED') ?? false) {
         await new PriceObservationRetentionService().pruneExpired()
         const summary = await new PriceAlertService().checkAllActive()
-        this.logger.info(
-          `Sprawdzono: ${summary.checked}, spadki: ${summary.priceDrops}, alerty wysłane: ${summary.delivered}, resety hasła wysłane: ${resetDelivery.delivered}, błędy: ${summary.errors + resetDelivery.errors}`
-        )
+        const errors = summary.errors + resetDelivery.errors
+        const message = `Sprawdzono: ${summary.checked}, spadki: ${summary.priceDrops}, alerty wysłane: ${summary.delivered}, resety hasła wysłane: ${resetDelivery.delivered}, błędy: ${errors}`
+        if (errors > 0) {
+          this.logger.warning(message)
+        } else {
+          this.logger.info(message)
+        }
       } else {
-        this.logger.info(
-          `Resety hasła wysłane: ${resetDelivery.delivered}, błędy: ${resetDelivery.errors}`
-        )
+        const message = `Resety hasła wysłane: ${resetDelivery.delivered}, błędy: ${resetDelivery.errors}`
+        if (resetDelivery.errors > 0) {
+          this.logger.warning(message)
+        } else {
+          this.logger.info(message)
+        }
       }
     } catch (error) {
       await metrics.increment('worker_errors_total')
