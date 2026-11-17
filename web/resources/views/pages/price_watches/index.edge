@@ -250,10 +250,10 @@
                         width: 14,
                         height: 14,
                       })
-                      <span x-show="!submitting">
+                      <span x-bind:hidden="submitting">
                         {{ watch.status === 'active' ? 'Wstrzymaj' : 'Wznów' }}
                       </span>
-                      <span x-show="submitting" x-cloak>Zapisuję…</span>
+                      <span x-bind:hidden="!submitting" hidden x-cloak>Zapisuję…</span>
                     </button>
                   @end
                 @end

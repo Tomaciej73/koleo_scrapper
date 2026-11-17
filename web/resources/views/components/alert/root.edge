@@ -9,7 +9,8 @@
       role: 'alert',
       class: classes,
       'x-data': 'alert',
-      'x-show': 'isVisible',
+      'x-bind:hidden': '!isVisible',
+      hidden: true,
       'x-cloak': true,
     })
     .toAttrs()

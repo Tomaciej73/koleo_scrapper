@@ -40,6 +40,60 @@ export default class NotificationService {
     return { delivered: true }
   }
 
+  async sendPasswordReset(
+    recipient: string,
+    resetUrl: string,
+    validForMinutes: number
+  ): Promise<NotificationResult> {
+    if (!(env.get('MAIL_ENABLED') ?? false)) {
+      return { delivered: false, reason: 'Powiadomienia e-mail są wyłączone.' }
+    }
+
+    await this.sendMail(() =>
+      mail.send((message) => {
+        message
+          .to(recipient)
+          .subject('Reset hasła — Koleo Watch')
+          .text(
+            [
+              'Otrzymaliśmy prośbę o zmianę hasła w Koleo Watch.',
+              '',
+              `Ustaw nowe hasło: ${resetUrl}`,
+              `Link jest jednorazowy i ważny przez ${validForMinutes} min.`,
+              '',
+              'Jeśli to nie Ty wysłałeś prośbę, zignoruj tę wiadomość.',
+            ].join('\n')
+          )
+      })
+    )
+
+    return { delivered: true }
+  }
+
+  async sendPasswordChanged(recipient: string): Promise<NotificationResult> {
+    if (!(env.get('MAIL_ENABLED') ?? false)) {
+      return { delivered: false, reason: 'Powiadomienia e-mail są wyłączone.' }
+    }
+
+    await this.sendMail(() =>
+      mail.send((message) => {
+        message
+          .to(recipient)
+          .subject('Hasło zostało zmienione — Koleo Watch')
+          .text(
+            [
+              'Hasło do Twojego konta Koleo Watch zostało zmienione.',
+              '',
+              'Wszystkie wcześniejsze sesje zostały unieważnione.',
+              'Jeśli to nie Ty zmieniłeś hasło, skontaktuj się z administratorem.',
+            ].join('\n')
+          )
+      })
+    )
+
+    return { delivered: true }
+  }
+
   buildPriceDrop(watch: PriceWatch, previousPriceCents: number, currentPriceCents: number) {
     const previous = this.formatPrice(previousPriceCents)
     const current = this.formatPrice(currentPriceCents)

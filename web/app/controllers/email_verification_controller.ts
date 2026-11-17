@@ -7,6 +7,7 @@ import { emailVerificationValidator } from '#validators/user'
 import env from '#start/env'
 import type { HttpContext } from '@adonisjs/core/http'
 import { DateTime } from 'luxon'
+import { AUTH_VERSION_SESSION_KEY } from '#services/auth_session_service'
 
 export default class EmailVerificationController {
   async create({ session, response, view }: HttpContext) {
@@ -48,6 +49,7 @@ export default class EmailVerificationController {
     if (result === 'verified') {
       session.forget(EMAIL_VERIFICATION_SESSION_KEY)
       await auth.use('web').login(user)
+      session.put(AUTH_VERSION_SESSION_KEY, user.authVersion)
       session.flash('success', 'Adres e-mail został potwierdzony. Konto jest aktywne.')
       return response.redirect().toRoute('dashboard')
     }

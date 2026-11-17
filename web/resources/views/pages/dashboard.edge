@@ -80,7 +80,7 @@
               value="{{ search && search.originStationId ? search.originStationId : '' }}"
               data-station-id
             />
-            <span class="station-autocomplete__spinner" x-show="loading" x-cloak>
+            <span class="station-autocomplete__spinner" x-bind:hidden="!loading" hidden x-cloak>
               @svg('lucide:loader-circle', { width: 16, height: 16 })
             </span>
           </div>
@@ -88,7 +88,8 @@
             id="origin-stations-list"
             class="station-suggestions"
             role="listbox"
-            x-show="open"
+            x-bind:hidden="!open"
+            hidden
             x-transition.opacity.duration.120ms
             x-cloak
           >
@@ -109,7 +110,8 @@
             </template>
             <div
               class="station-suggestions__empty"
-              x-show="searched && !loading && !stations.length"
+              x-bind:hidden="!(searched && !loading && !stations.length)"
+              hidden
               aria-live="polite"
             >
               <span x-text="errorMessage || 'Nie znaleziono pasującej stacji'"></span>
@@ -170,7 +172,7 @@
               value="{{ search && search.destinationStationId ? search.destinationStationId : '' }}"
               data-station-id
             />
-            <span class="station-autocomplete__spinner" x-show="loading" x-cloak>
+            <span class="station-autocomplete__spinner" x-bind:hidden="!loading" hidden x-cloak>
               @svg('lucide:loader-circle', { width: 16, height: 16 })
             </span>
           </div>
@@ -178,7 +180,8 @@
             id="destination-stations-list"
             class="station-suggestions"
             role="listbox"
-            x-show="open"
+            x-bind:hidden="!open"
+            hidden
             x-transition.opacity.duration.120ms
             x-cloak
           >
@@ -199,7 +202,8 @@
             </template>
             <div
               class="station-suggestions__empty"
-              x-show="searched && !loading && !stations.length"
+              x-bind:hidden="!(searched && !loading && !stations.length)"
+              hidden
               aria-live="polite"
             >
               <span x-text="errorMessage || 'Nie znaleziono pasującej stacji'"></span>

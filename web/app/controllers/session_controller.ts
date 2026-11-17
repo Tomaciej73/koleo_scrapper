@@ -5,6 +5,7 @@ import type { HttpContext } from '@adonisjs/core/http'
 import RateLimitKeyService from '#services/rate_limit_key_service'
 import env from '#start/env'
 import limiter from '@adonisjs/limiter/services/main'
+import { AUTH_VERSION_SESSION_KEY } from '#services/auth_session_service'
 
 /**
  * SessionController handles user authentication and session management.
@@ -52,14 +53,16 @@ export default class SessionController {
     }
 
     await auth.use('web').login(user)
+    session.put(AUTH_VERSION_SESSION_KEY, user.authVersion)
     return response.redirect().toRoute('dashboard')
   }
 
   /**
    * Log out the current user and destroy their session
    */
-  async destroy({ auth, response }: HttpContext) {
+  async destroy({ auth, response, session }: HttpContext) {
     await auth.use('web').logout()
+    session.forget(AUTH_VERSION_SESSION_KEY)
     return response.redirect().toRoute('session.create')
   }
 }

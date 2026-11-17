@@ -93,3 +93,15 @@ export const checkNowUserThrottle = byUser(
   checkNowWindow,
   blockSeconds
 )
+export const passwordResetIpThrottle = byIp(
+  'password_reset_ip',
+  env.get('RATE_LIMIT_PASSWORD_RESET_REQUESTS'),
+  authWindow,
+  blockSeconds
+)
+export const cspReportIpThrottle = byIp(
+  'csp_report_ip',
+  env.get('RATE_LIMIT_CSP_REPORT_REQUESTS'),
+  searchWindow,
+  blockSeconds
+)

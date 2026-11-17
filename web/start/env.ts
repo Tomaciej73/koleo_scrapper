@@ -22,6 +22,7 @@ export default await Env.create(new URL('../', import.meta.url), {
   // App
   APP_KEY: Env.schema.secret(),
   APP_URL: Env.schema.string({ format: 'url', tld: false }),
+  TRUSTED_PROXIES: Env.schema.string(),
   DB_CONNECTION: Env.schema.enum(['sqlite', 'pg'] as const),
   DB_DATABASE: Env.schema.string(),
   DB_DEBUG: Env.schema.boolean.optional(),
@@ -43,10 +44,28 @@ export default await Env.create(new URL('../', import.meta.url), {
   RATE_LIMIT_OTP_REQUESTS: Env.schema.number(),
   RATE_LIMIT_SEARCH_REQUESTS: Env.schema.number(),
   RATE_LIMIT_CHECK_NOW_REQUESTS: Env.schema.number(),
+  RATE_LIMIT_PASSWORD_RESET_REQUESTS: Env.schema.number(),
+  RATE_LIMIT_CSP_REPORT_REQUESTS: Env.schema.number(),
   RATE_LIMIT_AUTH_WINDOW_SECONDS: Env.schema.number(),
   RATE_LIMIT_SEARCH_WINDOW_SECONDS: Env.schema.number(),
   RATE_LIMIT_CHECK_NOW_WINDOW_SECONDS: Env.schema.number(),
   RATE_LIMIT_BLOCK_SECONDS: Env.schema.number(),
+
+  // Browser security headers
+  CSP_ENABLED: Env.schema.boolean(),
+  CSP_REPORT_ONLY: Env.schema.boolean(),
+  CSP_DEFAULT_SRC: Env.schema.string(),
+  CSP_SCRIPT_SRC: Env.schema.string(),
+  CSP_STYLE_SRC: Env.schema.string(),
+  CSP_IMG_SRC: Env.schema.string(),
+  CSP_FONT_SRC: Env.schema.string(),
+  CSP_CONNECT_SRC: Env.schema.string(),
+  CSP_OBJECT_SRC: Env.schema.string(),
+  CSP_BASE_URI: Env.schema.string(),
+  CSP_FORM_ACTION: Env.schema.string(),
+  CSP_FRAME_ANCESTORS: Env.schema.string(),
+  CSP_REPORT_URI: Env.schema.string(),
+  CSP_UPGRADE_INSECURE_REQUESTS: Env.schema.boolean(),
 
   /*
   |----------------------------------------------------------
@@ -102,6 +121,10 @@ export default await Env.create(new URL('../', import.meta.url), {
   EMAIL_VERIFICATION_CODE_TTL_MINUTES: Env.schema.number.optional(),
   EMAIL_VERIFICATION_MAX_ATTEMPTS: Env.schema.number.optional(),
   EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS: Env.schema.number.optional(),
+  PASSWORD_MIN_LENGTH: Env.schema.number(),
+  PASSWORD_MAX_LENGTH: Env.schema.number(),
+  PASSWORD_RESET_TOKEN_TTL_MINUTES: Env.schema.number(),
+  PASSWORD_RESET_MIN_RESPONSE_MS: Env.schema.number(),
   TICKET_SALES_MAX_ADVANCE_DAYS: Env.schema.number(),
 
   // HTTP and observability

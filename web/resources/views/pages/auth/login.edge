@@ -5,8 +5,8 @@
     route: 'session.store',
     method: 'POST',
     class: 'auth__form',
-    'x-data': '{ submitting: false }',
-    'x-on:submit': 'submitting = true',
+    'x-data': 'submittingForm',
+    'x-on:submit': 'handleSubmit($event)',
   })
     @field.root({ name: 'email' })
       @!field.label({ text: 'Email' })
@@ -30,11 +30,17 @@
       text: 'Zaloguj się',
       type: 'submit',
       block: true,
-      style: 'margin-top: 4px;',
+      class: 'auth__submit',
       'x-bind:disabled': 'submitting',
       'x-text': "submitting ? 'Logowanie…' : 'Zaloguj się'",
     })
   @end
+
+  <p class="auth__foot auth__foot--compact">
+    @link({ route: 'password_reset.create', class: 'il' })
+      Nie pamiętasz hasła?
+    @end
+  </p>
 
   <p class="auth__foot">
     Nie masz konta?

@@ -1,4 +1,7 @@
 import { defineConfig } from '@adonisjs/shield'
+import env from '#start/env'
+
+const sources = (value: string) => value.split(/\s+/).filter(Boolean)
 
 /**
  * Security configuration using Shield.
@@ -15,19 +18,34 @@ const shieldConfig = defineConfig({
      * Enable Content Security Policy headers.
      * CSP helps prevent XSS attacks by controlling which resources can be loaded.
      */
-    enabled: false,
+    enabled: env.get('CSP_ENABLED'),
 
     /**
      * CSP directives define the allowed sources for different resource types.
      * Example: { defaultSrc: ["'self'"], scriptSrc: ["'self'", "'unsafe-inline'"] }
      */
-    directives: {},
+    directives: {
+      defaultSrc: sources(env.get('CSP_DEFAULT_SRC')),
+      scriptSrc: sources(env.get('CSP_SCRIPT_SRC')),
+      scriptSrcAttr: ["'none'"],
+      styleSrc: sources(env.get('CSP_STYLE_SRC')),
+      styleSrcAttr: ["'none'"],
+      imgSrc: sources(env.get('CSP_IMG_SRC')),
+      fontSrc: sources(env.get('CSP_FONT_SRC')),
+      connectSrc: sources(env.get('CSP_CONNECT_SRC')),
+      objectSrc: sources(env.get('CSP_OBJECT_SRC')),
+      baseUri: sources(env.get('CSP_BASE_URI')),
+      formAction: sources(env.get('CSP_FORM_ACTION')),
+      frameAncestors: sources(env.get('CSP_FRAME_ANCESTORS')),
+      reportUri: [env.get('CSP_REPORT_URI')],
+      ...(env.get('CSP_UPGRADE_INSECURE_REQUESTS') ? { upgradeInsecureRequests: [] } : {}),
+    },
 
     /**
      * When true, CSP violations are reported but not enforced.
      * Useful for testing CSP policies before enforcing them.
      */
-    reportOnly: false,
+    reportOnly: env.get('CSP_REPORT_ONLY'),
   },
 
   /**
@@ -45,7 +63,7 @@ const shieldConfig = defineConfig({
      * Routes that should be excluded from CSRF protection.
      * Useful for webhooks or API endpoints that use other auth methods.
      */
-    exceptRoutes: [],
+    exceptRoutes: [env.get('CSP_REPORT_URI')],
 
     /**
      * Enable XSRF-TOKEN cookie for JavaScript frameworks.

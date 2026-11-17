@@ -42,7 +42,7 @@
       text: 'Aktywuj konto',
       type: 'submit',
       block: true,
-      style: 'margin-top: 4px;',
+      class: 'auth__submit',
       'x-bind:disabled': 'submitting',
       'x-text': "submitting ? 'Sprawdzam…' : 'Aktywuj konto'",
     })
@@ -61,7 +61,7 @@
         type="submit"
         class="link-button"
         x-bind:disabled="seconds > 0 || submitting"
-        x-text="submitting ? 'Wysyłam…' : (seconds > 0 ? `Wyślij ponownie za ${seconds} s` : 'Wyślij nowy kod')"
+        x-text="buttonLabel"
       >
         Wyślij nowy kod
       </button>

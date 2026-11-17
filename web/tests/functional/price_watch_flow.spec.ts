@@ -32,42 +32,56 @@ test.group('Price watch flow', (group) => {
       password: 'Qa-Test-2026!',
     })
 
-    const dashboard = await client.get('/dashboard').loginAs(user)
+    const dashboard = await client
+      .get('/dashboard')
+      .withSession({ authVersion: user.authVersion })
+      .loginAs(user)
     dashboard.assertStatus(200)
     dashboard.assertTextIncludes('Dokąd jedziesz?')
     dashboard.assertTextIncludes('Tryb demo')
 
-    const search = await client.post('/search').loginAs(user).withCsrfToken().form({
-      origin: 'Wrocław Główny',
-      originStationId: '1',
-      destination: 'Olsztyn Główny',
-      destinationStationId: '4',
-      travelDate,
-      departureTime: '14:54',
-      onlyDirect: 'true',
-    })
+    const search = await client
+      .post('/search')
+      .withSession({ authVersion: user.authVersion })
+      .loginAs(user)
+      .withCsrfToken()
+      .form({
+        origin: 'Wrocław Główny',
+        originStationId: '1',
+        destination: 'Olsztyn Główny',
+        destinationStationId: '4',
+        travelDate,
+        departureTime: '14:54',
+        onlyDirect: 'true',
+      })
 
     search.assertStatus(200)
     search.assertTextIncludes('POŁĄCZENIE DEMO 100')
     search.assertTextIncludes('Obserwuj cenę')
 
-    const store = await client.post('/favorites').redirects(0).loginAs(user).withCsrfToken().form({
-      origin: 'Wrocław Główny',
-      originStationId: '1',
-      destination: 'Olsztyn Główny',
-      destinationStationId: '4',
-      travelDate,
-      departureTime: '14:54',
-      arrivalTime: '20:01',
-      arrivalDate: travelDate,
-      connectionUuid: 'demo-flow-1',
-      trainName: 'POŁĄCZENIE DEMO 100',
-      priceCents: '7900',
-      targetPrice: '65.00',
-      notificationChannel: 'sms',
-      notificationDestination: 'attacker@example.test',
-      checkIntervalMinutes: '30',
-    })
+    const store = await client
+      .post('/favorites')
+      .redirects(0)
+      .withSession({ authVersion: user.authVersion })
+      .loginAs(user)
+      .withCsrfToken()
+      .form({
+        origin: 'Wrocław Główny',
+        originStationId: '1',
+        destination: 'Olsztyn Główny',
+        destinationStationId: '4',
+        travelDate,
+        departureTime: '14:54',
+        arrivalTime: '20:01',
+        arrivalDate: travelDate,
+        connectionUuid: 'demo-flow-1',
+        trainName: 'POŁĄCZENIE DEMO 100',
+        priceCents: '7900',
+        targetPrice: '65.00',
+        notificationChannel: 'sms',
+        notificationDestination: 'attacker@example.test',
+        checkIntervalMinutes: '30',
+      })
 
     store.assertStatus(302)
     store.assertHeader('location', '/favorites')
@@ -90,7 +104,10 @@ test.group('Price watch flow', (group) => {
       1
     )
 
-    const favorites = await client.get('/favorites').loginAs(user)
+    const favorites = await client
+      .get('/favorites')
+      .withSession({ authVersion: user.authVersion })
+      .loginAs(user)
     favorites.assertStatus(200)
     favorites.assertTextIncludes('Obserwowane połączenia')
     favorites.assertTextIncludes('Wrocław Główny')
@@ -124,6 +141,7 @@ test.group('Price watch flow', (group) => {
     const response = await client
       .post('/favorites')
       .redirects(0)
+      .withSession({ authVersion: user.authVersion })
       .loginAs(user)
       .withCsrfToken()
       .form({
@@ -499,6 +517,7 @@ test.group('Price watch flow', (group) => {
     const settings = await client
       .post(`/favorites/${watch.id}/settings`)
       .redirects(0)
+      .withSession({ authVersion: user.authVersion })
       .loginAs(user)
       .withCsrfToken()
       .form({ targetPrice: '55.50', checkIntervalMinutes: '60' })
@@ -510,6 +529,7 @@ test.group('Price watch flow', (group) => {
     const pause = await client
       .post(`/favorites/${watch.id}/status`)
       .redirects(0)
+      .withSession({ authVersion: user.authVersion })
       .loginAs(user)
       .withCsrfToken()
       .form({ status: 'paused' })
@@ -521,6 +541,7 @@ test.group('Price watch flow', (group) => {
     const resume = await client
       .post(`/favorites/${watch.id}/status`)
       .redirects(0)
+      .withSession({ authVersion: user.authVersion })
       .loginAs(user)
       .withCsrfToken()
       .form({ status: 'active' })

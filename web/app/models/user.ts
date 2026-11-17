@@ -10,6 +10,9 @@ import { column } from '@adonisjs/lucid/orm'
  * through the withAuthFinder mixin.
  */
 export default class User extends compose(UserSchema, withAuthFinder(hash)) {
+  @column()
+  authVersion = 1
+
   @column({ serializeAs: null })
   declare emailVerificationCodeHash: string | null
 

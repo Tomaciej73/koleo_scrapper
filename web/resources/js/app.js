@@ -1,4 +1,4 @@
-import Alpine from 'alpinejs'
+import Alpine from '@alpinejs/csp'
 
 Alpine.data('alert', function () {
   return {
@@ -370,6 +370,13 @@ Alpine.data('resendCountdown', function () {
 
     destroy() {
       window.clearInterval(this.timer)
+    },
+
+    get buttonLabel() {
+      if (this.submitting) {
+        return 'Wysyłam…'
+      }
+      return this.seconds > 0 ? `Wyślij ponownie za ${this.seconds} s` : 'Wyślij nowy kod'
     },
   }
 })

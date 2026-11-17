@@ -5,8 +5,8 @@
     route: 'new_account.store',
     method: 'POST',
     class: 'auth__form',
-    'x-data': '{ submitting: false }',
-    'x-on:submit': 'submitting = true',
+    'x-data': 'submittingForm',
+    'x-on:submit': 'handleSubmit($event)',
   })
     @field.root({ name: 'fullName' })
       @!field.label({ text: 'Imię i nazwisko' })
@@ -29,6 +29,9 @@
         autocomplete: 'new-password',
         placeholder: '••••••••',
       })
+      <span class="field__hint">
+        Od {{ passwordMinLength }} do {{ passwordMaxLength }} znaków.
+      </span>
       @!field.error()
     @end
     @field.root({ name: 'passwordConfirmation' })
@@ -44,7 +47,7 @@
       text: 'Załóż konto',
       type: 'submit',
       block: true,
-      style: 'margin-top: 4px;',
+      class: 'auth__submit',
       'x-bind:disabled': 'submitting',
       'x-text': "submitting ? 'Tworzenie konta…' : 'Załóż konto'",
     })

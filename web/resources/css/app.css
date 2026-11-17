@@ -84,6 +84,10 @@ input {
   display: none !important;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 /* --- type helpers --- */
 .mono {
   font-family: var(--mono);
@@ -570,6 +574,15 @@ input {
   max-width: 344px;
   padding: 20px 0;
 }
+.auth__spacer {
+  height: 20px;
+}
+.auth__submit {
+  margin-top: 4px;
+}
+.auth__foot--compact {
+  margin-top: 12px;
+}
 .auth__form {
   display: flex;
   flex-direction: column;
@@ -1044,6 +1057,16 @@ input {
   border-radius: 9px;
   background: var(--accent);
   color: #fff;
+  width: 28px;
+  height: 28px;
+}
+
+.pc-status--muted {
+  color: var(--subtle);
+}
+
+.pc-status--error {
+  color: #c0392b;
 }
 
 .brand__name {

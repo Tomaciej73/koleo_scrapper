@@ -1,6 +1,21 @@
 import env from '#start/env'
 import app from '@adonisjs/core/services/app'
 import { defineConfig } from '@adonisjs/core/http'
+import proxyAddr from 'proxy-addr'
+
+const trustedProxies = env
+  .get('TRUSTED_PROXIES')
+  .split(',')
+  .map((address) => address.trim())
+  .filter(Boolean)
+
+if (!trustedProxies.length) {
+  throw new Error('TRUSTED_PROXIES musi zawierać co najmniej jeden adres lub zakres proxy.')
+}
+
+if (trustedProxies.some((address) => ['0.0.0.0/0', '::/0'].includes(address))) {
+  throw new Error('TRUSTED_PROXIES nie może ufać wszystkim adresom.')
+}
 
 /**
  * The app URL can be used in various places where you want to create absolute
@@ -13,6 +28,13 @@ export const appUrl = env.get('APP_URL')
  * The configuration settings used by the HTTP server
  */
 export const http = defineConfig({
+  /**
+   * Only the explicitly configured reverse proxies may supply X-Forwarded-*.
+   * The public Docker port is bound to loopback, so requests reach the app
+   * through Nginx instead of bypassing this trust boundary.
+   */
+  trustProxy: proxyAddr.compile(trustedProxies),
+
   /**
    * Generate a unique request ID for each incoming HTTP request.
    * Useful for request tracing and debugging in logs.

@@ -1,10 +1,12 @@
 import vine from '@vinejs/vine'
+import env from '#start/env'
 
 /**
  * Shared rules for email and password.
  */
 const email = () => vine.string().email().maxLength(254)
-const password = () => vine.string().minLength(8).maxLength(32)
+const password = () =>
+  vine.string().minLength(env.get('PASSWORD_MIN_LENGTH')).maxLength(env.get('PASSWORD_MAX_LENGTH'))
 
 /**
  * Validator to use when performing self-signup
@@ -30,4 +32,17 @@ export const emailVerificationValidator = vine.create({
     .string()
     .trim()
     .regex(/^\d{6,8}$/),
+})
+
+export const forgotPasswordValidator = vine.create({
+  email: email(),
+})
+
+export const passwordResetValidator = vine.create({
+  token: vine
+    .string()
+    .trim()
+    .regex(/^[a-f0-9]{64}$/i),
+  password: password(),
+  passwordConfirmation: password().sameAs('password'),
 })

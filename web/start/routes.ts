@@ -10,6 +10,7 @@
 import { middleware } from '#start/kernel'
 import { controllers } from '#generated/controllers'
 import router from '@adonisjs/core/services/router'
+import env from '#start/env'
 import {
   authIpThrottle,
   checkNowIpThrottle,
@@ -18,6 +19,8 @@ import {
   otpIpThrottle,
   searchIpThrottle,
   searchUserThrottle,
+  passwordResetIpThrottle,
+  cspReportIpThrottle,
 } from '#start/limiter'
 
 const SearchController = () => import('#controllers/search_controller')
@@ -26,10 +29,13 @@ const StationSearchController = () => import('#controllers/station_search_contro
 const EmailVerificationController = () => import('#controllers/email_verification_controller')
 const HealthController = () => import('#controllers/health_controller')
 const MetricsController = () => import('#controllers/metrics_controller')
+const PasswordResetController = () => import('#controllers/password_reset_controller')
+const CspReportsController = () => import('#controllers/csp_reports_controller')
 
 router.get('/health/live', [HealthController, 'live'])
 router.get('/health/ready', [HealthController, 'ready'])
 router.get('/metrics', [MetricsController, 'index'])
+router.post(env.get('CSP_REPORT_URI'), [CspReportsController, 'store']).use(cspReportIpThrottle)
 
 router.on('/').render('pages/home').as('home')
 
@@ -53,6 +59,16 @@ router
 
     router.get('login', [controllers.Session, 'create'])
     router.post('login', [controllers.Session, 'store']).use(authIpThrottle)
+    router.get('forgot-password', [PasswordResetController, 'create']).as('password_reset.create')
+    router
+      .post('forgot-password', [PasswordResetController, 'store'])
+      .as('password_reset.store')
+      .use(passwordResetIpThrottle)
+    router.get('reset-password/:token', [PasswordResetController, 'edit']).as('password_reset.edit')
+    router
+      .post('reset-password', [PasswordResetController, 'update'])
+      .as('password_reset.update')
+      .use(passwordResetIpThrottle)
   })
   .use(middleware.guest())
 

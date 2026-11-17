@@ -144,6 +144,13 @@ Nowe konto pozostaje nieaktywne do czasu wpisania kodu z wiadomości e-mail.
 Długość kodu, ważność, limit prób i czas przed ponowną wysyłką określają
 zmienne `EMAIL_VERIFICATION_*` w `.env`.
 
+Formularz „Nie pamiętasz hasła?” wysyła jednorazowy link. W bazie zapisywany
+jest wyłącznie skrót SHA-256 losowego tokenu, a jego ważność określa
+`PASSWORD_RESET_TOKEN_TTL_MINUTES`. Odpowiedź nie ujawnia, czy konto istnieje.
+Po zmianie hasła wszystkie wcześniejsze sesje są odrzucane przez numer
+`auth_version`. Minimalną i maksymalną długość hasła ustawiają
+`PASSWORD_MIN_LENGTH` oraz `PASSWORD_MAX_LENGTH`.
+
 ## Prawdziwe dane
 
 `PRICE_PROVIDER=koleo` przełącza wyszukiwanie na klienta z katalogu głównego.
@@ -172,6 +179,61 @@ Wartości konfiguruje się bez zmian w kodzie przez `LIMITER_STORE`,
 `ALERT_OUTBOX_*`. Przekroczenie limitu HTTP zwraca `429 Too Many Requests` z
 nagłówkiem `Retry-After`.
 
+## CSP i reverse proxy
+
+Shield wysyła politykę CSP konfigurowaną przez `CSP_*`. Pierwsze wdrożenie
+powinno mieć `CSP_ENABLED=true` i `CSP_REPORT_ONLY=true`. Naruszenia trafiają do
+`CSP_REPORT_URI` i są zapisywane w logach bez query stringów. Frontend używa
+`@alpinejs/csp`, nie wymaga `unsafe-eval` i nie zawiera stylów inline. Po
+przejrzeniu logów ustaw `CSP_REPORT_ONLY=false` i odtwórz kontenery.
+
+Adonis ufa nagłówkom `X-Forwarded-*` wyłącznie od adresów wymienionych w
+`TRUSTED_PROXIES`. Nie ustawiaj `0.0.0.0/0`, `::/0` ani trybu ufającego wszystkim.
+Compose wiąże port aplikacji z `PUBLISHED_HOST=127.0.0.1`, dlatego ruch z
+Internetu musi przejść przez Nginx.
+
+Minimalna konfiguracja Nginx (podmień nazwę hosta i ścieżki certyfikatów):
+
+```nginx
+server {
+    listen 80;
+    listen [::]:80;
+    server_name koleo.example.pl;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name koleo.example.pl;
+
+    ssl_certificate     /sciezka/do/fullchain.pem;
+    ssl_certificate_key /sciezka/do/privkey.pem;
+
+    client_max_body_size 128k;
+
+    location / {
+        proxy_pass http://127.0.0.1:3333;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Forwarded-Port $server_port;
+        proxy_redirect off;
+        proxy_connect_timeout 5s;
+        proxy_read_timeout 60s;
+        proxy_send_timeout 60s;
+    }
+}
+```
+
+W `web/.env` ustaw publiczny adres z HTTPS, np.
+`APP_URL=https://koleo.example.pl`. Jeżeli przed Nginx działa jeszcze CDN lub
+load balancer, najpierw skonfiguruj `set_real_ip_from` wyłącznie dla jego
+oficjalnych zakresów; nie kopiuj dowolnego nagłówka klienta jako prawdziwego IP.
+
 ## Docker Compose
 
 Obraz zawiera produkcyjny build aplikacji, ale nie zawiera `.env`. Compose
@@ -196,11 +258,12 @@ docker compose --env-file .env_conf ps
 ```
 
 Compose uruchamia jednorazową migrację, serwer WWW oraz osobny worker alertów.
-Aplikacja jest domyślnie dostępna na porcie `3333`. Port publiczny można zmienić
-bez edycji pliku Compose:
+Aplikacja jest domyślnie dostępna dla Nginx pod `127.0.0.1:3333`, a nie
+bezpośrednio z Internetu. Adres wiązania i port można zmienić bez edycji pliku
+Compose:
 
 ```powershell
-# Zmień PUBLISHED_PORT w .env_conf, a następnie:
+# Zmień PUBLISHED_HOST/PUBLISHED_PORT w .env_conf, a następnie:
 docker compose --env-file .env_conf up -d
 ```
 

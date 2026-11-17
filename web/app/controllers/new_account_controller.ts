@@ -18,7 +18,10 @@ export default class NewAccountController {
    * Display the signup page
    */
   async create({ view }: HttpContext) {
-    return view.render('pages/auth/signup')
+    return view.render('pages/auth/signup', {
+      passwordMinLength: env.get('PASSWORD_MIN_LENGTH'),
+      passwordMaxLength: env.get('PASSWORD_MAX_LENGTH'),
+    })
   }
 
   /**

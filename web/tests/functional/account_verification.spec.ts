@@ -75,7 +75,10 @@ test.group('Account verification', (group) => {
       password: 'Qa-Test-2026!',
     })
 
-    const response = await client.get('/stations/search?q=WROCLAW').loginAs(user)
+    const response = await client
+      .get('/stations/search?q=WROCLAW')
+      .withSession({ authVersion: user.authVersion })
+      .loginAs(user)
 
     response.assertStatus(200)
     const names = response.body().stations.map((station: { name: string }) => station.name)
@@ -91,11 +94,17 @@ test.group('Account verification', (group) => {
     })
 
     for (let attempt = 0; attempt < 30; attempt += 1) {
-      const response = await client.get('/stations/search?q=WROCLAW').loginAs(user)
+      const response = await client
+        .get('/stations/search?q=WROCLAW')
+        .withSession({ authVersion: user.authVersion })
+        .loginAs(user)
       response.assertStatus(200)
     }
 
-    const blocked = await client.get('/stations/search?q=WROCLAW').loginAs(user)
+    const blocked = await client
+      .get('/stations/search?q=WROCLAW')
+      .withSession({ authVersion: user.authVersion })
+      .loginAs(user)
     blocked.assertStatus(429)
     blocked.assertHeader('retry-after')
   })
