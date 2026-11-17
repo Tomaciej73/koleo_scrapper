@@ -14,7 +14,7 @@ export default class CspReportsController {
           disposition: this.safeText(report?.disposition),
         },
       },
-      'Content Security Policy violation'
+      'Naruszenie zasad Content Security Policy'
     )
 
     return response.noContent()
@@ -34,10 +34,14 @@ export default class CspReportsController {
 
     try {
       const url = new URL(text)
-      return `${url.origin}${url.pathname}`.slice(0, 500)
+      return this.redactResetToken(`${url.origin}${url.pathname}`).slice(0, 500)
     } catch {
-      return text.slice(0, 500)
+      return this.redactResetToken(text).slice(0, 500)
     }
+  }
+
+  private redactResetToken(value: string) {
+    return value.replace(/(\/reset-password\/)[a-f0-9]{64}(?=\/|$)/gi, '$1[ukryto]')
   }
 
   private safeText(value: unknown) {

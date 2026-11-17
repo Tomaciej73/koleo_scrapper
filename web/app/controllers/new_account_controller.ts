@@ -44,7 +44,7 @@ export default class NewAccountController {
       session.flash('success', 'Wysłaliśmy kod aktywacyjny na podany adres e-mail.')
       return response.redirect().toRoute('email_verification.create')
     } catch (error) {
-      logger.error({ err: error }, 'Email verification delivery failed')
+      logger.error({ err: error }, 'Nie udało się wysłać wiadomości weryfikującej adres e-mail')
       session.forget(EMAIL_VERIFICATION_SESSION_KEY)
       await user.delete()
       session.flash(

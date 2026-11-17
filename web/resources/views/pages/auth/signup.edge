@@ -14,11 +14,11 @@
       @!field.error()
     @end
     @field.root({ name: 'email' })
-      @!field.label({ text: 'Email' })
+      @!field.label({ text: 'Adres e-mail' })
       @!input.control({
         type: 'email',
         autocomplete: 'email',
-        placeholder: 'you@example.com',
+        placeholder: 'ty@example.com',
       })
       @!field.error()
     @end
@@ -29,9 +29,7 @@
         autocomplete: 'new-password',
         placeholder: '••••••••',
       })
-      <span class="field__hint">
-        Od {{ passwordMinLength }} do {{ passwordMaxLength }} znaków.
-      </span>
+      <span class="field__hint">Od {{ passwordMinLength }} do {{ passwordMaxLength }} znaków.</span>
       @!field.error()
     @end
     @field.root({ name: 'passwordConfirmation' })
@@ -54,7 +52,9 @@
   @end
 
   <p class="auth__foot">
+
     Masz już konto?
+
     @link({ route: 'session.create', class: 'il' })
       Zaloguj się
     @end

@@ -22,7 +22,7 @@ export default class PasswordResetController {
     try {
       await new PasswordResetService().request(email)
     } catch (error) {
-      logger.error({ err: error }, 'Password reset request delivery failed')
+      logger.error({ err: error }, 'Nie udało się zlecić wysyłki wiadomości resetującej hasło')
     }
 
     session.flash(
@@ -32,15 +32,8 @@ export default class PasswordResetController {
     return response.redirect().toRoute('password_reset.create')
   }
 
-  async edit({ params, view, response, session }: HttpContext) {
-    const token = String(params.token ?? '')
-    if (!(await new PasswordResetService().isActive(token))) {
-      session.flash('error', 'Link resetujący jest nieprawidłowy lub wygasł.')
-      return response.redirect().toRoute('password_reset.create')
-    }
-
+  async edit({ view }: HttpContext) {
     return view.render('pages/auth/reset_password', {
-      token,
       passwordMinLength: env.get('PASSWORD_MIN_LENGTH'),
       passwordMaxLength: env.get('PASSWORD_MAX_LENGTH'),
     })

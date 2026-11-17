@@ -64,9 +64,11 @@ kontrolują `ALERT_MIN_CHECK_INTERVAL_MINUTES` i
 `ALERT_MAX_CHECK_INTERVAL_MINUTES`. Proces workera trzeba uruchomić jako
 osobną usługę obok serwera WWW.
 
-Liczbę ostatnich pomiarów prezentowanych na wykresie ustawia
-`PRICE_HISTORY_DISPLAY_LIMIT`. Wszystkie pomiary pozostają zapisane w tabeli
-historii; parametr ogranicza jedynie zakres prezentowany w interfejsie.
+Liczbę ostatnich zmian ceny prezentowanych na wykresie ustawia
+`PRICE_HISTORY_DISPLAY_LIMIT`. Identyczna cena nie tworzy kolejnego wpisu.
+Worker usuwa wpisy starsze niż liczba dni określona przez
+`PRICE_HISTORY_RETENTION_DAYS`, dzięki czemu tabela historii nie rośnie bez
+ograniczenia.
 
 Obserwacja automatycznie kończy się w chwili odjazdu pociągu. Przycisk
 „Sprawdź teraz” pomija harmonogram i od razu sprawdza wszystkie aktywne
@@ -144,12 +146,39 @@ Nowe konto pozostaje nieaktywne do czasu wpisania kodu z wiadomości e-mail.
 Długość kodu, ważność, limit prób i czas przed ponowną wysyłką określają
 zmienne `EMAIL_VERIFICATION_*` w `.env`.
 
-Formularz „Nie pamiętasz hasła?” wysyła jednorazowy link. W bazie zapisywany
-jest wyłącznie skrót SHA-256 losowego tokenu, a jego ważność określa
-`PASSWORD_RESET_TOKEN_TTL_MINUTES`. Odpowiedź nie ujawnia, czy konto istnieje.
-Po zmianie hasła wszystkie wcześniejsze sesje są odrzucane przez numer
-`auth_version`. Minimalną i maksymalną długość hasła ustawiają
-`PASSWORD_MIN_LENGTH` oraz `PASSWORD_MAX_LENGTH`.
+Formularz „Nie pamiętasz hasła?” zleca wysłanie jednorazowego linku przez
+trwałą kolejkę `password_reset_deliveries`. Właściwy token jest przechowywany
+w bazie wyłącznie jako skrót SHA-256; kopia potrzebna workerowi do wysyłki jest
+krótkotrwale zaszyfrowana kluczem aplikacji i usuwana kaskadowo razem z
+tokenem. Token znajduje się po znaku `#` w linku, dlatego przeglądarka nie
+wysyła go do serwera i nie trafia on do logów dostępu. Jego ważność określa
+`PASSWORD_RESET_TOKEN_TTL_MINUTES`.
+
+Odpowiedź nie ujawnia, czy konto istnieje, nie czeka na SMTP i ma minimalny
+czas oraz losowy dodatek ustawiane przez `PASSWORD_RESET_MIN_RESPONSE_MS` i
+`PASSWORD_RESET_RESPONSE_JITTER_MS`. Worker używa tych samych ustawień prób,
+backoffu i blokady `ALERT_OUTBOX_*` co kolejka alertów. Po zmianie hasła
+wszystkie wcześniejsze sesje są odrzucane przez numer `auth_version`.
+Minimalną i maksymalną długość hasła ustawiają `PASSWORD_MIN_LENGTH` oraz
+`PASSWORD_MAX_LENGTH`.
+
+Adresy e-mail są przed walidacją i zapisem obcinane z białych znaków oraz
+zamieniane na małe litery. Baza dodatkowo wymusza unikalność wartości
+`LOWER(TRIM(email))`.
+
+## Audyt zależności
+
+Na 17 listopada 2026 r. `npm audit` zgłasza
+[`GHSA-fc5q-39xc-vjpf` / `CVE-2026-112366`](https://github.com/advisories/GHSA-fc5q-39xc-vjpf)
+w pośredniej zależności `picomatch`. Oficjalna baza GitHub oznacza wersje
+`<= 4.0.7` jako podatne i nie wskazuje jeszcze poprawionej wersji. Aplikacja
+nie przyjmuje od użytkownika wzorców glob
+i nie wywołuje bezpośrednio `picomatch`; pakiet jest wciągany przez narzędzia
+Adonis/Vite. Limity CPU/PID kontenera ograniczają skutki ewentualnego DoS, ale
+nie zastępują aktualizacji. Nie uruchamiaj `npm audit fix --force`, ponieważ
+proponuje niezgodne wersje głównych pakietów Adonisa. Po wydaniu poprawionej
+wersji należy zaktualizować lockfile i ponownie wykonać audyt oraz pełny zestaw
+testów.
 
 ## Prawdziwe dane
 

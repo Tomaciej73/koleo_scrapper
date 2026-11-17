@@ -134,7 +134,8 @@ export default class PriceAlertService {
           continue
         }
 
-        const previousPrice = watch.lastPriceCents ?? connection.priceCents
+        const storedPrice = watch.lastPriceCents
+        const previousPrice = storedPrice ?? connection.priceCents
         const notificationReference =
           watch.lastNotifiedPriceCents ?? watch.baselinePriceCents ?? previousPrice
         const isNewAlertPrice = connection.priceCents < notificationReference
@@ -158,11 +159,13 @@ export default class PriceAlertService {
         watch.lastErrorAt = null
         await watch.save()
 
-        await PriceObservation.create({
-          priceWatchId: watch.id,
-          priceCents: connection.priceCents,
-          observedAt: now,
-        })
+        if (storedPrice === null || storedPrice !== connection.priceCents) {
+          await PriceObservation.create({
+            priceWatchId: watch.id,
+            priceCents: connection.priceCents,
+            observedAt: now,
+          })
+        }
 
         if (shouldNotify) {
           const enqueueResult = await outboxService.enqueuePriceAlert(
@@ -185,7 +188,10 @@ export default class PriceAlertService {
         watch.lastErrorMessage = this.userFacingError(error)
         watch.lastErrorAt = now
         await watch.save()
-        logger.error({ err: error, watchId: watch.id }, 'Price watch check failed')
+        logger.error(
+          { err: error, watchId: watch.id },
+          'Sprawdzenie obserwowanej ceny nie powiodło się'
+        )
         await new MetricsService().increment('worker_watch_errors_total')
       } finally {
         await this.releaseWatch(watch.id, token)

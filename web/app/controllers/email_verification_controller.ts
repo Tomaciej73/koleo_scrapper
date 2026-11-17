@@ -83,7 +83,7 @@ export default class EmailVerificationController {
         session.flash('success', 'Nowy kod aktywacyjny został wysłany.')
       }
     } catch (error) {
-      logger.error({ err: error }, 'Email verification resend failed')
+      logger.error({ err: error }, 'Ponowna wysyłka kodu weryfikacyjnego nie powiodła się')
       const message =
         error instanceof EmailVerificationDeliveryError
           ? error.message

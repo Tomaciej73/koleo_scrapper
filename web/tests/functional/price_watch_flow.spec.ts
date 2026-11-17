@@ -6,6 +6,7 @@ import PriceAlertService from '#services/price_alert_service'
 import ConnectionSearchService from '#services/connection_search_service'
 import AlertOutboxService from '#services/alert_outbox_service'
 import NotificationService from '#services/notification_service'
+import PriceObservationRetentionService from '#services/price_observation_retention_service'
 import env from '#start/env'
 import testUtils from '@adonisjs/core/services/test_utils'
 import mail from '@adonisjs/mail/services/main'
@@ -212,6 +213,58 @@ test.group('Price watch flow', (group) => {
       .count('* as total')
       .firstOrFail()
     assert.equal(Number(observationCount.$extras.total), 1)
+  })
+
+  test('keeps price history bounded and skips unchanged prices', async ({ assert }) => {
+    const user = await User.create({
+      fullName: 'Konto historii cen',
+      email: 'history@example.test',
+      password: 'Qa-Test-2026!',
+    })
+    const [connection] = await new ConnectionSearchService().search({
+      origin: 'Wrocław Główny',
+      originStationId: 1,
+      destination: 'Olsztyn Główny',
+      destinationStationId: 4,
+      travelDate: futureDate(),
+      departureTime: '14:54',
+      onlyDirect: false,
+    })
+    const watch = await PriceWatch.create({
+      userId: user.id,
+      origin: 'Wrocław Główny',
+      originStationId: 1,
+      destination: 'Olsztyn Główny',
+      destinationStationId: 4,
+      travelDate: DateTime.fromISO(futureDate()),
+      departureTime: '14:54',
+      connectionUuid: connection.uuid,
+      baselinePriceCents: connection.priceCents,
+      lastPriceCents: connection.priceCents,
+      lowestPriceCents: connection.priceCents,
+      notificationChannel: 'email',
+      notificationDestination: user.email,
+      status: 'active',
+    })
+    await PriceObservation.createMany([
+      {
+        priceWatchId: watch.id,
+        priceCents: connection.priceCents!,
+        observedAt: DateTime.utc().minus({ days: env.get('PRICE_HISTORY_RETENTION_DAYS') + 1 }),
+      },
+      {
+        priceWatchId: watch.id,
+        priceCents: connection.priceCents!,
+        observedAt: DateTime.utc(),
+      },
+    ])
+
+    await new PriceObservationRetentionService().pruneExpired()
+    await new PriceAlertService().checkForUser(user.id)
+
+    const observations = await PriceObservation.query().where('priceWatchId', watch.id)
+    assert.lengthOf(observations, 1)
+    assert.equal(observations[0].priceCents, connection.priceCents)
   })
 
   test('claims a watch atomically and creates only one outbox delivery', async ({ assert }) => {

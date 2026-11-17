@@ -180,7 +180,7 @@ export default class AlertOutboxService {
         await this.scheduleRetry(alert, error)
         logger.error(
           { err: error, outboxId: alert.id, deliveryId: alert.deliveryId },
-          'Alert outbox delivery failed'
+          'Nie udało się wysłać alertu z kolejki'
         )
       }
     }

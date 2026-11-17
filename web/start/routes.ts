@@ -64,7 +64,7 @@ router
       .post('forgot-password', [PasswordResetController, 'store'])
       .as('password_reset.store')
       .use(passwordResetIpThrottle)
-    router.get('reset-password/:token', [PasswordResetController, 'edit']).as('password_reset.edit')
+    router.get('reset-password', [PasswordResetController, 'edit']).as('password_reset.edit')
     router
       .post('reset-password', [PasswordResetController, 'update'])
       .as('password_reset.update')

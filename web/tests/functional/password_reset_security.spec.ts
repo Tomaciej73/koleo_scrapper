@@ -1,4 +1,5 @@
 import User from '#models/user'
+import PasswordResetDeliveryService from '#services/password_reset_delivery_service'
 import testUtils from '@adonisjs/core/services/test_utils'
 import limiter from '@adonisjs/limiter/services/main'
 import mail from '@adonisjs/mail/services/main'
@@ -34,15 +35,26 @@ test.group('Password reset and browser security', (group) => {
       .form({ email: user.email })
     requestReset.assertStatus(302)
     requestReset.assertHeader('location', '/forgot-password')
+    assert.lengthOf(fakeMailer.messages.sent(), 0)
+
+    const deliverySummaries = await Promise.all([
+      new PasswordResetDeliveryService().processPending(),
+      new PasswordResetDeliveryService().processPending(),
+    ])
+    assert.equal(
+      deliverySummaries.reduce((total, summary) => total + summary.delivered, 0),
+      1
+    )
 
     const resetMessage = fakeMailer.messages.sent()[0]
     resetMessage.assertTo(user.email)
     resetMessage.assertSubject('Reset hasła — Koleo Watch')
     const resetBody = String(resetMessage.nodeMailerMessage.text)
-    const token = resetBody.match(/\/reset-password\/([a-f0-9]{64})/)?.[1]
+    const token = resetBody.match(/\/reset-password#token=([a-f0-9]{64})/)?.[1]
     assert.match(token ?? '', /^[a-f0-9]{64}$/)
+    assert.notInclude(resetBody, `/reset-password/${token}`)
 
-    const resetPage = await client.get(`/reset-password/${token}`)
+    const resetPage = await client.get('/reset-password')
     resetPage.assertStatus(200)
     resetPage.assertTextIncludes('Ustaw nowe hasło')
 
@@ -91,6 +103,49 @@ test.group('Password reset and browser security', (group) => {
       'Jeżeli konto z tym adresem istnieje, wysłaliśmy instrukcję resetu hasła.'
     )
     assert.lengthOf(fakeMailer.messages.sent(), 0)
+  })
+
+  test('normalizes email addresses and returns Polish validation messages', async ({
+    client,
+    assert,
+  }) => {
+    const password = 'Qa-Test-2026!'
+    const signup = await client.post('/signup').redirects(0).withCsrfToken().form({
+      fullName: 'Normalizacja adresu',
+      email: '  USER.Name@Example.TEST ',
+      password,
+      passwordConfirmation: password,
+    })
+    signup.assertStatus(302)
+
+    const user = await User.findByOrFail('email', 'user.name@example.test')
+    assert.equal(user.email, 'user.name@example.test')
+
+    const duplicate = await client.post('/signup').redirects(0).withCsrfToken().form({
+      fullName: 'Duplikat adresu',
+      email: 'USER.NAME@EXAMPLE.TEST',
+      password,
+      passwordConfirmation: password,
+    })
+    duplicate.assertStatus(302)
+    duplicate.assertFlashMessage('inputErrorsBag', {
+      email: ['Ta wartość pola „adres e-mail” jest już używana.'],
+    })
+
+    const invalidLogin = await client.post('/login').redirects(0).withCsrfToken().form({
+      email: user.email,
+    })
+    invalidLogin.assertStatus(302)
+    invalidLogin.assertFlashMessage('inputErrorsBag', {
+      password: ['Pole „hasło” jest wymagane.'],
+    })
+
+    const wrongCredentials = await client.post('/login').redirects(0).withCsrfToken().form({
+      email: 'USER.NAME@EXAMPLE.TEST',
+      password: 'Niepoprawne-haslo-2026!',
+    })
+    wrongCredentials.assertStatus(302)
+    wrongCredentials.assertFlashMessage('error', 'Nieprawidłowy adres e-mail lub hasło.')
   })
 
   test('sends CSP in report-only mode and accepts bounded browser reports', async ({ client }) => {

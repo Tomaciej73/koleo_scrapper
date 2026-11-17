@@ -14,7 +14,7 @@ export default class HealthController {
       await db.rawQuery('SELECT 1')
       checks.database = { status: 'ok' }
     } catch {
-      checks.database = { status: 'error', message: 'Database is unavailable' }
+      checks.database = { status: 'error', message: 'Baza danych jest niedostępna' }
     }
 
     if (env.get('ALERTS_ENABLED') ?? false) {
@@ -24,7 +24,7 @@ export default class HealthController {
       checks.worker =
         age <= env.get('HEALTH_WORKER_STALE_SECONDS')
           ? { status: 'ok' }
-          : { status: 'error', message: 'Worker heartbeat is stale or missing' }
+          : { status: 'error', message: 'Sygnał życia workera jest nieaktualny lub go brakuje' }
     }
 
     const ready = Object.values(checks).every((check) => check.status === 'ok')

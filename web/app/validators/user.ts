@@ -4,7 +4,7 @@ import env from '#start/env'
 /**
  * Shared rules for email and password.
  */
-const email = () => vine.string().email().maxLength(254)
+const email = () => vine.string().trim().toLowerCase().email().maxLength(254)
 const password = () =>
   vine.string().minLength(env.get('PASSWORD_MIN_LENGTH')).maxLength(env.get('PASSWORD_MAX_LENGTH'))
 

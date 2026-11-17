@@ -2,7 +2,7 @@ import { UserSchema } from '#database/schema'
 import hash from '@adonisjs/core/services/hash'
 import { compose } from '@adonisjs/core/helpers'
 import { withAuthFinder } from '@adonisjs/auth/mixins/lucid'
-import { column } from '@adonisjs/lucid/orm'
+import { beforeSave, column } from '@adonisjs/lucid/orm'
 
 /**
  * User model represents a user in the application.
@@ -10,6 +10,13 @@ import { column } from '@adonisjs/lucid/orm'
  * through the withAuthFinder mixin.
  */
 export default class User extends compose(UserSchema, withAuthFinder(hash)) {
+  @beforeSave()
+  static normalizeEmail(user: User) {
+    if (user.$dirty.email && user.email) {
+      user.email = user.email.trim().toLowerCase()
+    }
+  }
+
   @column()
   authVersion = 1
 

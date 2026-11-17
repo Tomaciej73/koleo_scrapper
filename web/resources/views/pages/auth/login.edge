@@ -9,11 +9,11 @@
     'x-on:submit': 'handleSubmit($event)',
   })
     @field.root({ name: 'email' })
-      @!field.label({ text: 'Email' })
+      @!field.label({ text: 'Adres e-mail' })
       @!input.control({
         type: 'email',
         autocomplete: 'username',
-        placeholder: 'you@example.com',
+        placeholder: 'ty@example.com',
       })
       @!field.error()
     @end
@@ -43,7 +43,9 @@
   </p>
 
   <p class="auth__foot">
+
     Nie masz konta?
+
     @link({ route: 'new_account.create', class: 'il' })
       Załóż konto
     @end

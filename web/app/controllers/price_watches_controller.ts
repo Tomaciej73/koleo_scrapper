@@ -175,6 +175,7 @@ export default class PriceWatchesController {
         }
       }
 
+      const storedPrice = existing?.lastPriceCents ?? null
       let watch: PriceWatch
       if (existing) {
         existing.merge(attributes)
@@ -194,7 +195,7 @@ export default class PriceWatchesController {
         )
       }
 
-      if (payload.priceCents !== undefined) {
+      if (payload.priceCents !== undefined && storedPrice !== payload.priceCents) {
         await PriceObservation.create(
           {
             priceWatchId: watch.id,

@@ -150,7 +150,7 @@ Alpine.data('stationAutocomplete', function () {
         const data = await response.json()
 
         if (!response.ok) {
-          throw new Error(data.message || 'Station search failed')
+          throw new Error(data.message || 'Nie udało się wyszukać stacji.')
         }
 
         if (currentRequest !== this.requestNumber) {
@@ -269,6 +269,36 @@ Alpine.data('submittingForm', function () {
     handleSubmit(event) {
       const message = this.$root.dataset.confirm
       if (message && !window.confirm(message)) {
+        event.preventDefault()
+        return
+      }
+      this.submitting = true
+    },
+  }
+})
+
+Alpine.data('passwordResetForm', function () {
+  return {
+    token: '',
+    tokenError: '',
+    submitting: false,
+
+    init() {
+      const token = new URLSearchParams(window.location.hash.slice(1)).get('token') || ''
+      if (/^[a-f0-9]{64}$/i.test(token)) {
+        this.token = token
+      } else {
+        this.tokenError = 'Link resetujący jest nieprawidłowy lub niekompletny.'
+      }
+      window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}`)
+    },
+
+    get submitDisabled() {
+      return this.submitting || !this.token
+    },
+
+    handleSubmit(event) {
+      if (!this.token) {
         event.preventDefault()
         return
       }

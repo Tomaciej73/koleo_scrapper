@@ -65,7 +65,7 @@ export default class MetricsService {
     try {
       await operation()
     } catch (error) {
-      logger.warn({ err: error }, 'Could not persist operational metric')
+      logger.warn({ err: error }, 'Nie udało się zapisać metryki operacyjnej')
     }
   }
 }

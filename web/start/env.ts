@@ -116,6 +116,7 @@ export default await Env.create(new URL('../', import.meta.url), {
   ALERT_OUTBOX_RETRY_MAX_SECONDS: Env.schema.number(),
   ALERT_OUTBOX_LOCK_TIMEOUT_SECONDS: Env.schema.number(),
   PRICE_HISTORY_DISPLAY_LIMIT: Env.schema.number.optional(),
+  PRICE_HISTORY_RETENTION_DAYS: Env.schema.number(),
   MAIL_ENABLED: Env.schema.boolean.optional(),
   EMAIL_VERIFICATION_CODE_LENGTH: Env.schema.number.optional(),
   EMAIL_VERIFICATION_CODE_TTL_MINUTES: Env.schema.number.optional(),
@@ -125,6 +126,7 @@ export default await Env.create(new URL('../', import.meta.url), {
   PASSWORD_MAX_LENGTH: Env.schema.number(),
   PASSWORD_RESET_TOKEN_TTL_MINUTES: Env.schema.number(),
   PASSWORD_RESET_MIN_RESPONSE_MS: Env.schema.number(),
+  PASSWORD_RESET_RESPONSE_JITTER_MS: Env.schema.number(),
   TICKET_SALES_MAX_ADVANCE_DAYS: Env.schema.number(),
 
   // HTTP and observability

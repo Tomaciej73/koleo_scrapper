@@ -1,10 +1,12 @@
+import PasswordResetDelivery from '#models/password_reset_delivery'
 import PasswordResetToken from '#models/password_reset_token'
 import User from '#models/user'
+import { encryptPasswordResetToken } from '#services/password_reset_delivery_service'
 import NotificationService from '#services/notification_service'
 import env from '#start/env'
 import logger from '@adonisjs/core/services/logger'
 import db from '@adonisjs/lucid/services/db'
-import { createHash, randomBytes } from 'node:crypto'
+import { createHash, randomBytes, randomInt } from 'node:crypto'
 import { setTimeout as delay } from 'node:timers/promises'
 import { DateTime } from 'luxon'
 
@@ -16,8 +18,6 @@ export default class PasswordResetService {
     const normalizedEmail = email.trim().toLocaleLowerCase('en-US')
     const token = randomBytes(32).toString('hex')
     const tokenHash = this.hashToken(token)
-    let createdToken = false
-
     try {
       const user = await User.query().whereRaw('LOWER(email) = ?', [normalizedEmail]).first()
 
@@ -29,7 +29,7 @@ export default class PasswordResetService {
       await db.transaction(async (trx) => {
         await User.query({ client: trx }).where('id', user.id).forUpdate().firstOrFail()
         await PasswordResetToken.query({ client: trx }).where('userId', user.id).delete()
-        await PasswordResetToken.create(
+        const resetToken = await PasswordResetToken.create(
           {
             userId: user.id,
             tokenHash,
@@ -38,25 +38,28 @@ export default class PasswordResetService {
           },
           { client: trx }
         )
+        await PasswordResetDelivery.create(
+          {
+            userId: user.id,
+            resetTokenId: resetToken.id,
+            encryptedToken: encryptPasswordResetToken(token),
+            status: 'pending',
+            attemptCount: 0,
+            availableAt: DateTime.utc(),
+            lockToken: null,
+            lockedAt: null,
+            sentAt: null,
+            lastError: null,
+          },
+          { client: trx }
+        )
       })
-      createdToken = true
-
-      const resetUrl = new URL(`/reset-password/${token}`, env.get('APP_URL')).toString()
-      const notification = await new NotificationService().sendPasswordReset(
-        user.email,
-        resetUrl,
-        validForMinutes
-      )
-      if (!notification.delivered) {
-        throw new Error(notification.reason ?? 'Wiadomość resetująca nie została dostarczona.')
-      }
-    } catch (error) {
-      if (createdToken) {
-        await PasswordResetToken.query().where('tokenHash', tokenHash).delete()
-      }
-      throw error
     } finally {
-      const remainingDelay = env.get('PASSWORD_RESET_MIN_RESPONSE_MS') - (Date.now() - startedAt)
+      const jitterMaximum = env.get('PASSWORD_RESET_RESPONSE_JITTER_MS')
+      const targetDuration =
+        env.get('PASSWORD_RESET_MIN_RESPONSE_MS') +
+        (jitterMaximum > 0 ? randomInt(jitterMaximum + 1) : 0)
+      const remainingDelay = targetDuration - (Date.now() - startedAt)
       if (remainingDelay > 0) {
         await delay(remainingDelay)
       }
@@ -117,7 +120,10 @@ export default class PasswordResetService {
     try {
       await new NotificationService().sendPasswordChanged(user.email)
     } catch (error) {
-      logger.error({ err: error, userId: user.id }, 'Password reset confirmation delivery failed')
+      logger.error(
+        { err: error, userId: user.id },
+        'Nie udało się wysłać potwierdzenia zmiany hasła'
+      )
     }
 
     return 'reset'

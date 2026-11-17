@@ -6,6 +6,7 @@ import RateLimitKeyService from '#services/rate_limit_key_service'
 import env from '#start/env'
 import limiter from '@adonisjs/limiter/services/main'
 import { AUTH_VERSION_SESSION_KEY } from '#services/auth_session_service'
+import { errors as authErrors } from '@adonisjs/auth'
 
 /**
  * SessionController handles user authentication and session management.
@@ -39,11 +40,26 @@ export default class SessionController {
         blockDuration: env.get('RATE_LIMIT_BLOCK_SECONDS'),
       },
     ])
-    const [limitError, user] = await loginLimiter.penalize(() =>
-      User.verifyCredentials(email, password)
-    )
-    if (limitError) {
-      throw limitError.setMessage('Zbyt wiele nieudanych prób logowania. Spróbuj ponownie później.')
+    let user: User
+    try {
+      const [limitError, verifiedUser] = await loginLimiter.penalize(() =>
+        User.verifyCredentials(email, password)
+      )
+      if (limitError) {
+        throw limitError.setMessage(
+          'Zbyt wiele nieudanych prób logowania. Spróbuj ponownie później.'
+        )
+      }
+      if (!verifiedUser) {
+        throw new authErrors.E_INVALID_CREDENTIALS('Nieprawidłowe dane logowania')
+      }
+      user = verifiedUser
+    } catch (error) {
+      if (error instanceof authErrors.E_INVALID_CREDENTIALS) {
+        session.flash('error', 'Nieprawidłowy adres e-mail lub hasło.')
+        return response.redirect().back()
+      }
+      throw error
     }
 
     if (!user.emailVerifiedAt) {
