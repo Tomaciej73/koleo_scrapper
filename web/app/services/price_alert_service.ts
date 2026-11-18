@@ -1,7 +1,10 @@
 import PriceObservation from '#models/price_observation'
 import PriceWatch from '#models/price_watch'
 import AlertOutboxService from '#services/alert_outbox_service'
-import ConnectionSearchService, { ConnectionSearchError } from '#services/connection_search_service'
+import ConnectionSearchService, {
+  ConnectionSearchError,
+  type ConnectionResult,
+} from '#services/connection_search_service'
 import MetricsService from '#services/metrics_service'
 import env from '#start/env'
 import logger from '@adonisjs/core/services/logger'
@@ -94,16 +97,6 @@ export default class PriceAlertService {
           )
         }
 
-        if (!watch.connectionUuid) {
-          await this.markConnectionMissing(
-            watch,
-            now,
-            'Obserwacja nie ma identyfikatora połączenia. Usuń ją i dodaj ponownie.'
-          )
-          summary.errors += 1
-          continue
-        }
-
         const results = await searchService.search({
           origin: watch.origin,
           originStationId: watch.originStationId,
@@ -113,30 +106,51 @@ export default class PriceAlertService {
           departureTime: watch.departureTime,
           onlyDirect: false,
         })
-        const connection = results.find((result) => result.uuid === watch.connectionUuid)
+        const exactConnection = watch.connectionUuid
+          ? results.find((result) => result.uuid === watch.connectionUuid)
+          : undefined
+        const connection = exactConnection ?? this.findUniqueEquivalentConnection(watch, results)
 
         if (!connection) {
-          await this.markConnectionMissing(
-            watch,
-            now,
-            'Nie znaleziono dokładnie obserwowanego połączenia. Alert został zatrzymany.'
-          )
+          await this.registerConnectionMiss(watch, now)
           summary.errors += 1
           continue
         }
 
-        if (connection.priceCents === null) {
-          summary.errors += 1
-          watch.lastErrorMessage = 'Cena tego połączenia jest obecnie niedostępna.'
-          watch.lastErrorAt = now
-          await watch.save()
-          this.logWatchWarning(
-            watch,
-            'price_unavailable',
-            watch.lastErrorMessage,
-            'Nie udało się odczytać ceny obserwowanego połączenia'
+        if (connection.uuid !== watch.connectionUuid) {
+          const previousConnectionUuid = watch.connectionUuid
+          watch.connectionUuid = connection.uuid
+          logger.info(
+            {
+              event: 'connection_uuid_refreshed',
+              previousConnectionUuid,
+              ...this.watchLogContext(watch),
+            },
+            'Odświeżono techniczny identyfikator obserwowanego połączenia'
           )
-          await new MetricsService().increment('worker_watch_errors_total')
+        }
+
+        watch.connectionMissCount = 0
+        watch.arrivalTime = connection.arrival
+        watch.arrivalDate = DateTime.fromISO(connection.arrivalDate, { zone: timezone })
+        watch.trainName = connection.trains
+        watch.lastTicketAvailability = connection.ticketAvailability
+        watch.lastAvailabilityMessage = connection.availabilityMessage
+
+        if (connection.priceCents === null) {
+          watch.lastErrorMessage = null
+          watch.lastErrorAt = null
+          await watch.save()
+          logger.info(
+            {
+              event: 'ticket_unavailable',
+              reason:
+                connection.availabilityMessage ??
+                'Cena i możliwość zakupu biletu są obecnie niedostępne.',
+              ...this.watchLogContext(watch),
+            },
+            'Obserwacja oczekuje na udostępnienie sprzedaży biletu'
+          )
           continue
         }
 
@@ -151,16 +165,16 @@ export default class PriceAlertService {
           watch.targetPriceCents !== null &&
           connection.priceCents <= watch.targetPriceCents &&
           watch.lastNotifiedPriceCents === null
-        const shouldNotify = isWithinTarget && (isNewAlertPrice || firstTargetMatch)
+        const shouldNotify =
+          (connection.provider === 'demo' || connection.ticketAvailability !== 'unavailable') &&
+          isWithinTarget &&
+          (isNewAlertPrice || firstTargetMatch)
 
         watch.lastPriceCents = connection.priceCents
         watch.lowestPriceCents = Math.min(
           watch.lowestPriceCents ?? connection.priceCents,
           connection.priceCents
         )
-        watch.arrivalTime = connection.arrival
-        watch.arrivalDate = DateTime.fromISO(connection.arrivalDate, { zone: timezone })
-        watch.trainName = connection.trains
         watch.lastErrorMessage = null
         watch.lastErrorAt = null
         await watch.save()
@@ -254,19 +268,56 @@ export default class PriceAlertService {
       .update({ processing_token: null, processing_started_at: null })
   }
 
-  private async markConnectionMissing(watch: PriceWatch, now: DateTime, message: string) {
-    watch.status = 'connection_missing'
-    watch.nextCheckAt = null
+  private async registerConnectionMiss(watch: PriceWatch, now: DateTime) {
+    const threshold = Math.max(1, env.get('ALERT_CONNECTION_MISSING_THRESHOLD'))
+    watch.connectionMissCount += 1
+    const thresholdReached = watch.connectionMissCount >= threshold
+    const message = thresholdReached
+      ? `Nie znaleziono jednoznacznie obserwowanego połączenia w ${threshold} kolejnych sprawdzeniach. Obserwacja została zatrzymana.`
+      : `Nie znaleziono jednoznacznie obserwowanego połączenia. Próba ${watch.connectionMissCount} z ${threshold}; obserwacja pozostaje aktywna.`
+
+    if (thresholdReached) {
+      watch.status = 'connection_missing'
+      watch.nextCheckAt = null
+    }
+    watch.lastTicketAvailability = 'unknown'
+    watch.lastAvailabilityMessage = 'Nie można obecnie potwierdzić możliwości zakupu biletu.'
     watch.lastErrorMessage = message
     watch.lastErrorAt = now
     await watch.save()
     this.logWatchWarning(
       watch,
-      'connection_missing',
+      thresholdReached ? 'connection_missing' : 'connection_temporarily_missing',
       message,
-      'Obserwowane połączenie nie jest już dostępne'
+      thresholdReached
+        ? 'Obserwowane połączenie nie zostało jednoznacznie odnalezione'
+        : 'Tymczasowo nie odnaleziono obserwowanego połączenia'
     )
     await new MetricsService().increment('worker_watch_errors_total')
+  }
+
+  private findUniqueEquivalentConnection(watch: PriceWatch, results: ConnectionResult[]) {
+    if (!watch.trainName || !watch.arrivalTime) {
+      return undefined
+    }
+
+    const expectedArrivalDate =
+      watch.arrivalDate?.toISODate() ??
+      watch.travelDate.plus({ days: watch.arrivalTime < watch.departureTime ? 1 : 0 }).toISODate()
+    const expectedTrainName = this.normalizeTrainName(watch.trainName)
+    const matches = results.filter(
+      (result) =>
+        result.departure === watch.departureTime &&
+        result.arrival === watch.arrivalTime &&
+        result.arrivalDate === expectedArrivalDate &&
+        this.normalizeTrainName(result.trains) === expectedTrainName
+    )
+
+    return matches.length === 1 ? matches[0] : undefined
+  }
+
+  private normalizeTrainName(value: string) {
+    return value.normalize('NFKC').replace(/\s+/g, ' ').trim().toLocaleUpperCase('pl-PL')
   }
 
   private logWatchWarning(watch: PriceWatch, event: string, reason: string, logMessage: string) {
@@ -282,6 +333,7 @@ export default class PriceAlertService {
       travelDate: watch.travelDate.toISODate(),
       departureTime: watch.departureTime,
       connectionUuid: watch.connectionUuid,
+      connectionMissCount: watch.connectionMissCount,
     }
   }
 

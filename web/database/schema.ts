@@ -7,6 +7,128 @@
 import { BaseModel, column } from '@adonisjs/lucid/orm'
 import { DateTime } from 'luxon'
 
+export class AlertOutboxSchema extends BaseModel {
+  static $columns = [
+    'attemptCount',
+    'availableAt',
+    'body',
+    'createdAt',
+    'deliveryId',
+    'id',
+    'idempotencyKey',
+    'lastError',
+    'lockToken',
+    'lockedAt',
+    'previousPriceCents',
+    'priceCents',
+    'priceWatchId',
+    'sentAt',
+    'status',
+    'subject',
+    'updatedAt',
+    'userId',
+  ] as const
+  $columns = AlertOutboxSchema.$columns
+  @column()
+  declare attemptCount: number
+  @column.dateTime()
+  declare availableAt: DateTime
+  @column()
+  declare body: string
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column()
+  declare deliveryId: string
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare idempotencyKey: string
+  @column()
+  declare lastError: string | null
+  @column()
+  declare lockToken: string | null
+  @column.dateTime()
+  declare lockedAt: DateTime | null
+  @column()
+  declare previousPriceCents: number
+  @column()
+  declare priceCents: number
+  @column()
+  declare priceWatchId: number | null
+  @column.dateTime()
+  declare sentAt: DateTime | null
+  @column()
+  declare status: string
+  @column()
+  declare subject: string
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+  @column()
+  declare userId: number
+}
+
+export class PasswordResetDeliverySchema extends BaseModel {
+  static $columns = [
+    'attemptCount',
+    'availableAt',
+    'createdAt',
+    'encryptedToken',
+    'id',
+    'lastError',
+    'lockToken',
+    'lockedAt',
+    'resetTokenId',
+    'sentAt',
+    'status',
+    'updatedAt',
+    'userId',
+  ] as const
+  $columns = PasswordResetDeliverySchema.$columns
+  @column()
+  declare attemptCount: number
+  @column.dateTime()
+  declare availableAt: DateTime
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column()
+  declare encryptedToken: string
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare lastError: string | null
+  @column()
+  declare lockToken: string | null
+  @column.dateTime()
+  declare lockedAt: DateTime | null
+  @column()
+  declare resetTokenId: number
+  @column.dateTime()
+  declare sentAt: DateTime | null
+  @column()
+  declare status: string
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+  @column()
+  declare userId: number
+}
+
+export class PasswordResetTokenSchema extends BaseModel {
+  static $columns = ['createdAt', 'expiresAt', 'id', 'tokenHash', 'usedAt', 'userId'] as const
+  $columns = PasswordResetTokenSchema.$columns
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column.dateTime()
+  declare expiresAt: DateTime
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare tokenHash: string
+  @column.dateTime()
+  declare usedAt: DateTime | null
+  @column()
+  declare userId: number
+}
+
 export class PriceObservationSchema extends BaseModel {
   static $columns = ['createdAt', 'id', 'observedAt', 'priceCents', 'priceWatchId'] as const
   $columns = PriceObservationSchema.$columns
@@ -28,24 +150,29 @@ export class PriceWatchSchema extends BaseModel {
     'arrivalTime',
     'baselinePriceCents',
     'checkIntervalMinutes',
+    'connectionMissCount',
     'connectionUuid',
     'createdAt',
     'departureTime',
     'destination',
     'destinationStationId',
     'id',
+    'lastAvailabilityMessage',
     'lastCheckedAt',
     'lastErrorAt',
     'lastErrorMessage',
     'lastNotifiedAt',
     'lastNotifiedPriceCents',
     'lastPriceCents',
+    'lastTicketAvailability',
     'lowestPriceCents',
     'nextCheckAt',
     'notificationChannel',
     'notificationDestination',
     'origin',
     'originStationId',
+    'processingStartedAt',
+    'processingToken',
     'status',
     'targetPriceCents',
     'trainName',
@@ -63,6 +190,8 @@ export class PriceWatchSchema extends BaseModel {
   @column()
   declare checkIntervalMinutes: number
   @column()
+  declare connectionMissCount: number
+  @column()
   declare connectionUuid: string | null
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
@@ -74,6 +203,8 @@ export class PriceWatchSchema extends BaseModel {
   declare destinationStationId: number | null
   @column({ isPrimary: true })
   declare id: number
+  @column()
+  declare lastAvailabilityMessage: string | null
   @column.dateTime()
   declare lastCheckedAt: DateTime | null
   @column.dateTime()
@@ -87,6 +218,8 @@ export class PriceWatchSchema extends BaseModel {
   @column()
   declare lastPriceCents: number | null
   @column()
+  declare lastTicketAvailability: string
+  @column()
   declare lowestPriceCents: number | null
   @column.dateTime()
   declare nextCheckAt: DateTime | null
@@ -98,6 +231,10 @@ export class PriceWatchSchema extends BaseModel {
   declare origin: string
   @column()
   declare originStationId: number | null
+  @column.dateTime()
+  declare processingStartedAt: DateTime | null
+  @column()
+  declare processingToken: string | null
   @column()
   declare status: string
   @column()
@@ -112,8 +249,31 @@ export class PriceWatchSchema extends BaseModel {
   declare userId: number
 }
 
+export class RateLimitSchema extends BaseModel {
+  static $columns = ['expire', 'key', 'points'] as const
+  $columns = RateLimitSchema.$columns
+  @column()
+  declare expire: bigint | number | null
+  @column({ isPrimary: true })
+  declare key: string
+  @column()
+  declare points: number
+}
+
+export class SystemMetricSchema extends BaseModel {
+  static $columns = ['key', 'updatedAt', 'value'] as const
+  $columns = SystemMetricSchema.$columns
+  @column({ isPrimary: true })
+  declare key: string
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime
+  @column()
+  declare value: number
+}
+
 export class UserSchema extends BaseModel {
   static $columns = [
+    'authVersion',
     'createdAt',
     'email',
     'emailVerificationAttempts',
@@ -127,6 +287,8 @@ export class UserSchema extends BaseModel {
     'updatedAt',
   ] as const
   $columns = UserSchema.$columns
+  @column()
+  declare authVersion: number
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
   @column()

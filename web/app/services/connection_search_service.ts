@@ -6,6 +6,7 @@ import type { KoleoConnection } from 'open-koleo'
 import { DateTime } from 'luxon'
 
 export type PriceProviderName = 'demo' | 'koleo'
+export type TicketAvailability = 'available' | 'unavailable' | 'unknown'
 
 export interface ConnectionSearchInput {
   origin: string
@@ -31,6 +32,8 @@ export interface ConnectionResult {
   changes: number
   priceCents: number | null
   purchasable: boolean | null
+  ticketAvailability: TicketAvailability
+  availabilityMessage: string | null
   provider: PriceProviderName
 }
 
@@ -92,6 +95,8 @@ export default class ConnectionSearchService {
         changes: input.onlyDirect ? 0 : index % 2,
         priceCents,
         purchasable: false,
+        ticketAvailability: 'unavailable' as const,
+        availabilityMessage: 'Tryb demonstracyjny — zakup biletu nie jest dostępny.',
         provider: 'demo',
       }
     })
@@ -122,6 +127,14 @@ export default class ConnectionSearchService {
   private async mapKoleoConnection(client: Koleo, connection: KoleoConnection) {
     const price = await client.connections.getConnectionTicketPrice(connection.uuid)
     const parsedPrice = Number(price.price)
+    const purchasable = price.error ? null : (price.purchasable ?? null)
+    const ticketAvailability: TicketAvailability =
+      purchasable === true
+        ? 'available'
+        : price.error || purchasable === false
+          ? 'unavailable'
+          : 'unknown'
+    const availabilityMessage = this.availabilityMessage(price, ticketAvailability)
     const departure = DateTime.fromISO(connection.departure)
     const arrival = DateTime.fromISO(connection.arrival)
     const durationMinutes = Math.max(0, Math.round(arrival.diff(departure, 'minutes').minutes))
@@ -147,9 +160,34 @@ export default class ConnectionSearchService {
       changes: connection.changes ?? 0,
       priceCents:
         price.error || !Number.isFinite(parsedPrice) ? null : Math.round(parsedPrice * 100),
-      purchasable: price.error ? null : (price.purchasable ?? null),
+      purchasable,
+      ticketAvailability,
+      availabilityMessage,
       provider: 'koleo' as const,
     }
+  }
+
+  private availabilityMessage(
+    price: {
+      error?: unknown
+      respBody?: { json?: { message?: unknown } }
+    },
+    availability: TicketAvailability
+  ) {
+    const upstreamMessage = price.respBody?.json?.message
+    if (typeof upstreamMessage === 'string' && upstreamMessage.trim()) {
+      return upstreamMessage.replace(/\s+/g, ' ').trim().slice(0, 500)
+    }
+
+    if (availability === 'unavailable') {
+      return 'KOLEO nie udostępnia obecnie zakupu biletu dla tego połączenia.'
+    }
+
+    if (availability === 'unknown') {
+      return 'KOLEO nie przekazało informacji o możliwości zakupu biletu.'
+    }
+
+    return null
   }
 
   private hash(value: string) {

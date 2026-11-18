@@ -8,8 +8,8 @@ połączeń i obserwowania zmian cen.
 - rejestracja z 6-cyfrowym kodem e-mail i logowanie użytkownika,
 - formularz trasy z podpowiedziami i identyfikatorami stacji, zamianą kierunku,
   datą i opcjonalną godziną,
-- sortowana lista połączeń z czasem przejazdu, przesiadkami, ceną i oznaczeniem
-  przyjazdu następnego dnia,
+- sortowana lista połączeń z czasem przejazdu, przesiadkami, ceną, statusem
+  możliwości zakupu i oznaczeniem przyjazdu następnego dnia,
 - zapis połączenia do obserwowanych,
 - pełna historia pomiarów ceny z wykresem oraz ostatnim błędem sprawdzania,
 - edycja progu i interwału oraz pauza/wznowienie obserwacji,
@@ -75,9 +75,27 @@ Obserwacja automatycznie kończy się w chwili odjazdu pociągu. Przycisk
 obserwacje użytkownika.
 
 Każda kontrola najpierw atomowo przejmuje obserwację na czas określony przez
-`ALERT_WATCH_LOCK_TIMEOUT_SECONDS`. Brak dokładnego dopasowania zapisanego UUID
-ustawia status `connection_missing`; pierwszy wynik wyszukiwania nigdy nie jest
-używany zastępczo.
+`ALERT_WATCH_LOCK_TIMEOUT_SECONDS`. UUID połączenia może zmienić się po stronie
+KOLEO. Wtedy aplikacja odświeża go wyłącznie, gdy dokładnie jeden wynik zgadza
+się jednocześnie po godzinie odjazdu, godzinie i dacie przyjazdu oraz nazwie
+pociągu. Pierwszy wynik wyszukiwania nigdy nie jest używany zastępczo.
+
+Jeżeli jednoznacznego kursu nie uda się znaleźć, obserwacja pozostaje aktywna
+do liczby kolejnych nieudanych sprawdzeń ustawionej przez
+`ALERT_CONNECTION_MISSING_THRESHOLD`. Dopiero po osiągnięciu tego progu dostaje
+status `connection_missing` i zostaje zatrzymana.
+
+Brak ceny przed rozpoczęciem sprzedaży nie jest błędem workera. Obserwacja
+pozostaje aktywna, zachowuje komunikat zwrócony przez KOLEO i sprawdza kurs
+ponownie zgodnie ze swoim harmonogramem.
+
+### Dostępność zakupu i miejsc
+
+Wyniki wyszukiwania i obserwowane połączenia pokazują, czy KOLEO potwierdza
+aktualną możliwość zakupu biletu. Ten status nie jest gwarancją konkretnego
+miejsca siedzącego. Dokładna mapa zajętości foteli korzysta z osobnych endpointów
+KOLEO wymagających uwierzytelnionego konta i tokenu, dlatego nie jest odpytywana
+przez aplikację bez skonfigurowanego konta integracyjnego.
 
 ### Zasada ceny docelowej
 
@@ -204,9 +222,9 @@ Adresy e-mail w kluczach limitera są haszowane. Produkcja używa trwałej tabel
 
 Wartości konfiguruje się bez zmian w kodzie przez `LIMITER_STORE`,
 `RATE_LIMIT_*`, `PRICE_WATCH_MAX_PER_USER`,
-`ALERT_DAILY_MAX_MESSAGES_PER_USER`, `ALERT_WATCH_LOCK_TIMEOUT_SECONDS` oraz
-`ALERT_OUTBOX_*`. Przekroczenie limitu HTTP zwraca `429 Too Many Requests` z
-nagłówkiem `Retry-After`.
+`ALERT_DAILY_MAX_MESSAGES_PER_USER`, `ALERT_WATCH_LOCK_TIMEOUT_SECONDS`,
+`ALERT_CONNECTION_MISSING_THRESHOLD` oraz `ALERT_OUTBOX_*`. Przekroczenie
+limitu HTTP zwraca `429 Too Many Requests` z nagłówkiem `Retry-After`.
 
 ## CSP i reverse proxy
 

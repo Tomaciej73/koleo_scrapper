@@ -59,6 +59,7 @@ test.group('Price watch flow', (group) => {
     search.assertStatus(200)
     search.assertTextIncludes('POŁĄCZENIE DEMO 100')
     search.assertTextIncludes('Obserwuj cenę')
+    search.assertTextIncludes('Zakup niedostępny')
 
     const store = await client
       .post('/favorites')
@@ -324,7 +325,50 @@ test.group('Price watch flow', (group) => {
     assert.lengthOf(fakeMailer.messages.sent(), 1)
   })
 
-  test('stops a watch when its exact connection UUID is missing', async ({ assert }) => {
+  test('refreshes a changed UUID only for one equivalent connection', async ({ assert }) => {
+    const user = await User.create({
+      fullName: 'Konto ze zmienionym UUID',
+      email: 'uuid-refresh@example.test',
+      password: 'Qa-Test-2026!',
+    })
+    const [connection] = await new ConnectionSearchService().search({
+      origin: 'Wrocław Główny',
+      originStationId: 1,
+      destination: 'Olsztyn Główny',
+      destinationStationId: 4,
+      travelDate: futureDate(),
+      departureTime: '14:54',
+      onlyDirect: false,
+    })
+    const watch = await PriceWatch.create({
+      userId: user.id,
+      origin: 'Wrocław Główny',
+      originStationId: 1,
+      destination: 'Olsztyn Główny',
+      destinationStationId: 4,
+      travelDate: DateTime.fromISO(futureDate()),
+      departureTime: connection.departure,
+      arrivalTime: connection.arrival,
+      arrivalDate: DateTime.fromISO(connection.arrivalDate),
+      trainName: connection.trains,
+      connectionUuid: 'outdated-connection-uuid',
+      notificationChannel: 'email',
+      notificationDestination: user.email,
+      status: 'active',
+    })
+
+    const summary = await new PriceAlertService().checkForUser(user.id)
+    await watch.refresh()
+
+    assert.equal(summary.errors, 0)
+    assert.equal(watch.connectionUuid, connection.uuid)
+    assert.equal(watch.connectionMissCount, 0)
+    assert.equal(watch.status, 'active')
+  })
+
+  test('stops a watch only after the configured number of consecutive misses', async ({
+    assert,
+  }) => {
     const fakeMailer = mail.fake()
     const user = await User.create({
       fullName: 'Konto bez połączenia',
@@ -347,15 +391,87 @@ test.group('Price watch flow', (group) => {
       status: 'active',
     })
 
-    const summary = await new PriceAlertService().checkForUser(user.id)
+    const threshold = env.get('ALERT_CONNECTION_MISSING_THRESHOLD')
+    for (let attempt = 1; attempt < threshold; attempt += 1) {
+      const summary = await new PriceAlertService().checkForUser(user.id)
+      await watch.refresh()
+      assert.equal(summary.errors, 1)
+      assert.equal(watch.status, 'active')
+      assert.equal(watch.connectionMissCount, attempt)
+      assert.isNotNull(watch.nextCheckAt)
+    }
+
+    const finalSummary = await new PriceAlertService().checkForUser(user.id)
     await watch.refresh()
 
-    assert.equal(summary.errors, 1)
-    assert.equal(summary.delivered, 0)
+    assert.equal(finalSummary.errors, 1)
+    assert.equal(finalSummary.delivered, 0)
     assert.equal(watch.status, 'connection_missing')
+    assert.equal(watch.connectionMissCount, threshold)
     assert.isNull(watch.nextCheckAt)
-    assert.include(watch.lastErrorMessage!, 'dokładnie obserwowanego połączenia')
+    assert.include(watch.lastErrorMessage!, `${threshold} kolejnych sprawdzeniach`)
     assert.lengthOf(fakeMailer.messages.sent(), 0)
+  })
+
+  test('keeps a watch active while ticket sales are unavailable', async ({ assert }) => {
+    const user = await User.create({
+      fullName: 'Konto oczekujące na sprzedaż',
+      email: 'waiting-for-sale@example.test',
+      password: 'Qa-Test-2026!',
+    })
+    const travelDate = futureDate()
+    const watch = await PriceWatch.create({
+      userId: user.id,
+      origin: 'Wrocław Główny',
+      originStationId: 1,
+      destination: 'Gdańsk Główny',
+      destinationStationId: 4,
+      travelDate: DateTime.fromISO(travelDate),
+      departureTime: '13:02',
+      arrivalTime: '17:40',
+      arrivalDate: DateTime.fromISO(travelDate),
+      trainName: '45112 ARTUS (P03)',
+      connectionUuid: 'waiting-for-sale-uuid',
+      notificationChannel: 'email',
+      notificationDestination: user.email,
+      status: 'active',
+    })
+    const originalSearch = ConnectionSearchService.prototype.search
+    ConnectionSearchService.prototype.search = async () => [
+      {
+        uuid: 'waiting-for-sale-uuid',
+        departure: '13:02',
+        departureMinutes: 782,
+        departureDate: travelDate,
+        arrival: '17:40',
+        arrivalDate: travelDate,
+        arrivalDateLabel: DateTime.fromISO(travelDate).toFormat('dd.LL.yyyy'),
+        arrivalDayOffset: 0,
+        durationMinutes: 278,
+        trains: '45112 ARTUS (P03)',
+        changes: 0,
+        priceCents: null,
+        purchasable: null,
+        ticketAvailability: 'unavailable',
+        availabilityMessage: 'Nie rozpoczęła się jeszcze sprzedaż biletów na ten pociąg.',
+        provider: 'koleo',
+      },
+    ]
+
+    try {
+      const summary = await new PriceAlertService().checkForUser(user.id)
+      await watch.refresh()
+
+      assert.equal(summary.checked, 1)
+      assert.equal(summary.errors, 0)
+      assert.equal(watch.status, 'active')
+      assert.equal(watch.lastTicketAvailability, 'unavailable')
+      assert.include(watch.lastAvailabilityMessage!, 'sprzedaż biletów')
+      assert.isNull(watch.lastErrorMessage)
+      assert.isNotNull(watch.nextCheckAt)
+    } finally {
+      ConnectionSearchService.prototype.search = originalSearch
+    }
   })
 
   test('enforces the configured daily outbox limit per user', async ({ assert }) => {

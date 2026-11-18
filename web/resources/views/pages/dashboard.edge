@@ -280,6 +280,10 @@
             @end
           </div>
         </div>
+        <p class="availability-disclaimer">
+          @svg('lucide:info', { width: 14, height: 14 })
+          Status zakupu pochodzi z KOLEO. Nie gwarantuje konkretnego miejsca siedzącego.
+        </p>
         @if(results.length === 0)
           <div class="empty-state">
             @svg('lucide:train-front-tunnel', { width: 28, height: 28 })
@@ -333,19 +337,35 @@
                         : `${connection.changes} przesiadki`
                     }}
                   </span>
+                  <span
+                    class="status-pill {{ connection.ticketAvailability === 'available' ? 'status-pill--ok' : 'status-pill--muted' }}"
+                    title="{{ connection.availabilityMessage || 'Informacja dotyczy możliwości zakupu biletu, a nie konkretnego miejsca siedzącego.' }}"
+                  >
+                    @svg(
+                      connection.ticketAvailability === 'available'
+                        ? 'lucide:ticket-check'
+                        : connection.ticketAvailability === 'unavailable'
+                          ? 'lucide:ticket-x'
+                          : 'lucide:circle-help',
+                      { width: 14, height: 14 }
+                    )
+                    {{
+                      connection.ticketAvailability === 'available'
+                        ? 'Zakup dostępny'
+                        : connection.ticketAvailability === 'unavailable'
+                          ? 'Zakup niedostępny'
+                          : 'Dostępność nieznana'
+                    }}
+                  </span>
                 </div>
 
                 <div class="connection-card__action">
                   <div class="connection-price">
                     <span>od</span>
                     <strong>{{ formatPrice(connection.priceCents) }}</strong>
-                    @if(connection.purchasable === false)
+                    @if(connection.availabilityMessage)
                       <small>
-                        {{
-                          connection.provider === 'demo'
-                            ? 'cena demonstracyjna'
-                            : 'brak zakupu online'
-                        }}
+                        {{ connection.availabilityMessage }}
                       </small>
                     @end
                   </div>
@@ -395,6 +415,18 @@
                         />
                         <input type="hidden" name="connectionUuid" value="{{ connection.uuid }}" />
                         <input type="hidden" name="trainName" value="{{ connection.trains }}" />
+                        <input
+                          type="hidden"
+                          name="ticketAvailability"
+                          value="{{ connection.ticketAvailability }}"
+                        />
+                        @if(connection.availabilityMessage)
+                          <input
+                            type="hidden"
+                            name="availabilityMessage"
+                            value="{{ connection.availabilityMessage }}"
+                          />
+                        @end
                         @if(connection.priceCents !== null)
                           <input
                             type="hidden"

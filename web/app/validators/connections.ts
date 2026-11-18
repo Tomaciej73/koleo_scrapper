@@ -25,6 +25,8 @@ export const priceWatchValidator = vine.create({
   connectionUuid: vine.string().trim().minLength(1).maxLength(80),
   trainName: vine.string().trim().maxLength(255).optional(),
   priceCents: vine.number().min(0).optional(),
+  ticketAvailability: vine.enum(['available', 'unavailable', 'unknown'] as const).optional(),
+  availabilityMessage: vine.string().trim().maxLength(500).optional(),
   targetPrice: vine.number().positive().optional(),
   checkIntervalMinutes: vine.number().withoutDecimals().min(1).max(10_080).optional(),
 })

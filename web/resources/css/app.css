@@ -1622,6 +1622,15 @@ input {
   font-size: 12px;
 }
 
+.availability-disclaimer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: -4px 0 14px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
 .results-sort select {
   height: 36px;
   padding: 0 30px 0 10px;
@@ -1714,6 +1723,14 @@ input {
   gap: 6px;
 }
 
+.connection-card__meta .status-pill {
+  color: var(--muted);
+}
+
+.connection-card__meta .status-pill--ok {
+  color: var(--accent-ink);
+}
+
 .connection-card__action {
   display: flex;
   align-items: center;
@@ -1735,6 +1752,11 @@ input {
 .connection-price small {
   color: var(--muted);
   font-size: 10.5px;
+}
+
+.connection-price small {
+  max-width: 190px;
+  line-height: 1.35;
 }
 
 .connection-price strong {
@@ -1870,6 +1892,12 @@ input {
   font-size: 12px;
 }
 
+.watch-card__status-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
 .watch-card__route {
   margin: 25px 0 14px;
 }
@@ -1892,6 +1920,34 @@ input {
   border: 1px solid color-mix(in srgb, #b45309 28%, var(--line));
   border-radius: 10px;
   background: var(--warning-soft);
+}
+
+.watch-availability {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 16px;
+  padding: 12px;
+  color: var(--muted);
+  border: 1px solid var(--line-2);
+  border-radius: 10px;
+  background: var(--paper);
+}
+
+.watch-availability > svg {
+  flex: none;
+  margin-top: 2px;
+}
+
+.watch-availability > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 11.5px;
+}
+
+.watch-availability strong {
+  color: var(--ink);
 }
 
 .watch-error > svg {

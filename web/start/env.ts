@@ -110,6 +110,7 @@ export default await Env.create(new URL('../', import.meta.url), {
   PRICE_WATCH_MAX_PER_USER: Env.schema.number(),
   ALERT_DAILY_MAX_MESSAGES_PER_USER: Env.schema.number(),
   ALERT_WATCH_LOCK_TIMEOUT_SECONDS: Env.schema.number(),
+  ALERT_CONNECTION_MISSING_THRESHOLD: Env.schema.number(),
   ALERT_OUTBOX_BATCH_SIZE: Env.schema.number(),
   ALERT_OUTBOX_MAX_ATTEMPTS: Env.schema.number(),
   ALERT_OUTBOX_RETRY_BASE_SECONDS: Env.schema.number(),

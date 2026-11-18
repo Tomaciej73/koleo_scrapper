@@ -60,19 +60,41 @@
               : null)
           <article class="watch-card">
             <div class="watch-card__status">
-              <span
-                class="status-pill {{ watch.status === 'active' ? 'status-pill--ok' : 'status-pill--muted' }}"
-              >
-                {{
-                  watch.status === 'active'
-                    ? 'Aktywne'
-                    : watch.status === 'paused'
-                      ? 'Wstrzymane'
-                      : watch.status === 'connection_missing'
-                        ? 'Brak połączenia'
-                        : 'Zakończone'
-                }}
-              </span>
+              <div class="watch-card__status-badges">
+                <span
+                  class="status-pill {{ watch.status === 'active' ? 'status-pill--ok' : 'status-pill--muted' }}"
+                >
+                  {{
+                    watch.status === 'active'
+                      ? 'Aktywne'
+                      : watch.status === 'paused'
+                        ? 'Wstrzymane'
+                        : watch.status === 'connection_missing'
+                          ? 'Nie odnaleziono kursu'
+                          : 'Zakończone'
+                  }}
+                </span>
+                <span
+                  class="status-pill {{ watch.lastTicketAvailability === 'available' ? 'status-pill--ok' : 'status-pill--muted' }}"
+                  title="Informacja dotyczy możliwości zakupu biletu w KOLEO, a nie gwarancji konkretnego miejsca siedzącego."
+                >
+                  @svg(
+                    watch.lastTicketAvailability === 'available'
+                      ? 'lucide:ticket-check'
+                      : watch.lastTicketAvailability === 'unavailable'
+                        ? 'lucide:ticket-x'
+                        : 'lucide:circle-help',
+                    { width: 14, height: 14 }
+                  )
+                  {{
+                    watch.lastTicketAvailability === 'available'
+                      ? 'Zakup dostępny'
+                      : watch.lastTicketAvailability === 'unavailable'
+                        ? 'Zakup niedostępny'
+                        : 'Dostępność nieznana'
+                  }}
+                </span>
+              </div>
               <span>{{ watch.travelDate.toFormat('dd.LL.yyyy') }}</span>
             </div>
 
@@ -98,6 +120,26 @@
               @svg('lucide:train', { width: 15, height: 15 })
               {{ watch.trainName || 'Połączenie kolejowe' }}
             </div>
+            @if(watch.lastAvailabilityMessage)
+              <div class="watch-availability" role="status">
+                @svg(
+                  watch.lastTicketAvailability === 'available'
+                    ? 'lucide:ticket-check'
+                    : 'lucide:clock-3',
+                  { width: 17, height: 17 }
+                )
+                <div>
+                  <strong>
+                    {{
+                      watch.lastTicketAvailability === 'available'
+                        ? 'Bilet można obecnie kupić'
+                        : 'Bilet nie jest obecnie dostępny w sprzedaży'
+                    }}
+                  </strong>
+                  <span>{{ watch.lastAvailabilityMessage }}</span>
+                </div>
+              </div>
+            @end
             @if(watch.lastErrorMessage)
               <div class="watch-error" role="status">
                 @svg('lucide:triangle-alert', { width: 17, height: 17 })

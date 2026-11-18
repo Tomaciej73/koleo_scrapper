@@ -151,6 +151,9 @@ export default class PriceWatchesController {
       lastNotifiedPriceCents: null,
       lastErrorMessage: null,
       lastErrorAt: null,
+      connectionMissCount: 0,
+      lastTicketAvailability: payload.ticketAvailability ?? 'unknown',
+      lastAvailabilityMessage: payload.availabilityMessage ?? null,
       status: 'active',
     }
 
