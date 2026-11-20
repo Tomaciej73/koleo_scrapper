@@ -203,7 +203,10 @@ test.group('Price watch flow', (group) => {
     await watch.refresh()
 
     assert.equal(summary.checked, 1)
+    assert.equal(summary.priceChanges, 1)
     assert.equal(summary.priceDrops, 1)
+    assert.equal(summary.priceIncreases, 0)
+    assert.equal(summary.alertsQueued, 1)
     assert.equal(summary.delivered, 1)
     assert.isBelow(watch.lastPriceCents!, 20_000)
     assert.isNotNull(watch.lastCheckedAt)
@@ -214,6 +217,59 @@ test.group('Price watch flow', (group) => {
       .count('* as total')
       .firstOrFail()
     assert.equal(Number(observationCount.$extras.total), 1)
+  })
+
+  test('records a price increase and sends an alert even above the target', async ({ assert }) => {
+    const user = await User.create({
+      fullName: 'Konto ze wzrostem ceny',
+      email: 'increase@example.test',
+      password: 'Qa-Test-2026!',
+    })
+    const [connection] = await new ConnectionSearchService().search({
+      origin: 'Wrocław Główny',
+      originStationId: 1,
+      destination: 'Olsztyn Główny',
+      destinationStationId: 4,
+      travelDate: futureDate(),
+      departureTime: '14:54',
+      onlyDirect: false,
+    })
+    const previousPrice = connection.priceCents! - 1_000
+    const watch = await PriceWatch.create({
+      userId: user.id,
+      origin: 'Wrocław Główny',
+      originStationId: 1,
+      destination: 'Olsztyn Główny',
+      destinationStationId: 4,
+      travelDate: DateTime.fromISO(futureDate()),
+      departureTime: connection.departure,
+      arrivalTime: connection.arrival,
+      arrivalDate: DateTime.fromISO(connection.arrivalDate),
+      trainName: connection.trains,
+      connectionUuid: connection.uuid,
+      baselinePriceCents: previousPrice,
+      lastPriceCents: previousPrice,
+      lowestPriceCents: previousPrice,
+      targetPriceCents: previousPrice - 1,
+      notificationChannel: 'email',
+      notificationDestination: user.email,
+      status: 'active',
+    })
+
+    const summary = await new PriceAlertService().checkForUser(user.id)
+    await watch.refresh()
+    const alert = await AlertOutbox.query().where('priceWatchId', watch.id).firstOrFail()
+
+    assert.equal(summary.checked, 1)
+    assert.equal(summary.priceChanges, 1)
+    assert.equal(summary.priceDrops, 0)
+    assert.equal(summary.priceIncreases, 1)
+    assert.equal(summary.alertsQueued, 1)
+    assert.equal(summary.delivered, 1)
+    assert.equal(watch.lastPriceCents, connection.priceCents)
+    assert.equal(watch.lastNotifiedPriceCents, connection.priceCents)
+    assert.include(alert.subject, 'Cena wzrosła')
+    assert.include(alert.body, 'wzrosła')
   })
 
   test('keeps price history bounded and skips unchanged prices', async ({ assert }) => {
@@ -558,7 +614,9 @@ test.group('Price watch flow', (group) => {
     )
   })
 
-  test('notifies at an inclusive target but ignores decreases above it', async ({ assert }) => {
+  test('notifies about a change above the target and about an inclusive target', async ({
+    assert,
+  }) => {
     const user = await User.create({
       fullName: 'Konto z progiem',
       email: 'threshold@example.test',
@@ -593,15 +651,20 @@ test.group('Price watch flow', (group) => {
     })
 
     const aboveTarget = await new PriceAlertService().checkForUser(user.id)
-    assert.equal(aboveTarget.priceDrops, 0)
-    assert.equal(aboveTarget.delivered, 0)
+    assert.equal(aboveTarget.priceChanges, 1)
+    assert.equal(aboveTarget.priceDrops, 1)
+    assert.equal(aboveTarget.alertsQueued, 1)
+    assert.equal(aboveTarget.delivered, 1)
 
     watch.targetPriceCents = currentPrice
+    watch.lastNotifiedPriceCents = null
     await watch.save()
     const atTarget = await new PriceAlertService().checkForUser(user.id)
     await watch.refresh()
 
-    assert.equal(atTarget.priceDrops, 1)
+    assert.equal(atTarget.priceChanges, 0)
+    assert.equal(atTarget.unchanged, 1)
+    assert.equal(atTarget.alertsQueued, 1)
     assert.equal(atTarget.delivered, 1)
     assert.equal(watch.lastNotifiedPriceCents, currentPrice)
   })

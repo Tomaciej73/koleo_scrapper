@@ -94,15 +94,23 @@ export default class NotificationService {
     return { delivered: true }
   }
 
-  buildPriceDrop(watch: PriceWatch, previousPriceCents: number, currentPriceCents: number) {
+  buildPriceChange(watch: PriceWatch, previousPriceCents: number, currentPriceCents: number) {
     const previous = this.formatPrice(previousPriceCents)
     const current = this.formatPrice(currentPriceCents)
     const priceDropped = currentPriceCents < previousPriceCents
-    const subject = `${priceDropped ? 'Cena spadła' : 'Cena osiągnęła próg'}: ${watch.origin} → ${watch.destination}`
+    const priceIncreased = currentPriceCents > previousPriceCents
+    const subjectPrefix = priceDropped
+      ? 'Cena spadła'
+      : priceIncreased
+        ? 'Cena wzrosła'
+        : 'Cena osiągnęła próg'
+    const subject = `${subjectPrefix}: ${watch.origin} → ${watch.destination}`
     const content = [
       priceDropped
         ? `Cena połączenia ${watch.origin} → ${watch.destination} spadła z ${previous} do ${current}.`
-        : `Cena połączenia ${watch.origin} → ${watch.destination} wynosi ${current} i spełnia ustawiony próg.`,
+        : priceIncreased
+          ? `Cena połączenia ${watch.origin} → ${watch.destination} wzrosła z ${previous} do ${current}.`
+          : `Cena połączenia ${watch.origin} → ${watch.destination} wynosi ${current} i spełnia ustawiony próg.`,
       `Wyjazd: ${watch.travelDate.toISODate()} o ${watch.departureTime}.`,
       watch.trainName ? `Pociąg: ${watch.trainName}.` : null,
     ]

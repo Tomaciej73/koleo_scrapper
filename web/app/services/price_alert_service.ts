@@ -1,6 +1,6 @@
 import PriceObservation from '#models/price_observation'
 import PriceWatch from '#models/price_watch'
-import AlertOutboxService from '#services/alert_outbox_service'
+import AlertOutboxService, { type EnqueueResult } from '#services/alert_outbox_service'
 import ConnectionSearchService, {
   ConnectionSearchError,
   type ConnectionResult,
@@ -14,10 +14,16 @@ import { DateTime } from 'luxon'
 
 export interface AlertCheckSummary {
   checked: number
+  priceChanges: number
   priceDrops: number
+  priceIncreases: number
+  unchanged: number
+  alertsQueued: number
   delivered: number
   errors: number
 }
+
+export type PriceCheckTrigger = 'worker' | 'manual' | 'command'
 
 interface ClaimedWatch {
   token: string
@@ -25,7 +31,7 @@ interface ClaimedWatch {
 }
 
 export default class PriceAlertService {
-  async checkAllActive(): Promise<AlertCheckSummary> {
+  async checkAllActive(trigger: PriceCheckTrigger = 'worker'): Promise<AlertCheckSummary> {
     const now = DateTime.utc()
     const candidates = await PriceWatch.query()
       .select('id')
@@ -37,11 +43,16 @@ export default class PriceAlertService {
 
     return this.checkWatches(
       candidates.map((watch) => watch.id),
-      true
+      true,
+      undefined,
+      trigger
     )
   }
 
-  async checkForUser(userId: number): Promise<AlertCheckSummary> {
+  async checkForUser(
+    userId: number,
+    trigger: PriceCheckTrigger = 'manual'
+  ): Promise<AlertCheckSummary> {
     const candidates = await PriceWatch.query()
       .select('id')
       .where('userId', userId)
@@ -51,16 +62,27 @@ export default class PriceAlertService {
     return this.checkWatches(
       candidates.map((watch) => watch.id),
       false,
-      userId
+      userId,
+      trigger
     )
   }
 
   private async checkWatches(
     watchIds: number[],
     requireDue: boolean,
-    outboxUserId?: number
+    outboxUserId: number | undefined,
+    trigger: PriceCheckTrigger
   ): Promise<AlertCheckSummary> {
-    const summary: AlertCheckSummary = { checked: 0, priceDrops: 0, delivered: 0, errors: 0 }
+    const summary: AlertCheckSummary = {
+      checked: 0,
+      priceChanges: 0,
+      priceDrops: 0,
+      priceIncreases: 0,
+      unchanged: 0,
+      alertsQueued: 0,
+      delivered: 0,
+      errors: 0,
+    }
     const searchService = new ConnectionSearchService()
     const outboxService = new AlertOutboxService()
     const timezone = env.get('APP_TIMEZONE') ?? 'Europe/Warsaw'
@@ -109,20 +131,25 @@ export default class PriceAlertService {
         const exactConnection = watch.connectionUuid
           ? results.find((result) => result.uuid === watch.connectionUuid)
           : undefined
-        const connection = exactConnection ?? this.findUniqueEquivalentConnection(watch, results)
+        const equivalentConnection = exactConnection
+          ? undefined
+          : this.findUniqueEquivalentConnection(watch, results)
+        const connection = exactConnection ?? equivalentConnection
+        const matchStrategy = exactConnection ? 'uuid' : 'equivalent'
 
         if (!connection) {
-          await this.registerConnectionMiss(watch, now)
+          await this.registerConnectionMiss(watch, now, trigger, results.length)
           summary.errors += 1
           continue
         }
 
+        const previousConnectionUuid = watch.connectionUuid
         if (connection.uuid !== watch.connectionUuid) {
-          const previousConnectionUuid = watch.connectionUuid
           watch.connectionUuid = connection.uuid
           logger.info(
             {
               event: 'connection_uuid_refreshed',
+              trigger,
               previousConnectionUuid,
               ...this.watchLogContext(watch),
             },
@@ -144,6 +171,14 @@ export default class PriceAlertService {
           logger.info(
             {
               event: 'ticket_unavailable',
+              trigger,
+              matchStrategy,
+              previousConnectionUuid,
+              providerConnectionUuid: connection.uuid,
+              provider: connection.provider,
+              resultArrivalTime: connection.arrival,
+              resultArrivalDate: connection.arrivalDate,
+              resultTrains: connection.trains,
               reason:
                 connection.availabilityMessage ??
                 'Cena i możliwość zakupu biletu są obecnie niedostępne.',
@@ -156,19 +191,21 @@ export default class PriceAlertService {
 
         const storedPrice = watch.lastPriceCents
         const previousPrice = storedPrice ?? connection.priceCents
-        const notificationReference =
-          watch.lastNotifiedPriceCents ?? watch.baselinePriceCents ?? previousPrice
-        const isNewAlertPrice = connection.priceCents < notificationReference
-        const isWithinTarget =
-          watch.targetPriceCents === null || connection.priceCents <= watch.targetPriceCents
+        const priceChanged = storedPrice !== null && storedPrice !== connection.priceCents
+        const priceDropped = storedPrice !== null && connection.priceCents < storedPrice
+        const priceIncreased = storedPrice !== null && connection.priceCents > storedPrice
         const firstTargetMatch =
           watch.targetPriceCents !== null &&
           connection.priceCents <= watch.targetPriceCents &&
           watch.lastNotifiedPriceCents === null
+        const notificationReason = priceChanged
+          ? 'price_change'
+          : firstTargetMatch
+            ? 'target_reached'
+            : null
         const shouldNotify =
           (connection.provider === 'demo' || connection.ticketAvailability !== 'unavailable') &&
-          isWithinTarget &&
-          (isNewAlertPrice || firstTargetMatch)
+          notificationReason !== null
 
         watch.lastPriceCents = connection.priceCents
         watch.lowestPriceCents = Math.min(
@@ -179,22 +216,40 @@ export default class PriceAlertService {
         watch.lastErrorAt = null
         await watch.save()
 
-        if (storedPrice === null || storedPrice !== connection.priceCents) {
-          await PriceObservation.create({
-            priceWatchId: watch.id,
-            priceCents: connection.priceCents,
-            observedAt: now,
-          })
+        const observation =
+          storedPrice === null || storedPrice !== connection.priceCents
+            ? await PriceObservation.create({
+                priceWatchId: watch.id,
+                priceCents: connection.priceCents,
+                observedAt: now,
+              })
+            : null
+
+        if (priceChanged) {
+          summary.priceChanges += 1
+          if (priceDropped) {
+            summary.priceDrops += 1
+          } else if (priceIncreased) {
+            summary.priceIncreases += 1
+          }
+        } else if (storedPrice !== null) {
+          summary.unchanged += 1
         }
 
+        let enqueueResult: EnqueueResult | 'not_requested' = 'not_requested'
         if (shouldNotify) {
-          const enqueueResult = await outboxService.enqueuePriceAlert(
+          const idempotencyEvent =
+            priceChanged && observation
+              ? `observation:${observation.id}`
+              : `target:${watch.targetPriceCents}:${connection.priceCents}`
+          enqueueResult = await outboxService.enqueuePriceAlert(
             watch,
             previousPrice,
-            connection.priceCents
+            connection.priceCents,
+            idempotencyEvent
           )
           if (enqueueResult === 'queued') {
-            summary.priceDrops += 1
+            summary.alertsQueued += 1
           } else if (enqueueResult === 'daily_limit') {
             summary.errors += 1
             watch.lastErrorMessage = `Osiągnięto dzienny limit ${env.get('ALERT_DAILY_MAX_MESSAGES_PER_USER')} alertów.`
@@ -209,13 +264,39 @@ export default class PriceAlertService {
             await new MetricsService().increment('worker_watch_errors_total')
           }
         }
+
+        logger.info(
+          {
+            event: 'price_watch_checked',
+            trigger,
+            matchStrategy,
+            previousConnectionUuid,
+            providerConnectionUuid: connection.uuid,
+            provider: connection.provider,
+            previousPriceCents: storedPrice,
+            currentPriceCents: connection.priceCents,
+            priceDeltaCents: storedPrice === null ? null : connection.priceCents - storedPrice,
+            priceChanged,
+            notificationReason,
+            enqueueResult,
+            ticketAvailability: connection.ticketAvailability,
+            resultDepartureTime: connection.departure,
+            resultArrivalTime: connection.arrival,
+            resultArrivalDate: connection.arrivalDate,
+            resultTrains: connection.trains,
+            ...this.watchLogContext(watch),
+          },
+          priceChanged
+            ? 'Wykryto zmianę ceny obserwowanego połączenia'
+            : 'Cena obserwowanego połączenia nie zmieniła się'
+        )
       } catch (error) {
         summary.errors += 1
         watch.lastErrorMessage = this.userFacingError(error)
         watch.lastErrorAt = now
         await watch.save()
         logger.error(
-          { err: error, event: 'watch_check_failed', ...this.watchLogContext(watch) },
+          { err: error, event: 'watch_check_failed', trigger, ...this.watchLogContext(watch) },
           'Sprawdzenie obserwowanej ceny nie powiodło się'
         )
         await new MetricsService().increment('worker_watch_errors_total')
@@ -268,7 +349,12 @@ export default class PriceAlertService {
       .update({ processing_token: null, processing_started_at: null })
   }
 
-  private async registerConnectionMiss(watch: PriceWatch, now: DateTime) {
+  private async registerConnectionMiss(
+    watch: PriceWatch,
+    now: DateTime,
+    trigger: PriceCheckTrigger,
+    resultCount: number
+  ) {
     const threshold = Math.max(1, env.get('ALERT_CONNECTION_MISSING_THRESHOLD'))
     watch.connectionMissCount += 1
     const thresholdReached = watch.connectionMissCount >= threshold
@@ -285,10 +371,14 @@ export default class PriceAlertService {
     watch.lastErrorMessage = message
     watch.lastErrorAt = now
     await watch.save()
-    this.logWatchWarning(
-      watch,
-      thresholdReached ? 'connection_missing' : 'connection_temporarily_missing',
-      message,
+    logger.warn(
+      {
+        event: thresholdReached ? 'connection_missing' : 'connection_temporarily_missing',
+        trigger,
+        resultCount,
+        reason: message,
+        ...this.watchLogContext(watch),
+      },
       thresholdReached
         ? 'Obserwowane połączenie nie zostało jednoznacznie odnalezione'
         : 'Tymczasowo nie odnaleziono obserwowanego połączenia'

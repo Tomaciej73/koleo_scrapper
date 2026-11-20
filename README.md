@@ -38,7 +38,7 @@ Następnie otwórz `http://localhost:3333`, utwórz konto i wyszukaj połączeni
 Jeżeli plik `.env` już istnieje, nie kopiuj go ponownie i nie nadpisuj klucza
 `APP_KEY`.
 
-## Test obniżki ceny bez dostępu do KOLEO
+## Test zmiany ceny bez dostępu do KOLEO
 
 1. Zostaw `PRICE_PROVIDER=demo` w `.env` i zapisz wynik jako obserwowany.
 2. Ustaw np. `DEMO_PRICE_OFFSET_CENTS=-1000` oraz `ALERTS_ENABLED=true`.
@@ -97,13 +97,20 @@ miejsca siedzącego. Dokładna mapa zajętości foteli korzysta z osobnych endpo
 KOLEO wymagających uwierzytelnionego konta i tokenu, dlatego nie jest odpytywana
 przez aplikację bez skonfigurowanego konta integracyjnego.
 
-### Zasada ceny docelowej
+### Zasada alertów cenowych
 
-- bez ceny docelowej alert jest wysyłany dla każdej nowej, niższej ceny,
-- dla ceny docelowej 55 zł alert jest wysyłany przy cenie `<= 55,00 zł`,
-- po pierwszym osiągnięciu progu kolejne alerty przychodzą tylko dla dalszych
-  spadków, np. 55 zł, potem 52 zł i 49 zł,
-- spadek z 80 zł do 70 zł nie wyśle alertu, jeśli próg wynosi 55 zł.
+- alert jest wysyłany przy każdej zmianie ceny: zarówno przy spadku, jak i wzroście,
+- historia ceny zapisuje każdą nową wartość, ale nie powiela wartości niezmienionej,
+- cena docelowa jest dodatkowym warunkiem: dla progu 55 zł aplikacja wyśle alert
+  przy pierwszym potwierdzeniu ceny `<= 55,00 zł`, nawet jeśli cena nie zmieniła się
+  od chwili dodania obserwacji,
+- ustawienie progu na 0 wyłącza dodatkowy alert progowy, ale nie wyłącza alertów
+  o zmianach ceny.
+
+Cena zwracana przez techniczny endpoint KOLEO nie uwzględnia prywatnego koszyka
+zalogowanego użytkownika koleo.pl. Suma w tym koszyku może się różnić w zależności
+od liczby pasażerów i wybranych ulg. Aplikacja nie używa prywatnego koszyka ani
+danych pasażerów użytkownika.
 
 ## Powiadomienia
 

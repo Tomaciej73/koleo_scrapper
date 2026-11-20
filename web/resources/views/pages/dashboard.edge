@@ -282,7 +282,9 @@
         </div>
         <p class="availability-disclaimer">
           @svg('lucide:info', { width: 14, height: 14 })
-          Status zakupu pochodzi z KOLEO. Nie gwarantuje konkretnego miejsca siedzącego.
+          Status zakupu i cena pochodzą z technicznego źródła KOLEO bez prywatnego
+          koszyka użytkownika. Suma na koleo.pl może być inna po dodaniu pasażerów
+          lub ulg. Status zakupu nie gwarantuje konkretnego miejsca siedzącego.
         </p>
         @if(results.length === 0)
           <div class="empty-state">
@@ -445,7 +447,8 @@
                             placeholder="np. 65.00"
                           />
                           <small>
-                            Dla 65 zł alert przyjdzie przy cenie 65,00 zł lub niższej, a potem przy każdym dalszym spadku.
+                            Alert przyjdzie przy każdej zmianie ceny. Próg 65 zł dodatkowo
+                            powiadomi przy pierwszym potwierdzeniu ceny 65,00 zł lub niższej.
                           </small>
                         </label>
                         <label>

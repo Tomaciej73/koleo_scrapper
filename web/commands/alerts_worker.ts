@@ -51,9 +51,9 @@ export default class AlertsWorker extends BaseCommand {
       const resetDelivery = await new PasswordResetDeliveryService().processPending()
       if (env.get('ALERTS_ENABLED') ?? false) {
         await new PriceObservationRetentionService().pruneExpired()
-        const summary = await new PriceAlertService().checkAllActive()
+        const summary = await new PriceAlertService().checkAllActive('worker')
         const errors = summary.errors + resetDelivery.errors
-        const message = `Sprawdzono: ${summary.checked}, spadki: ${summary.priceDrops}, alerty wysłane: ${summary.delivered}, resety hasła wysłane: ${resetDelivery.delivered}, błędy: ${errors}`
+        const message = `Sprawdzono: ${summary.checked}, zmiany: ${summary.priceChanges} (spadki: ${summary.priceDrops}, wzrosty: ${summary.priceIncreases}), bez zmian: ${summary.unchanged}, alerty w kolejce: ${summary.alertsQueued}, alerty wysłane: ${summary.delivered}, resety hasła wysłane: ${resetDelivery.delivered}, błędy: ${errors}`
         if (errors > 0) {
           this.logger.warning(message)
         } else {

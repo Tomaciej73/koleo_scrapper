@@ -19,12 +19,15 @@ export default class AlertOutboxService {
   async enqueuePriceAlert(
     watch: PriceWatch,
     previousPriceCents: number,
-    currentPriceCents: number
+    currentPriceCents: number,
+    idempotencyEvent?: string
   ): Promise<EnqueueResult> {
-    const idempotencyKey = `price-watch:${watch.id}:price:${currentPriceCents}`
+    const idempotencyKey = idempotencyEvent
+      ? `price-watch:${watch.id}:${idempotencyEvent}`
+      : `price-watch:${watch.id}:transition:${previousPriceCents}:${currentPriceCents}`
     const timezone = env.get('APP_TIMEZONE') ?? 'Europe/Warsaw'
     const dayStart = DateTime.now().setZone(timezone).startOf('day').toUTC()
-    const message = new NotificationService().buildPriceDrop(
+    const message = new NotificationService().buildPriceChange(
       watch,
       previousPriceCents,
       currentPriceCents
@@ -166,15 +169,23 @@ export default class AlertOutboxService {
               .first()
             if (watch) {
               watch.lastNotifiedAt = alert.sentAt
-              watch.lastNotifiedPriceCents = Math.min(
-                watch.lastNotifiedPriceCents ?? alert.priceCents,
-                alert.priceCents
-              )
+              watch.lastNotifiedPriceCents = alert.priceCents
               await watch.save()
             }
           }
         })
         summary.delivered += 1
+        logger.info(
+          {
+            event: 'price_alert_delivered',
+            outboxId: alert.id,
+            deliveryId: alert.deliveryId,
+            watchId: alert.priceWatchId,
+            previousPriceCents: alert.previousPriceCents,
+            currentPriceCents: alert.priceCents,
+          },
+          'Wysłano alert o zmianie ceny'
+        )
       } catch (error) {
         summary.errors += 1
         await this.scheduleRetry(alert, error)
@@ -208,7 +219,7 @@ export default class AlertOutboxService {
       const watch = await PriceWatch.find(alert.priceWatchId)
       if (watch) {
         watch.lastErrorMessage =
-          'Nie udało się wysłać alertu po wykorzystaniu wszystkich prób. Kolejne obniżki utworzą nowe powiadomienie.'
+          'Nie udało się wysłać alertu po wykorzystaniu wszystkich prób. Kolejne zmiany ceny utworzą nowe powiadomienie.'
         watch.lastErrorAt = DateTime.utc()
         await watch.save()
       }

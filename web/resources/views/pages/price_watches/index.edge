@@ -41,6 +41,13 @@
         <strong>{{ mailEnabled ? 'Aktywna' : 'Czeka na SMTP' }}</strong>
       </div>
     </div>
+    @if(providerMode === 'koleo')
+      <p class="availability-disclaimer">
+        @svg('lucide:info', { width: 14, height: 14 })
+        Śledzona cena pochodzi z technicznego źródła KOLEO bez prywatnego koszyka
+        użytkownika. Suma na koleo.pl może być inna po dodaniu pasażerów lub ulg.
+      </p>
+    @end
     @if(watchItems.length === 0)
       <div class="empty-state empty-state--large">
         @svg('lucide:bell-off', { width: 32, height: 32 })
@@ -336,7 +343,10 @@
                           value="{{ item.targetPriceValue }}"
                           required
                         />
-                        <small>Wpisz 0, aby otrzymywać alert przy każdym kolejnym spadku.</small>
+                        <small>
+                          Każda zmiana ceny uruchamia alert. Wpisz 0, aby wyłączyć
+                          dodatkowe powiadomienie o osiągnięciu progu.
+                        </small>
                       </label>
                       <label>
                         <span>Sprawdzaj co ile minut</span>

@@ -308,7 +308,7 @@ export default class PriceWatchesController {
     return response.redirect().toRoute('price_watches.index')
   }
 
-  async checkNow({ auth, response, session }: HttpContext) {
+  async checkNow({ auth, response, session, logger }: HttpContext) {
     if (!(env.get('ALERTS_ENABLED') ?? false)) {
       session.flash(
         'error',
@@ -318,9 +318,13 @@ export default class PriceWatchesController {
     }
 
     const summary = await new PriceAlertService().checkForUser(auth.user!.id)
+    logger.info(
+      { event: 'manual_price_check_completed', userId: auth.user!.id, ...summary },
+      'Zakończono ręczne sprawdzanie obserwowanych cen'
+    )
     session.flash(
       'success',
-      `Sprawdzono ${summary.checked} obserwacji. Spadki: ${summary.priceDrops}, wysłane alerty: ${summary.delivered}.`
+      `Sprawdzono ${summary.checked} obserwacji. Zmiany: ${summary.priceChanges} (spadki: ${summary.priceDrops}, wzrosty: ${summary.priceIncreases}), bez zmian: ${summary.unchanged}, alerty w kolejce: ${summary.alertsQueued}, wysłane: ${summary.delivered}, błędy: ${summary.errors}.`
     )
     return response.redirect().toRoute('price_watches.index')
   }

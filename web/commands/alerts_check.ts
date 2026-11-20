@@ -14,8 +14,8 @@ export default class AlertsCheck extends BaseCommand {
       return
     }
 
-    const summary = await new PriceAlertService().checkAllActive()
-    const message = `Sprawdzono: ${summary.checked}, spadki: ${summary.priceDrops}, wysłano: ${summary.delivered}, błędy: ${summary.errors}`
+    const summary = await new PriceAlertService().checkAllActive('command')
+    const message = `Sprawdzono: ${summary.checked}, zmiany: ${summary.priceChanges} (spadki: ${summary.priceDrops}, wzrosty: ${summary.priceIncreases}), bez zmian: ${summary.unchanged}, alerty w kolejce: ${summary.alertsQueued}, wysłano: ${summary.delivered}, błędy: ${summary.errors}`
     if (summary.errors > 0) {
       this.logger.warning(message)
     } else {
