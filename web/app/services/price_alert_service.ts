@@ -203,9 +203,7 @@ export default class PriceAlertService {
           : firstTargetMatch
             ? 'target_reached'
             : null
-        const shouldNotify =
-          (connection.provider === 'demo' || connection.ticketAvailability !== 'unavailable') &&
-          notificationReason !== null
+        const shouldNotify = notificationReason !== null
 
         watch.lastPriceCents = connection.priceCents
         watch.lowestPriceCents = Math.min(

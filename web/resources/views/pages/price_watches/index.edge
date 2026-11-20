@@ -44,8 +44,9 @@
     @if(providerMode === 'koleo')
       <p class="availability-disclaimer">
         @svg('lucide:info', { width: 14, height: 14 })
-        Śledzona cena pochodzi z technicznego źródła KOLEO bez prywatnego koszyka
-        użytkownika. Suma na koleo.pl może być inna po dodaniu pasażerów lub ulg.
+        Worker śledzi publiczną cenę KOLEO dla jednego pasażera bez ulgi. Logowanie
+        do KOLEO nie jest wymagane. Każda zmiana ceny — wzrost albo spadek — uruchamia
+        alert; ustawiony próg jest dodatkowym warunkiem powiadomienia.
       </p>
     @end
     @if(watchItems.length === 0)
@@ -179,12 +180,12 @@
                 <span>Najniższa</span><strong>{{ formatPrice(watch.lowestPriceCents) }}</strong>
               </div>
               <div>
-                <span>Alert przy cenie</span>
+                <span>Zasada alertu</span>
                 <strong>
                   {{
                     watch.targetPriceCents === null
-                      ? 'każdy spadek'
-                      : `≤ ${formatPrice(watch.targetPriceCents)}`
+                      ? 'każda zmiana'
+                      : `każda zmiana + próg ≤ ${formatPrice(watch.targetPriceCents)}`
                   }}
                 </strong>
               </div>

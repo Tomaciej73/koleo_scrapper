@@ -107,9 +107,9 @@ przez aplikację bez skonfigurowanego konta integracyjnego.
 - ustawienie progu na 0 wyłącza dodatkowy alert progowy, ale nie wyłącza alertów
   o zmianach ceny.
 
-Cena zwracana przez techniczny endpoint KOLEO nie uwzględnia prywatnego koszyka
-zalogowanego użytkownika koleo.pl. Suma w tym koszyku może się różnić w zależności
-od liczby pasażerów i wybranych ulg. Aplikacja nie używa prywatnego koszyka ani
+Worker odpytuje publiczne wyszukiwanie KOLEO dla jednego pasażera bez ulgi;
+logowanie do KOLEO nie jest do tego wymagane. Łączna kwota na koleo.pl może być
+inna po wybraniu większej liczby pasażerów lub ulg. Aplikacja nie przechowuje
 danych pasażerów użytkownika.
 
 ## Powiadomienia

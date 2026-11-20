@@ -530,6 +530,72 @@ test.group('Price watch flow', (group) => {
     }
   })
 
+  test('alerts about a numeric price change even when purchase is temporarily unavailable', async ({
+    assert,
+  }) => {
+    const user = await User.create({
+      fullName: 'Konto zmiany ceny bez sprzedaży',
+      email: 'unavailable-price-change@example.test',
+      password: 'Qa-Test-2026!',
+    })
+    const travelDate = futureDate()
+    const watch = await PriceWatch.create({
+      userId: user.id,
+      origin: 'Wrocław Główny',
+      originStationId: 1,
+      destination: 'Olsztyn Główny',
+      destinationStationId: 4,
+      travelDate: DateTime.fromISO(travelDate),
+      departureTime: '14:54',
+      arrivalTime: '20:01',
+      arrivalDate: DateTime.fromISO(travelDate),
+      trainName: '6118 NIEGOCIN',
+      connectionUuid: 'temporarily-unavailable-price-uuid',
+      baselinePriceCents: 7_900,
+      lastPriceCents: 7_900,
+      lowestPriceCents: 7_900,
+      notificationChannel: 'email',
+      notificationDestination: user.email,
+      status: 'active',
+    })
+    const originalSearch = ConnectionSearchService.prototype.search
+    ConnectionSearchService.prototype.search = async () => [
+      {
+        uuid: 'temporarily-unavailable-price-uuid',
+        departure: '14:54',
+        departureMinutes: 894,
+        departureDate: travelDate,
+        arrival: '20:01',
+        arrivalDate: travelDate,
+        arrivalDateLabel: DateTime.fromISO(travelDate).toFormat('dd.LL.yyyy'),
+        arrivalDayOffset: 0,
+        durationMinutes: 307,
+        trains: '6118 NIEGOCIN',
+        changes: 0,
+        priceCents: 11_771,
+        purchasable: false,
+        ticketAvailability: 'unavailable',
+        availabilityMessage: 'Zakup jest chwilowo niedostępny.',
+        provider: 'koleo',
+      },
+    ]
+
+    try {
+      const summary = await new PriceAlertService().checkForUser(user.id)
+      await watch.refresh()
+      const alert = await AlertOutbox.query().where('priceWatchId', watch.id).firstOrFail()
+
+      assert.equal(summary.priceChanges, 1)
+      assert.equal(summary.priceIncreases, 1)
+      assert.equal(summary.alertsQueued, 1)
+      assert.equal(summary.delivered, 1)
+      assert.equal(watch.lastPriceCents, 11_771)
+      assert.include(alert.subject, 'Cena wzrosła')
+    } finally {
+      ConnectionSearchService.prototype.search = originalSearch
+    }
+  })
+
   test('enforces the configured daily outbox limit per user', async ({ assert }) => {
     const user = await User.create({
       fullName: 'Konto limitu dziennego',
