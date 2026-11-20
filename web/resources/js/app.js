@@ -116,6 +116,11 @@ Alpine.data('stationAutocomplete', function () {
     },
 
     openResults() {
+      if (this.stationId && this.query === this.selectedName) {
+        this.close()
+        return
+      }
+
       if (this.stations.length || this.searched) {
         this.open = true
       } else if (this.query.trim().length >= this.minimumLength) {
@@ -198,12 +203,17 @@ Alpine.data('stationAutocomplete', function () {
     },
 
     select(station) {
+      window.clearTimeout(this.timer)
+      this.controller?.abort()
+      this.requestNumber += 1
       this.query = station.name
       this.stationId = String(station.id)
       this.selectedName = station.name
       this.$refs.input.setCustomValidity('')
       this.stations = []
       this.searched = false
+      this.loading = false
+      this.errorMessage = ''
       this.close()
       this.$nextTick(() => this.$refs.input.focus())
     },
