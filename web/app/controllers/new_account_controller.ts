@@ -7,6 +7,7 @@ import RateLimitKeyService from '#services/rate_limit_key_service'
 import env from '#start/env'
 import limiter from '@adonisjs/limiter/services/main'
 import type { HttpContext } from '@adonisjs/core/http'
+import SecurityEventService from '#services/security_event_service'
 
 /**
  * NewAccountController handles user registration.
@@ -41,6 +42,15 @@ export default class NewAccountController {
 
     try {
       await new EmailVerificationService().issueCode(user)
+      logger.info(
+        {
+          event: 'account_registered',
+          userId: user.id,
+          emailHash: SecurityEventService.emailHash(user.email),
+          ...SecurityEventService.requestContext(request),
+        },
+        'Utworzono nowe konto oczekujące na potwierdzenie'
+      )
       session.flash('success', 'Wysłaliśmy kod aktywacyjny na podany adres e-mail.')
       return response.redirect().toRoute('email_verification.create')
     } catch (error) {

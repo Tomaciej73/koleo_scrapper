@@ -9,6 +9,7 @@ import db from '@adonisjs/lucid/services/db'
 import { createHash, randomBytes, randomInt } from 'node:crypto'
 import { setTimeout as delay } from 'node:timers/promises'
 import { DateTime } from 'luxon'
+import SessionManagementService from '#services/session_management_service'
 
 export type PasswordResetResult = 'reset' | 'invalid'
 
@@ -116,6 +117,8 @@ export default class PasswordResetService {
     if (!user) {
       return 'invalid'
     }
+
+    await new SessionManagementService().destroyAll(user.id)
 
     try {
       await new NotificationService().sendPasswordChanged(user.email)

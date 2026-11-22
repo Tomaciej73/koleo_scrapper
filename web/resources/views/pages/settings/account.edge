@@ -1,0 +1,150 @@
+@layouts.settings({ title: 'Konto i bezpieczeństwo' })
+  <div class="account-settings">
+    <section class="account-section">
+      <div>
+        <span class="eyebrow">Profil</span>
+        <h2>Adres e-mail</h2>
+        <p>Zmiana adresu wymaga aktualnego hasła i ponownego potwierdzenia kodem.</p>
+      </div>
+      @form({
+        route: 'account.email',
+        method: 'POST',
+        class: 'account-form',
+        'x-data': 'submittingForm',
+        'x-on:submit': 'handleSubmit($event)',
+      })
+        @field.root({ name: 'email' })
+          @!field.label({ text: 'Nowy adres e-mail' })
+          @!input.control({
+            type: 'email',
+            value: user.email,
+            autocomplete: 'email',
+          })
+          @!field.error()
+        @end
+        @field.root({ name: 'currentPassword' })
+          @!field.label({ text: 'Aktualne hasło' })
+          @!input.control({ type: 'password', autocomplete: 'current-password' })
+          @!field.error()
+        @end
+        @!button({
+          text: 'Zmień adres e-mail',
+          type: 'submit',
+          class: 'btn--primary',
+          'x-bind:disabled': 'submitting',
+        })
+      @end
+    </section>
+
+    <section class="account-section">
+      <div>
+        <span class="eyebrow">Bezpieczeństwo</span>
+        <h2>Aktywne sesje</h2>
+        <p>Możesz wylogować pojedyncze urządzenie albo wszystkie sesje naraz.</p>
+      </div>
+      @if(!sessionTrackingAvailable)
+        <div class="notice notice--error">
+          @svg('lucide:triangle-alert', { width: 18, height: 18 })
+          <div>
+            <strong>Lista sesji jest niedostępna</strong>
+            <span>Ustaw SESSION_DRIVER=database albo memory.</span>
+          </div>
+        </div>
+      @elseif(sessions.length === 0)
+        <p class="account-muted">Brak zapisanych aktywnych sesji.</p>
+      @else
+        <div class="session-list">
+          @each(item in sessions)
+            <article class="session-item">
+              <div class="session-item__icon">
+                @svg('lucide:monitor-smartphone', { width: 18, height: 18 })
+              </div>
+              <div class="session-item__body">
+                <strong>
+                  {{ item.userAgent }}
+                  @if(item.current)
+                    <span class="status-pill status-pill--ok">Ta sesja</span>
+                  @end
+                </strong>
+                <span>Ostatnia aktywność: {{ item.lastSeenAtLabel }}</span>
+                <span>
+                  Utworzona:
+                  {{ item.createdAtLabel }}
+                  · identyfikator
+                  {{ item.displayId }}
+                </span>
+              </div>
+              @form({ route: 'account.sessions.revoke', method: 'POST' })
+                <input type="hidden" name="sessionId" value="{{ item.id }}" />
+                <button type="submit" class="btn btn--secondary btn--sm">
+                  {{ item.current ? 'Wyloguj' : 'Unieważnij' }}
+                </button>
+              @end
+            </article>
+          @end
+        </div>
+        @form({
+          route: 'account.sessions.revoke_all',
+          method: 'POST',
+          'x-data': 'submittingForm',
+          'x-on:submit': 'handleSubmit($event)',
+        })
+          <button type="submit" class="btn btn--secondary" x-bind:disabled="submitting">
+            @svg('lucide:log-out', { width: 16, height: 16 })
+            
+            Wyloguj wszystkie sesje
+
+          </button>
+        @end
+      @end
+    </section>
+
+    <section class="account-section">
+      <div>
+        <span class="eyebrow">Twoje dane</span>
+        <h2>Eksport danych</h2>
+        <p>Pobierz profil, obserwowane połączenia i historię cen w pliku JSON.</p>
+      </div>
+      <a class="btn btn--secondary" href="{{ urlFor('account.export') }}">
+        @svg('lucide:download', { width: 16, height: 16 })
+        
+        Pobierz moje dane
+
+      </a>
+    </section>
+
+    <section class="account-section account-section--danger">
+      <div>
+        <span class="eyebrow">Strefa niebezpieczna</span>
+        <h2>Usuń konto</h2>
+        <p>Operacja trwale usuwa konto, obserwacje i historię cen. Nie można jej cofnąć.</p>
+      </div>
+      @form({
+        route: 'account.destroy',
+        method: 'DELETE',
+        class: 'account-form',
+        'x-data': 'submittingForm',
+        'x-on:submit':
+          "if (!confirm('Czy na pewno trwale usunąć konto?')) { $event.preventDefault(); return }; handleSubmit($event)",
+      })
+        @field.root({ name: 'password' })
+          @!field.label({ text: 'Aktualne hasło' })
+          @!input.control({ type: 'password', autocomplete: 'current-password' })
+          @!field.error()
+        @end
+        @field.root({ name: 'confirmation' })
+          @!field.label({ text: 'Wpisz USUŃ' })
+          @!input.control({ autocomplete: 'off', placeholder: 'USUŃ' })
+          @!field.error()
+        @end
+
+        <button type="submit" class="btn btn--danger" x-bind:disabled="submitting">
+          @svg('lucide:trash-2', { width: 16, height: 16 })
+          
+          Usuń konto na zawsze
+
+        </button>
+      @end
+    </section>
+  </div>
+@end

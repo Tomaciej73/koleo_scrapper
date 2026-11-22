@@ -31,9 +31,11 @@ const HealthController = () => import('#controllers/health_controller')
 const MetricsController = () => import('#controllers/metrics_controller')
 const PasswordResetController = () => import('#controllers/password_reset_controller')
 const CspReportsController = () => import('#controllers/csp_reports_controller')
+const AccountController = () => import('#controllers/account_controller')
 
 router.get('/health/live', [HealthController, 'live'])
 router.get('/health/ready', [HealthController, 'ready'])
+router.get('/health/worker', [HealthController, 'worker'])
 router.get('/metrics', [MetricsController, 'index'])
 router.post(env.get('CSP_REPORT_URI'), [CspReportsController, 'store']).use(cspReportIpThrottle)
 
@@ -86,6 +88,16 @@ router
       .use(searchIpThrottle)
       .use(searchUserThrottle)
     router.get('/favorites', [PriceWatchesController, 'index']).as('price_watches.index')
+    router.get('/account', [AccountController, 'index']).as('account.index')
+    router.get('/account/export', [AccountController, 'export']).as('account.export')
+    router.post('/account/email', [AccountController, 'updateEmail']).as('account.email')
+    router.delete('/account', [AccountController, 'destroy']).as('account.destroy')
+    router
+      .post('/account/sessions/revoke', [AccountController, 'revokeSession'])
+      .as('account.sessions.revoke')
+    router
+      .post('/account/sessions/revoke-all', [AccountController, 'revokeAllSessions'])
+      .as('account.sessions.revoke_all')
     router.post('/favorites', [PriceWatchesController, 'store']).as('price_watches.store')
     router
       .post('/favorites/:id/interval', [PriceWatchesController, 'updateInterval'])

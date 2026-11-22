@@ -4,6 +4,7 @@ import { forgotPasswordValidator, passwordResetValidator } from '#validators/use
 import env from '#start/env'
 import limiter from '@adonisjs/limiter/services/main'
 import type { HttpContext } from '@adonisjs/core/http'
+import SecurityEventService from '#services/security_event_service'
 
 export default class PasswordResetController {
   async create({ view }: HttpContext) {
@@ -21,6 +22,14 @@ export default class PasswordResetController {
 
     try {
       await new PasswordResetService().request(email)
+      logger.info(
+        {
+          event: 'password_reset_requested',
+          emailHash: SecurityEventService.emailHash(email),
+          ...SecurityEventService.requestContext(request),
+        },
+        'Przyjęto żądanie resetu hasła'
+      )
     } catch (error) {
       logger.error({ err: error }, 'Nie udało się zlecić wysyłki wiadomości resetującej hasło')
     }
@@ -39,13 +48,29 @@ export default class PasswordResetController {
     })
   }
 
-  async update({ request, response, session }: HttpContext) {
+  async update({ request, response, session, logger }: HttpContext) {
     const { token, password } = await request.validateUsing(passwordResetValidator)
     const result = await new PasswordResetService().reset(token, password)
     if (result === 'invalid') {
+      logger.warn(
+        {
+          event: 'password_reset_failed',
+          reason: 'invalid_or_expired',
+          ...SecurityEventService.requestContext(request),
+        },
+        'Odrzucono próbę resetu hasła'
+      )
       session.flash('error', 'Link resetujący jest nieprawidłowy lub wygasł.')
       return response.redirect().toRoute('password_reset.create')
     }
+
+    logger.info(
+      {
+        event: 'password_reset_succeeded',
+        ...SecurityEventService.requestContext(request),
+      },
+      'Hasło użytkownika zostało zresetowane'
+    )
 
     session.flash('success', 'Hasło zostało zmienione. Zaloguj się ponownie.')
     return response.redirect().toRoute('session.create')

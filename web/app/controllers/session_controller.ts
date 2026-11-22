@@ -7,6 +7,8 @@ import env from '#start/env'
 import limiter from '@adonisjs/limiter/services/main'
 import { AUTH_VERSION_SESSION_KEY } from '#services/auth_session_service'
 import { errors as authErrors } from '@adonisjs/auth'
+import SecurityEventService from '#services/security_event_service'
+import SessionManagementService from '#services/session_management_service'
 
 /**
  * SessionController handles user authentication and session management.
@@ -24,7 +26,7 @@ export default class SessionController {
   /**
    * Authenticate user credentials and create a new session
    */
-  async store({ request, auth, response, session }: HttpContext) {
+  async store({ request, auth, response, session, logger }: HttpContext) {
     const { email, password } = await request.validateUsing(loginValidator)
     const loginLimiter = limiter.multi([
       {
@@ -46,6 +48,14 @@ export default class SessionController {
         User.verifyCredentials(email, password)
       )
       if (limitError) {
+        logger.warn(
+          {
+            event: 'auth_login_rate_limited',
+            emailHash: SecurityEventService.emailHash(email),
+            ...SecurityEventService.requestContext(request),
+          },
+          'Zablokowano logowanie po przekroczeniu limitu prób'
+        )
         throw limitError.setMessage(
           'Zbyt wiele nieudanych prób logowania. Spróbuj ponownie później.'
         )
@@ -56,6 +66,14 @@ export default class SessionController {
       user = verifiedUser
     } catch (error) {
       if (error instanceof authErrors.E_INVALID_CREDENTIALS) {
+        logger.warn(
+          {
+            event: 'auth_login_failed',
+            emailHash: SecurityEventService.emailHash(email),
+            ...SecurityEventService.requestContext(request),
+          },
+          'Nieudana próba logowania'
+        )
         session.flash('error', 'Nieprawidłowy adres e-mail lub hasło.')
         return response.redirect().back()
       }
@@ -63,6 +81,14 @@ export default class SessionController {
     }
 
     if (!user.emailVerifiedAt) {
+      logger.warn(
+        {
+          event: 'auth_login_unverified_email',
+          userId: user.id,
+          ...SecurityEventService.requestContext(request),
+        },
+        'Odrzucono logowanie do niepotwierdzonego konta'
+      )
       session.put(EMAIL_VERIFICATION_SESSION_KEY, user.id)
       session.flash('error', 'Najpierw potwierdź adres e-mail kodem aktywacyjnym.')
       return response.redirect().toRoute('email_verification.create')
@@ -70,15 +96,38 @@ export default class SessionController {
 
     await auth.use('web').login(user)
     session.put(AUTH_VERSION_SESSION_KEY, user.authVersion)
+    await new SessionManagementService().track(session, request, user.id)
+    logger.info(
+      {
+        event: 'auth_login_succeeded',
+        userId: user.id,
+        ...SecurityEventService.requestContext(request),
+      },
+      'Użytkownik zalogował się'
+    )
     return response.redirect().toRoute('dashboard')
   }
 
   /**
    * Log out the current user and destroy their session
    */
-  async destroy({ auth, response, session }: HttpContext) {
+  async destroy({ auth, request, response, session, logger }: HttpContext) {
+    const user = auth.user
+    if (user) {
+      logger.info(
+        {
+          event: 'auth_logout',
+          userId: user.id,
+          ...SecurityEventService.requestContext(request),
+        },
+        'Użytkownik wylogował się'
+      )
+      if (session.supportsTagging()) {
+        await session.untag(String(user.id))
+      }
+    }
     await auth.use('web').logout()
-    session.forget(AUTH_VERSION_SESSION_KEY)
+    session.clear()
     return response.redirect().toRoute('session.create')
   }
 }

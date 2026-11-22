@@ -14,7 +14,10 @@ export default class MetricsController {
     const service = new MetricsService()
     const metrics = await service.all()
     const oldestJobAge = await service.oldestActiveJobAgeSeconds()
+    const queues = await service.queueCounts()
+    const oldestDeliveryAge = await service.oldestPendingDeliveryAgeSeconds()
     const value = (key: string) => metrics.get(key) ?? 0
+    const circuitOpenUntil = value('koleo_circuit_open_until_epoch_seconds')
     const body = [
       '# TYPE koleo_requests_total counter',
       `koleo_requests_total ${value('koleo_requests_total')}`,
@@ -33,8 +36,30 @@ export default class MetricsController {
       `worker_watch_errors_total ${value('worker_watch_errors_total')}`,
       '# TYPE worker_last_heartbeat_epoch_seconds gauge',
       `worker_last_heartbeat_epoch_seconds ${value('worker_last_heartbeat_epoch_seconds')}`,
+      '# TYPE worker_heartbeat_stale_threshold_seconds gauge',
+      `worker_heartbeat_stale_threshold_seconds ${env.get('HEALTH_WORKER_STALE_SECONDS')}`,
       '# TYPE oldest_price_watch_job_age_seconds gauge',
       `oldest_price_watch_job_age_seconds ${oldestJobAge}`,
+      '# TYPE alert_outbox_pending gauge',
+      `alert_outbox_pending ${queues.alertPending}`,
+      '# TYPE alert_outbox_failed gauge',
+      `alert_outbox_failed ${queues.alertFailed}`,
+      '# TYPE password_reset_delivery_pending gauge',
+      `password_reset_delivery_pending ${queues.resetPending}`,
+      '# TYPE password_reset_delivery_failed gauge',
+      `password_reset_delivery_failed ${queues.resetFailed}`,
+      '# TYPE oldest_delivery_job_age_seconds gauge',
+      `oldest_delivery_job_age_seconds ${oldestDeliveryAge}`,
+      '# TYPE delivery_job_stale_threshold_seconds gauge',
+      `delivery_job_stale_threshold_seconds ${env.get('HEALTH_QUEUE_STALE_SECONDS')}`,
+      '# TYPE koleo_circuit_breaker_open gauge',
+      `koleo_circuit_breaker_open ${circuitOpenUntil > Date.now() / 1_000 ? 1 : 0}`,
+      '# TYPE koleo_circuit_breaker_open_total counter',
+      `koleo_circuit_breaker_open_total ${value('koleo_circuit_open_total')}`,
+      '# TYPE koleo_circuit_breaker_consecutive_failures gauge',
+      `koleo_circuit_breaker_consecutive_failures ${value('koleo_circuit_consecutive_failures')}`,
+      '# TYPE koleo_last_success_epoch_seconds gauge',
+      `koleo_last_success_epoch_seconds ${value('koleo_last_success_epoch_seconds')}`,
       '',
     ].join('\n')
 

@@ -6,6 +6,7 @@ import ConnectionSearchService, {
   type ConnectionResult,
 } from '#services/connection_search_service'
 import MetricsService from '#services/metrics_service'
+import { KoleoCircuitOpenError } from '#services/koleo_circuit_breaker_service'
 import env from '#start/env'
 import logger from '@adonisjs/core/services/logger'
 import db from '@adonisjs/lucid/services/db'
@@ -40,6 +41,7 @@ export default class PriceAlertService {
         query.whereNull('nextCheckAt').orWhere('nextCheckAt', '<=', now.toSQL()!)
       })
       .orderBy('id', 'asc')
+      .limit(env.get('ALERT_WORKER_BATCH_SIZE'))
 
     return this.checkWatches(
       candidates.map((watch) => watch.id),
@@ -86,6 +88,7 @@ export default class PriceAlertService {
     const searchService = new ConnectionSearchService()
     const outboxService = new AlertOutboxService()
     const timezone = env.get('APP_TIMEZONE') ?? 'Europe/Warsaw'
+    let circuitOpen = false
 
     for (const watchId of watchIds) {
       const claimed = await this.claimWatch(watchId, requireDue)
@@ -298,8 +301,22 @@ export default class PriceAlertService {
           'Sprawdzenie obserwowanej ceny nie powiodło się'
         )
         await new MetricsService().increment('worker_watch_errors_total')
+        if (error instanceof KoleoCircuitOpenError) {
+          circuitOpen = true
+          logger.warn(
+            {
+              event: 'koleo_circuit_breaker_open',
+              retryAfterSeconds: error.retryAfterSeconds,
+              trigger,
+            },
+            'Przerwano cykl sprawdzania po otwarciu circuit breakera KOLEO'
+          )
+        }
       } finally {
         await this.releaseWatch(watch.id, token)
+      }
+      if (circuitOpen) {
+        break
       }
     }
 

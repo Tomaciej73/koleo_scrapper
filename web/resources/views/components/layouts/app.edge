@@ -5,6 +5,7 @@
 @let(nav = [
   { label: 'Wyszukiwarka', route: 'dashboard', icon: 'lucide:search' },
   { label: 'Obserwowane', route: 'price_watches.index', icon: 'lucide:bell-ring' },
+  { label: 'Konto', route: 'account.index', icon: 'lucide:user-round-cog' },
 ])
 @let(pageTitle = $props.get('title'))
 <!DOCTYPE html>
@@ -33,7 +34,9 @@
           @form({ route: 'session.destroy', method: 'POST' })
             <button type="submit" class="btn btn--secondary btn--sm">
               @svg('lucide:log-out', { width: 15, height: 15 })
+
               Wyloguj
+
             </button>
           @end
         </div>

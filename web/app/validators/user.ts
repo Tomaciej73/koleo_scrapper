@@ -46,3 +46,17 @@ export const passwordResetValidator = vine.create({
   password: password(),
   passwordConfirmation: password().sameAs('password'),
 })
+
+export const accountEmailValidator = vine.create({
+  email: email(),
+  currentPassword: vine.string(),
+})
+
+export const accountDeleteValidator = vine.create({
+  password: vine.string(),
+  confirmation: vine.string().trim().maxLength(16),
+})
+
+export const sessionRevocationValidator = vine.create({
+  sessionId: vine.string().trim().minLength(1).maxLength(255),
+})

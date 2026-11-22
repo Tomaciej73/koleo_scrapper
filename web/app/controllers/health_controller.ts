@@ -1,5 +1,4 @@
-import MetricsService from '#services/metrics_service'
-import env from '#start/env'
+import WorkerHealthService from '#services/worker_health_service'
 import type { HttpContext } from '@adonisjs/core/http'
 import db from '@adonisjs/lucid/services/db'
 
@@ -17,18 +16,22 @@ export default class HealthController {
       checks.database = { status: 'error', message: 'Baza danych jest niedostępna' }
     }
 
-    if (env.get('ALERTS_ENABLED') ?? false) {
-      const metrics = await new MetricsService().all().catch(() => new Map<string, number>())
-      const heartbeat = metrics.get('worker_last_heartbeat_epoch_seconds')
-      const age = heartbeat ? Date.now() / 1_000 - heartbeat : Number.POSITIVE_INFINITY
-      checks.worker =
-        age <= env.get('HEALTH_WORKER_STALE_SECONDS')
-          ? { status: 'ok' }
-          : { status: 'error', message: 'Sygnał życia workera jest nieaktualny lub go brakuje' }
-    }
-
     const ready = Object.values(checks).every((check) => check.status === 'ok')
     const report = { status: ready ? 'ok' : 'error', checks }
     return ready ? response.ok(report) : response.serviceUnavailable(report)
+  }
+
+  async worker({ response }: HttpContext) {
+    try {
+      const { ready, report } = await new WorkerHealthService().inspect()
+      return ready ? response.ok(report) : response.serviceUnavailable(report)
+    } catch {
+      return response.serviceUnavailable({
+        status: 'error',
+        checks: {
+          worker: { status: 'error', message: 'Nie udało się odczytać stanu workera' },
+        },
+      })
+    }
   }
 }

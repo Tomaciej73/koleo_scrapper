@@ -61,6 +61,53 @@ export default class MetricsService {
       : 0
   }
 
+  async queueCounts() {
+    const activeStatuses = ['pending', 'retry', 'processing']
+    const [alertPending, alertFailed, resetPending, resetFailed] = await Promise.all([
+      db.from('alert_outbox').whereIn('status', activeStatuses).count('* as total').first(),
+      db.from('alert_outbox').where('status', 'failed').count('* as total').first(),
+      db
+        .from('password_reset_deliveries')
+        .whereIn('status', activeStatuses)
+        .count('* as total')
+        .first(),
+      db.from('password_reset_deliveries').where('status', 'failed').count('* as total').first(),
+    ])
+    return {
+      alertPending: Number(alertPending?.total ?? 0),
+      alertFailed: Number(alertFailed?.total ?? 0),
+      resetPending: Number(resetPending?.total ?? 0),
+      resetFailed: Number(resetFailed?.total ?? 0),
+    }
+  }
+
+  async oldestPendingDeliveryAgeSeconds() {
+    const activeStatuses = ['pending', 'retry', 'processing']
+    const [alert, reset] = await Promise.all([
+      db
+        .from('alert_outbox')
+        .whereIn('status', activeStatuses)
+        .min('available_at as oldest')
+        .first(),
+      db
+        .from('password_reset_deliveries')
+        .whereIn('status', activeStatuses)
+        .min('available_at as oldest')
+        .first(),
+    ])
+    return [alert?.oldest, reset?.oldest].reduce((oldestAge, value) => {
+      if (!value) {
+        return oldestAge
+      }
+      const raw = String(value)
+      const sql = DateTime.fromSQL(raw, { zone: 'utc' })
+      const parsed = sql.isValid ? sql : DateTime.fromISO(raw, { zone: 'utc' })
+      return parsed.isValid
+        ? Math.max(oldestAge, Math.floor(DateTime.utc().diff(parsed, 'seconds').seconds))
+        : oldestAge
+    }, 0)
+  }
+
   private async safely(operation: () => Promise<void>) {
     try {
       await operation()

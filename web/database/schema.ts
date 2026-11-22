@@ -260,6 +260,19 @@ export class RateLimitSchema extends BaseModel {
   declare points: number
 }
 
+export class SessionSchema extends BaseModel {
+  static $columns = ['data', 'expiresAt', 'id', 'userId'] as const
+  $columns = SessionSchema.$columns
+  @column()
+  declare data: string
+  @column.dateTime()
+  declare expiresAt: DateTime
+  @column({ isPrimary: true })
+  declare id: string
+  @column()
+  declare userId: string | null
+}
+
 export class SystemMetricSchema extends BaseModel {
   static $columns = ['key', 'updatedAt', 'value'] as const
   $columns = SystemMetricSchema.$columns

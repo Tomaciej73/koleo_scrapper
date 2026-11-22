@@ -80,7 +80,10 @@ const sessionConfig = defineConfig({
     /**
      * Database store persists sessions in the configured SQL database.
      */
-    database: stores.database(),
+    database: stores.database({
+      tableName: 'sessions',
+      encrypt: true,
+    }),
   },
 })
 

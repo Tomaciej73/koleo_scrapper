@@ -8,11 +8,13 @@
   layout itself:
   @layouts.settings({ title: 'Profil' })
 --}}
-@let(items = [])
+@let(items = [
+  { label: 'Konto i bezpieczeństwo', route: 'account.index', icon: 'lucide:shield-user' },
+])
 @layouts.app({ title: $props.get('title') ?? 'Ustawienia' })
   @page({
     title: 'Ustawienia',
-    description: 'Manage your account settings and preferences.',
+    description: 'Zarządzaj adresem e-mail, sesjami i swoimi danymi.',
   })
     <div class="sidebar-layout">
       <nav class="sidebar-layout__nav" aria-label="Ustawienia">

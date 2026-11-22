@@ -1,0 +1,37 @@
+groups:
+  - name: koleo-watch
+    rules:
+      - alert: KoleoWorkerHeartbeatMissing
+        expr: worker_last_heartbeat_epoch_seconds <= 0
+        labels:
+          severity: critical
+        annotations:
+          summary: Worker KOLEO nie wysłał jeszcze sygnału życia
+
+      - alert: KoleoWorkerHeartbeatStale
+        expr: (time() - worker_last_heartbeat_epoch_seconds) > worker_heartbeat_stale_threshold_seconds
+        labels:
+          severity: critical
+        annotations:
+          summary: Sygnał życia workera KOLEO jest nieaktualny
+
+      - alert: KoleoDeliveryQueueStale
+        expr: oldest_delivery_job_age_seconds > delivery_job_stale_threshold_seconds
+        labels:
+          severity: warning
+        annotations:
+          summary: Wiadomości KOLEO zbyt długo oczekują w kolejce
+
+      - alert: KoleoDeliveryFailed
+        expr: (alert_outbox_failed + password_reset_delivery_failed) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: Co najmniej jedna wiadomość KOLEO trwale nie została wysłana
+
+      - alert: KoleoCircuitBreakerOpen
+        expr: koleo_circuit_breaker_open == 1
+        labels:
+          severity: warning
+        annotations:
+          summary: Circuit breaker zapytań KOLEO jest otwarty

@@ -1,6 +1,9 @@
 import env from '#start/env'
 import { createKoleoClient } from '#services/koleo_client_factory'
 import MetricsService from '#services/metrics_service'
+import KoleoCircuitBreakerService, {
+  KoleoCircuitOpenError,
+} from '#services/koleo_circuit_breaker_service'
 import type Koleo from 'open-koleo'
 import type { KoleoConnection } from 'open-koleo'
 import { DateTime } from 'luxon'
@@ -46,10 +49,17 @@ export default class ConnectionSearchService {
     if (this.provider === 'koleo') {
       const startedAt = performance.now()
       let failed = false
+      const circuitBreaker = new KoleoCircuitBreakerService()
       try {
-        return await this.searchKoleo(input)
+        await circuitBreaker.assertAvailable()
+        const results = await this.searchKoleo(input)
+        await circuitBreaker.recordSuccess()
+        return results
       } catch (error) {
         failed = true
+        if (!(error instanceof KoleoCircuitOpenError)) {
+          await circuitBreaker.recordFailure(error)
+        }
         throw error
       } finally {
         await new MetricsService().recordKoleoRequest(performance.now() - startedAt, failed)

@@ -107,6 +107,7 @@ export default await Env.create(new URL('../', import.meta.url), {
   ALERT_MIN_CHECK_INTERVAL_MINUTES: Env.schema.number.optional(),
   ALERT_MAX_CHECK_INTERVAL_MINUTES: Env.schema.number.optional(),
   ALERT_WORKER_TICK_SECONDS: Env.schema.number.optional(),
+  ALERT_WORKER_BATCH_SIZE: Env.schema.number(),
   PRICE_WATCH_MAX_PER_USER: Env.schema.number(),
   ALERT_DAILY_MAX_MESSAGES_PER_USER: Env.schema.number(),
   ALERT_WATCH_LOCK_TIMEOUT_SECONDS: Env.schema.number(),
@@ -116,6 +117,8 @@ export default await Env.create(new URL('../', import.meta.url), {
   ALERT_OUTBOX_RETRY_BASE_SECONDS: Env.schema.number(),
   ALERT_OUTBOX_RETRY_MAX_SECONDS: Env.schema.number(),
   ALERT_OUTBOX_LOCK_TIMEOUT_SECONDS: Env.schema.number(),
+  ALERT_OUTBOX_RETENTION_DAYS: Env.schema.number(),
+  PASSWORD_RESET_DELIVERY_RETENTION_DAYS: Env.schema.number(),
   PRICE_HISTORY_DISPLAY_LIMIT: Env.schema.number.optional(),
   PRICE_HISTORY_RETENTION_DAYS: Env.schema.number(),
   MAIL_ENABLED: Env.schema.boolean.optional(),
@@ -129,11 +132,14 @@ export default await Env.create(new URL('../', import.meta.url), {
   PASSWORD_RESET_MIN_RESPONSE_MS: Env.schema.number(),
   PASSWORD_RESET_RESPONSE_JITTER_MS: Env.schema.number(),
   TICKET_SALES_MAX_ADVANCE_DAYS: Env.schema.number(),
+  KOLEO_CIRCUIT_BREAKER_FAILURE_THRESHOLD: Env.schema.number(),
+  KOLEO_CIRCUIT_BREAKER_OPEN_SECONDS: Env.schema.number(),
 
   // HTTP and observability
   BODY_PARSER_FORM_LIMIT: Env.schema.string(),
   BODY_PARSER_JSON_LIMIT: Env.schema.string(),
   BODY_PARSER_MULTIPART_LIMIT: Env.schema.string(),
   HEALTH_WORKER_STALE_SECONDS: Env.schema.number(),
+  HEALTH_QUEUE_STALE_SECONDS: Env.schema.number(),
   METRICS_TOKEN: Env.schema.secret.optional(),
 })

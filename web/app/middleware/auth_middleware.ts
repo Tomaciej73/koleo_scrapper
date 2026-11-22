@@ -2,6 +2,8 @@ import type { HttpContext } from '@adonisjs/core/http'
 import type { NextFn } from '@adonisjs/core/types/http'
 import type { Authenticators } from '@adonisjs/auth/types'
 import { AUTH_VERSION_SESSION_KEY } from '#services/auth_session_service'
+import SecurityEventService from '#services/security_event_service'
+import SessionManagementService from '#services/session_management_service'
 
 /**
  * Auth middleware is used authenticate HTTP requests and deny
@@ -24,11 +26,20 @@ export default class AuthMiddleware {
     const user = ctx.auth.user!
     const sessionAuthVersion = Number(ctx.session.get(AUTH_VERSION_SESSION_KEY))
     if (!Number.isSafeInteger(sessionAuthVersion) || sessionAuthVersion !== user.authVersion) {
+      ctx.logger.warn(
+        {
+          event: 'auth_session_version_rejected',
+          userId: user.id,
+          ...SecurityEventService.requestContext(ctx.request),
+        },
+        'Odrzucono unieważnioną sesję użytkownika'
+      )
       await ctx.auth.use('web').logout()
       ctx.session.forget(AUTH_VERSION_SESSION_KEY)
       ctx.session.flash('error', 'Sesja wygasła. Zaloguj się ponownie.')
       return ctx.response.redirect(this.redirectTo)
     }
+    await new SessionManagementService().track(ctx.session, ctx.request, user.id)
     return next()
   }
 }

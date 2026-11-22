@@ -8,6 +8,8 @@ import env from '#start/env'
 import type { HttpContext } from '@adonisjs/core/http'
 import { DateTime } from 'luxon'
 import { AUTH_VERSION_SESSION_KEY } from '#services/auth_session_service'
+import SecurityEventService from '#services/security_event_service'
+import SessionManagementService from '#services/session_management_service'
 
 export default class EmailVerificationController {
   async create({ session, response, view }: HttpContext) {
@@ -37,7 +39,7 @@ export default class EmailVerificationController {
     })
   }
 
-  async store({ request, session, response, auth }: HttpContext) {
+  async store({ request, session, response, auth, logger }: HttpContext) {
     const { code } = await request.validateUsing(emailVerificationValidator)
     const user = await this.getPendingUser(session.get(EMAIL_VERIFICATION_SESSION_KEY))
     if (!user) {
@@ -50,6 +52,15 @@ export default class EmailVerificationController {
       session.forget(EMAIL_VERIFICATION_SESSION_KEY)
       await auth.use('web').login(user)
       session.put(AUTH_VERSION_SESSION_KEY, user.authVersion)
+      await new SessionManagementService().track(session, request, user.id)
+      logger.info(
+        {
+          event: 'email_verification_succeeded',
+          userId: user.id,
+          ...SecurityEventService.requestContext(request),
+        },
+        'Potwierdzono adres e-mail użytkownika'
+      )
       session.flash('success', 'Adres e-mail został potwierdzony. Konto jest aktywne.')
       return response.redirect().toRoute('dashboard')
     }
@@ -61,11 +72,21 @@ export default class EmailVerificationController {
           ? 'Przekroczono limit prób. Wyślij nowy kod.'
           : 'Kod wygasł. Wyślij nowy kod.'
 
+    logger.warn(
+      {
+        event: 'email_verification_failed',
+        userId: user.id,
+        result,
+        ...SecurityEventService.requestContext(request),
+      },
+      'Nieudana próba potwierdzenia adresu e-mail'
+    )
+
     session.flash('error', message)
     return response.redirect().toRoute('email_verification.create')
   }
 
-  async resend({ session, response, logger }: HttpContext) {
+  async resend({ request, session, response, logger }: HttpContext) {
     const user = await this.getPendingUser(session.get(EMAIL_VERIFICATION_SESSION_KEY))
     if (!user) {
       session.forget(EMAIL_VERIFICATION_SESSION_KEY)
@@ -80,6 +101,14 @@ export default class EmailVerificationController {
           `Poczekaj ${result.retryAfterSeconds} s przed wysłaniem kolejnego kodu.`
         )
       } else {
+        logger.info(
+          {
+            event: 'email_verification_resent',
+            userId: user.id,
+            ...SecurityEventService.requestContext(request),
+          },
+          'Ponownie wysłano kod potwierdzający adres e-mail'
+        )
         session.flash('success', 'Nowy kod aktywacyjny został wysłany.')
       }
     } catch (error) {

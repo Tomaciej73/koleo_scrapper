@@ -64,6 +64,13 @@ kontrolują `ALERT_MIN_CHECK_INTERVAL_MINUTES` i
 `ALERT_MAX_CHECK_INTERVAL_MINUTES`. Proces workera trzeba uruchomić jako
 osobną usługę obok serwera WWW.
 
+Jeden cykl pobiera najwyżej `ALERT_WORKER_BATCH_SIZE` obserwacji. Pozostałe
+oczekujące wpisy przechodzą do następnego cyklu. Globalny circuit breaker
+otwiera się po liczbie kolejnych awarii określonej przez
+`KOLEO_CIRCUIT_BREAKER_FAILURE_THRESHOLD` i zatrzymuje zapytania na
+`KOLEO_CIRCUIT_BREAKER_OPEN_SECONDS`, aby awaria KOLEO nie powodowała lawiny
+ponowień.
+
 Liczbę ostatnich zmian ceny prezentowanych na wykresie ustawia
 `PRICE_HISTORY_DISPLAY_LIMIT`. Identyczna cena nie tworzy kolejnego wpisu.
 Worker usuwa wpisy starsze niż liczba dni określona przez
@@ -166,6 +173,8 @@ przejmowana przez jednego workera, a błędy SMTP są ponawiane z wykładniczym
 backoffem. Liczbę prób, opóźnienia, czas wygaśnięcia blokady i rozmiar partii
 ustawiają `ALERT_OUTBOX_*`. `ALERT_DAILY_MAX_MESSAGES_PER_USER` ogranicza liczbę
 alertów użytkownika na dobę, a `PRICE_WATCH_MAX_PER_USER` liczbę obserwacji.
+Terminalne wpisy kolejki są usuwane po `ALERT_OUTBOX_RETENTION_DAYS`, a stare
+rekordy wysyłki resetu hasła po `PASSWORD_RESET_DELIVERY_RETENTION_DAYS`.
 
 Nowe konto pozostaje nieaktywne do czasu wpisania kodu z wiadomości e-mail.
 Długość kodu, ważność, limit prób i czas przed ponowną wysyłką określają
@@ -187,23 +196,25 @@ wszystkie wcześniejsze sesje są odrzucane przez numer `auth_version`.
 Minimalną i maksymalną długość hasła ustawiają `PASSWORD_MIN_LENGTH` oraz
 `PASSWORD_MAX_LENGTH`.
 
+Ekran „Konto” pozwala zmienić adres e-mail z ponownym potwierdzeniem, pobrać
+eksport danych, trwale usunąć konto oraz przeglądać i unieważniać aktywne
+sesje. Lista sesji wymaga `SESSION_DRIVER=database` (zalecane w produkcji) albo
+`memory` w testach. Dane sesji w tabeli `sessions` są szyfrowane kluczem
+aplikacji. Przejście z wcześniejszego store'a `cookie` jednorazowo wyloguje
+dotychczasowe sesje.
+
 Adresy e-mail są przed walidacją i zapisem obcinane z białych znaków oraz
 zamieniane na małe litery. Baza dodatkowo wymusza unikalność wartości
 `LOWER(TRIM(email))`.
 
 ## Audyt zależności
 
-Na 17 listopada 2026 r. `npm audit` zgłasza
-[`GHSA-fc5q-39xc-vjpf` / `CVE-2026-112366`](https://github.com/advisories/GHSA-fc5q-39xc-vjpf)
-w pośredniej zależności `picomatch`. Oficjalna baza GitHub oznacza wersje
-`<= 4.0.7` jako podatne i nie wskazuje jeszcze poprawionej wersji. Aplikacja
-nie przyjmuje od użytkownika wzorców glob
-i nie wywołuje bezpośrednio `picomatch`; pakiet jest wciągany przez narzędzia
-Adonis/Vite. Limity CPU/PID kontenera ograniczają skutki ewentualnego DoS, ale
-nie zastępują aktualizacji. Nie uruchamiaj `npm audit fix --force`, ponieważ
-proponuje niezgodne wersje głównych pakietów Adonisa. Po wydaniu poprawionej
-wersji należy zaktualizować lockfile i ponownie wykonać audyt oraz pełny zestaw
-testów.
+Na 22 listopada 2026 r. `npm audit` oraz `npm audit --omit=dev` nie zgłaszają
+znanych podatności. Pakiety Auth, Core, Limiter, Lucid, Mail, Session i Shield
+zostały podniesione do bieżących wydań zgodnych z AdonisJS 7. Aktualizacja Mail
+10.4.1 zawiera wskazane przez projekt Adonis poprawki bezpieczeństwa
+Nodemailera. Po każdej aktualizacji należy ponownie uruchomić audyt, testy
+offline i produkcyjny build.
 
 ## Prawdziwe dane
 
@@ -383,15 +394,17 @@ obrazu.
 ## Healthchecki i metryki
 
 - `GET /health/live` potwierdza, że proces HTTP odpowiada,
-- `GET /health/ready` sprawdza bazę oraz — gdy alerty są włączone — świeżość
-  heartbeat workera,
+- `GET /health/ready` sprawdza wyłącznie gotowość serwera WWW i bazy,
+- `GET /health/worker` niezależnie sprawdza heartbeat workera oraz wiek kolejek,
 - `GET /metrics` zwraca format Prometheus i wymaga nagłówka
   `Authorization: Bearer <METRICS_TOKEN>`; bez tokenu endpoint zwraca 404.
 
 Metryki obejmują liczbę i czas zapytań KOLEO, błędy KOLEO i SMTP, przebiegi i
-błędy workera, błędy pojedynczych obserwacji, heartbeat oraz wiek najstarszego
-oczekującego zadania. Multipart jest wyłączony, ponieważ aplikacja nie ma
-uploadów; limity zwykłych formularzy i JSON są ustawiane przez
+błędy workera, heartbeat, kolejki wysyłkowe i stan circuit breakera. Progi
+healthchecków ustalają `HEALTH_WORKER_STALE_SECONDS` i
+`HEALTH_QUEUE_STALE_SECONDS`. Gotowe reguły osobnych alarmów Prometheus znajdują
+się w `ops/prometheus/koleo-alerts.yml`. Multipart jest wyłączony, ponieważ
+aplikacja nie ma uploadów; limity zwykłych formularzy i JSON są ustawiane przez
 `BODY_PARSER_*_LIMIT`.
 
 Włączaj ten tryb wyłącznie z potwierdzonym uprawnieniem administratora. Punkt
