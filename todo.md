@@ -21,6 +21,8 @@ Ostatnia aktualizacja: 2026-11-25
 - [x] Dodano skorelowane logi startu, wyniku, pustego wyniku i błędu wyszukiwania połączeń.
 - [x] Odpowiedź KOLEO `noConnectionsFound` jest obsługiwana jako pusty wynik, a nie awaria.
 - [x] Usunięto angielski komunikat `No connections found.` z interfejsu WWW.
+- [x] Ujednolicono czytelny format logów `web` i `worker` z poziomem, datą, godziną i kolorami.
+- [x] Dodano przełączanie `pretty/json` oraz opcjonalny pełny kontekst diagnostyczny przez `.env_conf`.
 
 ## Walidacja
 

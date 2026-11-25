@@ -17,6 +17,11 @@ export default await Env.create(new URL('../', import.meta.url), {
   PORT: Env.schema.number(),
   HOST: Env.schema.string({ format: 'host' }),
   LOG_LEVEL: Env.schema.string(),
+  LOG_FORMAT: Env.schema.enum(['json', 'pretty'] as const),
+  LOG_COLORIZE: Env.schema.boolean(),
+  LOG_TIME_FORMAT: Env.schema.string(),
+  LOG_SINGLE_LINE: Env.schema.boolean(),
+  LOG_SHOW_CONTEXT: Env.schema.boolean(),
   APP_TIMEZONE: Env.schema.string.optional(),
 
   // App

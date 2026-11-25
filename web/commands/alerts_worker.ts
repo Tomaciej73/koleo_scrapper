@@ -26,7 +26,10 @@ export default class AlertsWorker extends BaseCommand {
 
   async run() {
     if (!(env.get('ALERTS_ENABLED') ?? false) && !(env.get('MAIL_ENABLED') ?? false)) {
-      this.logger.warning('Alerty i wysyłka e-mail są wyłączone. Worker nie ma zadań.')
+      logger.warn(
+        { event: 'worker_idle' },
+        'Alerty i wysyłka e-mail są wyłączone. Worker nie ma zadań.'
+      )
       this.terminate()
       return
     }
@@ -34,7 +37,10 @@ export default class AlertsWorker extends BaseCommand {
     const tickSeconds = Math.max(10, env.get('ALERT_WORKER_TICK_SECONDS') ?? 60)
     await this.check()
     this.timer = setInterval(() => void this.check(), tickSeconds * 1_000)
-    this.logger.info(`Worker harmonogramu działa co ${tickSeconds} s.`)
+    logger.info(
+      { event: 'worker_schedule_started', tickSeconds },
+      `Worker harmonogramu działa co ${tickSeconds} s.`
+    )
   }
 
   private async check() {
@@ -62,17 +68,30 @@ export default class AlertsWorker extends BaseCommand {
         const summary = await new PriceAlertService().checkAllActive('worker')
         const errors = summary.errors + resetDelivery.errors
         const message = `Sprawdzono: ${summary.checked}, zmiany: ${summary.priceChanges} (spadki: ${summary.priceDrops}, wzrosty: ${summary.priceIncreases}), bez zmian: ${summary.unchanged}, alerty w kolejce: ${summary.alertsQueued}, alerty wysłane: ${summary.delivered}, resety hasła wysłane: ${resetDelivery.delivered}, usunięte stare wpisy: ${retention.alertOutbox + retention.passwordResetDeliveries}, błędy: ${errors}`
+        const context = {
+          event: 'worker_cycle_completed',
+          ...summary,
+          passwordResetsDelivered: resetDelivery.delivered,
+          passwordResetErrors: resetDelivery.errors,
+          prunedOperationalRecords: retention.alertOutbox + retention.passwordResetDeliveries,
+        }
         if (errors > 0) {
-          this.logger.warning(message)
+          logger.warn(context, message)
         } else {
-          this.logger.info(message)
+          logger.info(context, message)
         }
       } else {
         const message = `Resety hasła wysłane: ${resetDelivery.delivered}, błędy: ${resetDelivery.errors}`
+        const context = {
+          event: 'worker_cycle_completed',
+          passwordResetsDelivered: resetDelivery.delivered,
+          passwordResetErrors: resetDelivery.errors,
+          prunedOperationalRecords: retention.alertOutbox + retention.passwordResetDeliveries,
+        }
         if (resetDelivery.errors > 0) {
-          this.logger.warning(message)
+          logger.warn(context, message)
         } else {
-          this.logger.info(message)
+          logger.info(context, message)
         }
       }
     } catch (error) {

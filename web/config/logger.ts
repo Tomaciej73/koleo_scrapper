@@ -1,6 +1,7 @@
 import env from '#start/env'
-import app from '@adonisjs/core/services/app'
-import { defineConfig, syncDestination, targets } from '@adonisjs/core/logger'
+import { defineConfig, targets } from '@adonisjs/core/logger'
+
+const usePrettyLogs = env.get('LOG_FORMAT') === 'pretty'
 
 /**
  * Logger configuration.
@@ -35,13 +36,6 @@ const loggerConfig = defineConfig({
       level: env.get('LOG_LEVEL'),
 
       /**
-       * Synchronous destination for logs in development.
-       * Ensures logs are written immediately for better debugging.
-       * Disabled in production for better performance.
-       */
-      destination: !app.inProduction ? await syncDestination() : undefined,
-
-      /**
        * Transport configuration defines where and how logs are sent.
        */
       transport: {
@@ -49,7 +43,23 @@ const loggerConfig = defineConfig({
          * Targets define the output destinations for logs.
          * destination: 1 means stdout (console output).
          */
-        targets: [targets.file({ destination: 1 })],
+        targets: usePrettyLogs
+          ? [
+              {
+                target: 'pino-pretty',
+                options: {
+                  destination: 1,
+                  colorize: env.get('LOG_COLORIZE'),
+                  colorizeObjects: env.get('LOG_COLORIZE'),
+                  translateTime: env.get('LOG_TIME_FORMAT'),
+                  levelFirst: true,
+                  singleLine: env.get('LOG_SINGLE_LINE'),
+                  hideObject: !env.get('LOG_SHOW_CONTEXT'),
+                  ignore: 'pid,hostname,name',
+                },
+              },
+            ]
+          : [targets.file({ destination: 1 })],
       },
     },
   },
