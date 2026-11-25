@@ -437,8 +437,13 @@ Metryki obejmują liczbę i czas zapytań KOLEO, błędy KOLEO i SMTP, przebiegi
 błędy workera, heartbeat, kolejki wysyłkowe i stan circuit breakera. Progi
 healthchecków ustalają `HEALTH_WORKER_STALE_SECONDS` i
 `HEALTH_QUEUE_STALE_SECONDS`. Gotowe reguły osobnych alarmów Prometheus znajdują
-się w `ops/prometheus/koleo-alerts.yml`. Multipart jest wyłączony, ponieważ
-aplikacja nie ma uploadów; limity zwykłych formularzy i JSON są ustawiane przez
+się w `ops/prometheus/koleo-alerts.yml`. `/health/worker` liczy wpisy obu kolejek
+przez SQL `COUNT` i ustala najstarsze oczekujące zadanie przez `MIN`, bez
+wczytywania całych kolejek do pamięci. Żadna dodatkowa usługa monitoringu nie
+jest uruchamiana przez Docker Compose aplikacji.
+
+Multipart jest wyłączony, ponieważ aplikacja nie ma uploadów; limity zwykłych
+formularzy i JSON są ustawiane przez
 `BODY_PARSER_*_LIMIT`.
 
 Każde wyszukanie połączeń zapisuje ustrukturyzowane zdarzenia

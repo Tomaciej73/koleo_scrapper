@@ -27,10 +27,11 @@ Ostatnia aktualizacja: 2026-11-25
 - [x] Rozdzielono techniczne `TZ=UTC` od prezentacyjnego `APP_TIMEZONE=Europe/Warsaw` i dodano test godzin obserwacji.
 - [x] Worker wybiera obserwowany kurs przed pobraniem ceny i współdzieli wyszukanie oraz cenę w jednym cyklu.
 - [x] Circuit breaker liczy tylko błędy transportowe, timeouty oraz HTTP 408/429/5xx, nie błędne zapytania.
+- [x] `/health/worker` korzysta z SQL `COUNT`/`MIN` zamiast wczytywać rekordy kolejek.
 
 ## Walidacja
 
-- [x] Pełny zestaw testów WWW: 51/51 zaliczone; 10/10 testów offline wrappera.
+- [x] Pełny zestaw testów WWW: 52/52 zaliczone; 10/10 testów offline wrappera w poprzedniej walidacji.
 - [x] `npm run typecheck` zaliczony.
 - [x] `npm run lint` zaliczony.
 - [x] `npm run build` zaliczony.
@@ -52,5 +53,4 @@ Ostatnia aktualizacja: 2026-11-25
 
 - Ustawić nowe zmienne w serwerowym `.env_conf` zgodnie z `.env.example` i README.
 - Zbudować obrazy oraz uruchomić migrację, WWW i worker przez Docker Compose.
-- Skonfigurować monitoring `/health/ready`, `/health/worker` i `/metrics`.
 - Po wdrożeniu sprawdzić listę aktywnych sesji, eksport danych i usuwanie konta na koncie testowym.

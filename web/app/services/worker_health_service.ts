@@ -1,6 +1,4 @@
 import env from '#start/env'
-import db from '@adonisjs/lucid/services/db'
-import { DateTime } from 'luxon'
 import MetricsService from '#services/metrics_service'
 
 type CheckStatus = 'ok' | 'error' | 'disabled'
@@ -51,44 +49,16 @@ export default class WorkerHealthService {
   }
 
   private async queueState() {
-    const activeStatuses = ['pending', 'retry', 'processing']
-    const [alertRows, resetRows] = await Promise.all([
-      db
-        .from('alert_outbox')
-        .select('status', 'available_at')
-        .whereIn('status', [...activeStatuses, 'failed']),
-      db
-        .from('password_reset_deliveries')
-        .select('status', 'available_at')
-        .whereIn('status', [...activeStatuses, 'failed']),
+    const metrics = new MetricsService()
+    const [counts, oldestPendingAgeSeconds] = await Promise.all([
+      metrics.queueCounts(),
+      metrics.oldestPendingDeliveryAgeSeconds(),
     ])
-    const rows = [...alertRows, ...resetRows]
-    const pendingRows = rows.filter((row) => activeStatuses.includes(String(row.status)))
-    const oldestPendingAgeSeconds = pendingRows.reduce((oldest, row) => {
-      const parsed = this.parseDate(row.available_at)
-      if (!parsed) {
-        return oldest
-      }
-      return Math.max(oldest, Math.floor(DateTime.utc().diff(parsed, 'seconds').seconds))
-    }, 0)
 
     return {
-      pending: pendingRows.length,
-      failed: rows.filter((row) => row.status === 'failed').length,
-      oldestPendingAgeSeconds: Math.max(0, oldestPendingAgeSeconds),
+      pending: counts.alertPending + counts.resetPending,
+      failed: counts.alertFailed + counts.resetFailed,
+      oldestPendingAgeSeconds,
     }
-  }
-
-  private parseDate(value: unknown) {
-    if (!value) {
-      return null
-    }
-    const raw = String(value)
-    const sql = DateTime.fromSQL(raw, { zone: 'utc' })
-    if (sql.isValid) {
-      return sql
-    }
-    const iso = DateTime.fromISO(raw, { zone: 'utc' })
-    return iso.isValid ? iso : null
   }
 }
