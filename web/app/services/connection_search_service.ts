@@ -5,7 +5,7 @@ import KoleoCircuitBreakerService, {
   KoleoCircuitOpenError,
 } from '#services/koleo_circuit_breaker_service'
 import type Koleo from 'open-koleo'
-import type { KoleoConnection } from 'open-koleo'
+import type { KoleoConnection, KoleoError } from 'open-koleo'
 import { DateTime } from 'luxon'
 
 export type PriceProviderName = 'demo' | 'koleo'
@@ -40,7 +40,35 @@ export interface ConnectionResult {
   provider: PriceProviderName
 }
 
-export class ConnectionSearchError extends Error {}
+export class ConnectionSearchError extends Error {
+  constructor(
+    message: string,
+    public readonly code = 'connectionSearchFailed',
+    options?: ErrorOptions
+  ) {
+    super(message, options)
+    this.name = 'ConnectionSearchError'
+  }
+}
+
+export function normalizeKoleoSearchResponse(
+  response: KoleoConnection[] | KoleoError
+): KoleoConnection[] {
+  if (Array.isArray(response)) {
+    return response
+  }
+
+  if (response.code === 'noConnectionsFound') {
+    return []
+  }
+
+  const message =
+    response.code === 'stationsNotFound' || response.code === 'slugConversionFailed'
+      ? 'Nie znaleziono wybranej stacji w KOLEO. Wybierz stację ponownie z listy.'
+      : 'Nie udało się pobrać połączeń z KOLEO. Spróbuj ponownie później.'
+
+  throw new ConnectionSearchError(message, response.code ?? 'koleoSearchFailed')
+}
 
 export default class ConnectionSearchService {
   readonly provider: PriceProviderName = env.get('PRICE_PROVIDER') ?? 'demo'
@@ -121,13 +149,10 @@ export default class ConnectionSearchService {
       `${input.travelDate}T${departureTime}:00`,
       input.onlyDirect
     )
-
-    if (!Array.isArray(response)) {
-      throw new ConnectionSearchError(response.error || 'Nie udało się pobrać połączeń.')
-    }
+    const connections = normalizeKoleoSearchResponse(response)
 
     const resultLimit = env.get('SEARCH_RESULT_LIMIT') ?? 20
-    const matching = response
+    const matching = connections
       .filter((connection) => connection.departure?.startsWith(`${input.travelDate}T`))
       .slice(0, resultLimit)
 

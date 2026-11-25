@@ -5,6 +5,7 @@ import ConnectionSearchService, {
 import JourneyValidationService, {
   JourneyValidationError,
 } from '#services/journey_validation_service'
+import { KoleoCircuitOpenError } from '#services/koleo_circuit_breaker_service'
 import env from '#start/env'
 import { connectionSearchValidator } from '#validators/connections'
 import type { HttpContext } from '@adonisjs/core/http'
@@ -23,7 +24,7 @@ export default class SearchController {
     })
   }
 
-  async search({ request, view }: HttpContext) {
+  async search({ request, view, logger }: HttpContext) {
     const payload = await request.validateUsing(connectionSearchValidator)
     const searchInput: ConnectionSearchInput = {
       origin: payload.origin,
@@ -35,10 +36,42 @@ export default class SearchController {
       onlyDirect: payload.onlyDirect ?? false,
     }
     const service = new ConnectionSearchService()
+    const startedAt = performance.now()
+    const logContext = {
+      provider: service.provider,
+      originStationId: searchInput.originStationId,
+      destinationStationId: searchInput.destinationStationId,
+      travelDate: searchInput.travelDate,
+      departureTime: searchInput.departureTime ?? null,
+      onlyDirect: searchInput.onlyDirect,
+    }
+
+    logger.info(
+      {
+        event: 'connection_search_started',
+        ...logContext,
+      },
+      'Rozpoczęto wyszukiwanie połączeń'
+    )
 
     try {
       await new JourneyValidationService().validate(searchInput)
       const results = await service.search(searchInput)
+      const resultContext = {
+        event: results.length === 0 ? 'connection_search_empty' : 'connection_search_succeeded',
+        ...logContext,
+        resultCount: results.length,
+        durationMs: Math.round(performance.now() - startedAt),
+      }
+      if (results.length === 0) {
+        logger.warn(
+          resultContext,
+          'KOLEO nie zwróciło połączeń dla wybranych parametrów wyszukiwania'
+        )
+      } else {
+        logger.info(resultContext, 'Zakończono wyszukiwanie połączeń')
+      }
+
       return view.render('pages/dashboard', {
         defaultDate: this.defaultDate(),
         providerMode: service.provider,
@@ -51,10 +84,32 @@ export default class SearchController {
         results,
       })
     } catch (error) {
-      const message =
-        error instanceof ConnectionSearchError || error instanceof JourneyValidationError
-          ? error.message
-          : 'Nie udało się pobrać połączeń. Spróbuj ponownie później.'
+      const isExpectedError =
+        error instanceof ConnectionSearchError ||
+        error instanceof JourneyValidationError ||
+        error instanceof KoleoCircuitOpenError
+      const message = isExpectedError
+        ? error.message
+        : 'Nie udało się pobrać połączeń. Spróbuj ponownie później.'
+      const errorContext = {
+        event: 'connection_search_failed',
+        ...logContext,
+        errorCode:
+          error instanceof ConnectionSearchError
+            ? error.code
+            : error instanceof JourneyValidationError
+              ? 'journeyValidationFailed'
+              : error instanceof KoleoCircuitOpenError
+                ? 'koleoCircuitOpen'
+                : 'unexpectedSearchFailure',
+        durationMs: Math.round(performance.now() - startedAt),
+      }
+
+      if (isExpectedError) {
+        logger.warn({ ...errorContext, err: error }, 'Wyszukiwanie połączeń nie powiodło się')
+      } else {
+        logger.error({ ...errorContext, err: error }, 'Nieoczekiwany błąd wyszukiwania połączeń')
+      }
 
       return view.render('pages/dashboard', {
         defaultDate: this.defaultDate(),

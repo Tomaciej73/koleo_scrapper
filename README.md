@@ -407,6 +407,15 @@ się w `ops/prometheus/koleo-alerts.yml`. Multipart jest wyłączony, ponieważ
 aplikacja nie ma uploadów; limity zwykłych formularzy i JSON są ustawiane przez
 `BODY_PARSER_*_LIMIT`.
 
+Każde wyszukanie połączeń zapisuje ustrukturyzowane zdarzenia
+`connection_search_started` oraz jedno ze zdarzeń końcowych:
+`connection_search_succeeded`, `connection_search_empty` albo
+`connection_search_failed`. Log zawiera wspólny `request_id`, identyfikatory
+stacji, datę, filtr połączeń bezpośrednich, czas wykonania i liczbę wyników, ale
+nie zapisuje danych uwierzytelniających. Odpowiedź KOLEO `noConnectionsFound`
+jest prawidłowym pustym wynikiem, więc nie zwiększa licznika awarii ani nie
+otwiera circuit breakera.
+
 Włączaj ten tryb wyłącznie z potwierdzonym uprawnieniem administratora. Punkt
 1.6 aktualnego
 [regulaminu KOLEO](https://koleo.pl/terms-of-use) zabrania automatycznego

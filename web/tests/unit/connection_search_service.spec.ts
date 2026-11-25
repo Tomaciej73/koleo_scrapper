@@ -1,4 +1,7 @@
-import ConnectionSearchService from '#services/connection_search_service'
+import ConnectionSearchService, {
+  ConnectionSearchError,
+  normalizeKoleoSearchResponse,
+} from '#services/connection_search_service'
 import { test } from '@japa/runner'
 import { DateTime } from 'luxon'
 
@@ -59,5 +62,27 @@ test.group('Connection search service', () => {
     assert.equal(connection.arrivalDate, expectedArrival.toISODate())
     assert.equal(connection.arrivalDateLabel, expectedArrival.toFormat('dd.LL.yyyy'))
     assert.equal(connection.arrivalDayOffset, 1)
+  })
+
+  test('treats the KOLEO no-connections response as an empty successful result', ({ assert }) => {
+    const results = normalizeKoleoSearchResponse({
+      error: 'No connections found.',
+      code: 'noConnectionsFound',
+    })
+
+    assert.deepEqual(results, [])
+  })
+
+  test('translates other KOLEO search errors without exposing the upstream message', ({
+    assert,
+  }) => {
+    const run = () =>
+      normalizeKoleoSearchResponse({
+        error: 'Internal upstream diagnostic that must not reach the browser',
+        code: 'upstreamFailure',
+      })
+
+    assert.throws(run, ConnectionSearchError)
+    assert.throws(run, 'Nie udało się pobrać połączeń z KOLEO. Spróbuj ponownie później.')
   })
 })

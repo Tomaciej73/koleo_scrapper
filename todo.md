@@ -1,6 +1,6 @@
 # Plan i stan prac
 
-Ostatnia aktualizacja: 2026-11-22
+Ostatnia aktualizacja: 2026-11-25
 
 ## Wykonane
 
@@ -18,10 +18,13 @@ Ostatnia aktualizacja: 2026-11-22
 - [x] Uzupełniono `.env.example`, lokalny `.env_conf`, Docker Compose, Dockerfile i README.
 - [x] Dodano migrację tabeli sesji i włączono bazodanowy magazyn sesji w środowisku produkcyjnym.
 - [x] Dodano oraz rozszerzono testy offline.
+- [x] Dodano skorelowane logi startu, wyniku, pustego wyniku i błędu wyszukiwania połączeń.
+- [x] Odpowiedź KOLEO `noConnectionsFound` jest obsługiwana jako pusty wynik, a nie awaria.
+- [x] Usunięto angielski komunikat `No connections found.` z interfejsu WWW.
 
 ## Walidacja
 
-- [x] Pełny zestaw testów: 43/43 zaliczone.
+- [x] Pełny zestaw testów: 46/46 zaliczone.
 - [x] `npm run typecheck` zaliczony.
 - [x] `npm run lint` zaliczony.
 - [x] `npm run build` zaliczony.

@@ -118,6 +118,42 @@ test.group('Price watch flow', (group) => {
     assert.notInclude(favorites.text(), user.email)
   })
 
+  test('renders an empty result instead of an error when KOLEO finds no connections', async ({
+    client,
+    assert,
+  }) => {
+    const user = await User.create({
+      fullName: 'Konto pustego wyniku',
+      email: 'empty-search@example.test',
+      password: 'Qa-Test-2026!',
+    })
+    const originalSearch = ConnectionSearchService.prototype.search
+    ConnectionSearchService.prototype.search = async () => []
+
+    try {
+      const response = await client
+        .post('/search')
+        .withSession({ authVersion: user.authVersion })
+        .loginAs(user)
+        .withCsrfToken()
+        .form({
+          origin: 'Wrocław Główny',
+          originStationId: '1',
+          destination: 'Olsztyn Główny',
+          destinationStationId: '4',
+          travelDate: futureDate(),
+          onlyDirect: 'true',
+        })
+
+      response.assertStatus(200)
+      response.assertTextIncludes('Brak połączeń dla wybranych parametrów')
+      assert.notInclude(response.text(), 'No connections found.')
+      assert.notInclude(response.text(), 'Nie udało się wyszukać')
+    } finally {
+      ConnectionSearchService.prototype.search = originalSearch
+    }
+  })
+
   test('rejects new watches after the configured per-user limit', async ({ client, assert }) => {
     const travelDate = futureDate()
     const maximumWatches = env.get('PRICE_WATCH_MAX_PER_USER')
