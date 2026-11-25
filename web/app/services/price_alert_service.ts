@@ -3,7 +3,7 @@ import PriceWatch from '#models/price_watch'
 import AlertOutboxService, { type EnqueueResult } from '#services/alert_outbox_service'
 import ConnectionSearchService, {
   ConnectionSearchError,
-  type ConnectionResult,
+  type ConnectionMetadata,
 } from '#services/connection_search_service'
 import MetricsService from '#services/metrics_service'
 import { KoleoCircuitOpenError } from '#services/koleo_circuit_breaker_service'
@@ -122,26 +122,27 @@ export default class PriceAlertService {
           )
         }
 
-        const results = await searchService.search({
-          origin: watch.origin,
-          originStationId: watch.originStationId,
-          destination: watch.destination,
-          destinationStationId: watch.destinationStationId,
-          travelDate: watch.travelDate.toISODate()!,
-          departureTime: watch.departureTime,
-          onlyDirect: false,
-        })
-        const exactConnection = watch.connectionUuid
-          ? results.find((result) => result.uuid === watch.connectionUuid)
-          : undefined
-        const equivalentConnection = exactConnection
-          ? undefined
-          : this.findUniqueEquivalentConnection(watch, results)
-        const connection = exactConnection ?? equivalentConnection
-        const matchStrategy = exactConnection ? 'uuid' : 'equivalent'
+        const { connection, resultCount } = await searchService.searchForWatch(
+          {
+            origin: watch.origin,
+            originStationId: watch.originStationId,
+            destination: watch.destination,
+            destinationStationId: watch.destinationStationId,
+            travelDate: watch.travelDate.toISODate()!,
+            departureTime: watch.departureTime,
+            onlyDirect: false,
+          },
+          (results) => {
+            const exactConnection = watch.connectionUuid
+              ? results.find((result) => result.uuid === watch.connectionUuid)
+              : undefined
+            return (exactConnection ?? this.findUniqueEquivalentConnection(watch, results))?.uuid
+          }
+        )
+        const matchStrategy = connection?.uuid === watch.connectionUuid ? 'uuid' : 'equivalent'
 
         if (!connection) {
-          await this.registerConnectionMiss(watch, now, trigger, results.length)
+          await this.registerConnectionMiss(watch, now, trigger, resultCount)
           summary.errors += 1
           continue
         }
@@ -401,7 +402,7 @@ export default class PriceAlertService {
     await new MetricsService().increment('worker_watch_errors_total')
   }
 
-  private findUniqueEquivalentConnection(watch: PriceWatch, results: ConnectionResult[]) {
+  private findUniqueEquivalentConnection(watch: PriceWatch, results: ConnectionMetadata[]) {
     if (!watch.trainName || !watch.arrivalTime) {
       return undefined
     }

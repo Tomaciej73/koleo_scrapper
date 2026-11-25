@@ -25,10 +25,12 @@ Ostatnia aktualizacja: 2026-11-25
 - [x] Dodano przełączanie `pretty/json` oraz opcjonalny pełny kontekst diagnostyczny przez `.env_conf`.
 - [x] Rozdzielono konfigurowalne kolory etykiet poziomu i treści komunikatu (`INFO` niebieski/biały, `WARN` żółty, `ERROR` czerwony).
 - [x] Rozdzielono techniczne `TZ=UTC` od prezentacyjnego `APP_TIMEZONE=Europe/Warsaw` i dodano test godzin obserwacji.
+- [x] Worker wybiera obserwowany kurs przed pobraniem ceny i współdzieli wyszukanie oraz cenę w jednym cyklu.
+- [x] Circuit breaker liczy tylko błędy transportowe, timeouty oraz HTTP 408/429/5xx, nie błędne zapytania.
 
 ## Walidacja
 
-- [x] Pełny zestaw testów: 47/47 zaliczone.
+- [x] Pełny zestaw testów WWW: 51/51 zaliczone; 10/10 testów offline wrappera.
 - [x] `npm run typecheck` zaliczony.
 - [x] `npm run lint` zaliczony.
 - [x] `npm run build` zaliczony.

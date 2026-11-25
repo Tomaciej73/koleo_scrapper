@@ -1,4 +1,9 @@
 declare module 'open-koleo' {
+  export class KoleoTransportError extends Error {
+    constructor(cause: unknown)
+    cause?: unknown
+  }
+
   export interface KoleoConnectionLeg {
     leg_type?: string
     train_full_name?: string
@@ -16,11 +21,14 @@ declare module 'open-koleo' {
     price?: string | number
     purchasable?: boolean
     error?: string
+    status?: number
+    respBody?: { json?: { message?: unknown } }
   }
 
   export interface KoleoError {
     error: string
     code?: string
+    status?: number
   }
 
   export interface KoleoClientOptions {

@@ -1,7 +1,9 @@
 import ConnectionSearchService, {
   ConnectionSearchError,
+  isKoleoProviderFailure,
   normalizeKoleoSearchResponse,
 } from '#services/connection_search_service'
+import { KoleoTransportError } from 'open-koleo'
 import { test } from '@japa/runner'
 import { DateTime } from 'luxon'
 
@@ -84,5 +86,28 @@ test.group('Connection search service', () => {
 
     assert.throws(run, ConnectionSearchError)
     assert.throws(run, 'Nie udało się pobrać połączeń z KOLEO. Spróbuj ponownie później.')
+  })
+
+  test('counts only temporary upstream and transport failures for the circuit breaker', ({
+    assert,
+  }) => {
+    const errorFor = (status: number) => {
+      try {
+        normalizeKoleoSearchResponse({ error: `HTTP ${status}`, status })
+      } catch (error) {
+        return error
+      }
+    }
+
+    assert.isFalse(isKoleoProviderFailure(errorFor(400)))
+    assert.isFalse(isKoleoProviderFailure(errorFor(404)))
+    assert.isFalse(
+      isKoleoProviderFailure(new ConnectionSearchError('Nieprawidłowa stacja', 'stationsNotFound'))
+    )
+    assert.isTrue(isKoleoProviderFailure(errorFor(408)))
+    assert.isTrue(isKoleoProviderFailure(errorFor(429)))
+    assert.isTrue(isKoleoProviderFailure(errorFor(503)))
+    assert.isTrue(isKoleoProviderFailure(new KoleoTransportError(new TypeError('fetch failed'))))
+    assert.isFalse(isKoleoProviderFailure(new TypeError('Błąd aplikacji')))
   })
 })

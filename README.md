@@ -69,7 +69,9 @@ oczekujące wpisy przechodzą do następnego cyklu. Globalny circuit breaker
 otwiera się po liczbie kolejnych awarii określonej przez
 `KOLEO_CIRCUIT_BREAKER_FAILURE_THRESHOLD` i zatrzymuje zapytania na
 `KOLEO_CIRCUIT_BREAKER_OPEN_SECONDS`, aby awaria KOLEO nie powodowała lawiny
-ponowień.
+ponowień. Do licznika awarii wchodzą błędy transportowe, timeouty oraz
+tymczasowe odpowiedzi HTTP 408, 429 i 5xx. Błędna stacja lub inne błędne
+zapytanie użytkownika nie otwiera circuit breakera.
 
 Liczbę ostatnich zmian ceny prezentowanych na wykresie ustawia
 `PRICE_HISTORY_DISPLAY_LIMIT`. Identyczna cena nie tworzy kolejnego wpisu.
@@ -86,6 +88,10 @@ Każda kontrola najpierw atomowo przejmuje obserwację na czas określony przez
 KOLEO. Wtedy aplikacja odświeża go wyłącznie, gdy dokładnie jeden wynik zgadza
 się jednocześnie po godzinie odjazdu, godzinie i dacie przyjazdu oraz nazwie
 pociągu. Pierwszy wynik wyszukiwania nigdy nie jest używany zastępczo.
+Worker pobiera cenę dopiero dla dokładnie wybranego kursu, a wyniki wyszukania
+i ceny tego samego kursu współdzieli między obserwacjami tylko w obrębie jednego
+cyklu sprawdzania. Zwykła wyszukiwarka WWW nadal pobiera ceny wszystkich
+pokazywanych wyników.
 
 Jeżeli jednoznacznego kursu nie uda się znaleźć, obserwacja pozostaje aktywna
 do liczby kolejnych nieudanych sprawdzeń ustawionej przez

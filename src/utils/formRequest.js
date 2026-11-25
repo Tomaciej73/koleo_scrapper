@@ -4,6 +4,13 @@ import requestLimiter from "./requestLimiter.js";
 
 const RETRIABLE_STATUS_CODES = new Set([408, 429, 500, 502, 503, 504]);
 
+export class KoleoTransportError extends Error {
+  constructor(cause) {
+    super('Nie udało się połączyć z KOLEO.', { cause });
+    this.name = 'KoleoTransportError';
+  }
+}
+
 const delay = (milliseconds, signal) => new Promise((resolve, reject) => {
   if (signal?.aborted) {
     reject(signal.reason);
@@ -42,6 +49,8 @@ const formRequest = async (endpoint, body = null, accessToken = null, requestOpt
   const requestUrl = new URL(`${config.apiBaseUrl}${endpoint}`).toString();
   const retryable = requestOptions.retryable ?? method === 'GET';
   const attempts = retryable ? config.maxRetries + 1 : 1;
+  const headers = createHeaders(config, true, accessToken);
+  const requestBody = body ? JSON.stringify(body) : null;
 
   for (let attempt = 0; attempt < attempts; attempt += 1) {
     const timeoutSignal = AbortSignal.timeout(config.requestTimeoutMs);
@@ -49,17 +58,33 @@ const formRequest = async (endpoint, body = null, accessToken = null, requestOpt
       ? AbortSignal.any([requestOptions.signal, timeoutSignal])
       : timeoutSignal;
     const release = await requestLimiter(config.maxConcurrency).acquire(signal);
+    const readBody = async (read) => {
+      try {
+        return await read();
+      } catch (error) {
+        if (requestOptions.signal?.aborted) {
+          throw error;
+        }
+        if (timeoutSignal.aborted || error instanceof TypeError) {
+          throw new KoleoTransportError(error);
+        }
+        throw error;
+      }
+    };
     let res;
     try {
       res = await globalThis.fetch(requestUrl, {
         method,
-        headers: createHeaders(config, true, accessToken),
-        body: body ? JSON.stringify(body) : null,
+        headers,
+        body: requestBody,
         signal,
       });
     } catch (error) {
-      if (requestOptions.signal?.aborted || attempt === attempts - 1) {
+      if (requestOptions.signal?.aborted) {
         throw error;
+      }
+      if (attempt === attempts - 1) {
+        throw new KoleoTransportError(error);
       }
       await delay(retryDelay(null, attempt, config), requestOptions.signal);
       continue;
@@ -74,7 +99,7 @@ const formRequest = async (endpoint, body = null, accessToken = null, requestOpt
     }
 
     if (!res.ok) {
-      const text = await res.text();
+      const text = await readBody(() => res.text());
       let json = {};
       try {
         json = JSON.parse(text);
@@ -88,6 +113,7 @@ const formRequest = async (endpoint, body = null, accessToken = null, requestOpt
           respBody: { text, json },
           method,
           reqPath: requestUrl,
+          status: res.status,
         };
       }
       return {
@@ -95,10 +121,11 @@ const formRequest = async (endpoint, body = null, accessToken = null, requestOpt
         respBody: { text, json },
         method,
         reqPath: requestUrl,
+        status: res.status,
       };
     }
 
-    return res.json();
+    return readBody(() => res.json());
   }
 };
 

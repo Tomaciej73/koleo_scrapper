@@ -1,6 +1,6 @@
 import { afterEach, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import formRequest from '../src/utils/formRequest.js';
+import formRequest, { KoleoTransportError } from '../src/utils/formRequest.js';
 
 const originalFetch = globalThis.fetch;
 
@@ -48,7 +48,45 @@ describe('formRequest offline request policy', () => {
       formRequest('/slow', null, null, {
         client: client({ requestTimeoutMs: 20, maxRetries: 0 }),
       }),
-      (error) => error?.name === 'TimeoutError'
+      (error) => error instanceof KoleoTransportError && error.cause?.name === 'TimeoutError'
+    );
+  });
+
+  it('preserves the final HTTP status for callers that classify upstream failures', async () => {
+    globalThis.fetch = async () => new Response('too many requests', { status: 429 });
+
+    const result = await formRequest('/busy', null, null, {
+      client: client({ maxRetries: 0 }),
+    });
+
+    assert.equal(result.status, 429);
+    assert.equal(result.error, 'HTTP 429');
+  });
+
+  it('marks a final fetch failure as a transport error', async () => {
+    globalThis.fetch = async () => {
+      throw new TypeError('fetch failed');
+    };
+
+    await assert.rejects(
+      formRequest('/offline', null, null, { client: client({ maxRetries: 0 }) }),
+      (error) => error instanceof KoleoTransportError && error.cause instanceof TypeError
+    );
+  });
+
+  it('marks a timeout while reading the response body as a transport error', async () => {
+    globalThis.fetch = async (_url, options) => ({
+      ok: true,
+      json: () => new Promise((_resolve, reject) => {
+        options.signal.addEventListener('abort', () => reject(options.signal.reason), { once: true });
+      }),
+    });
+
+    await assert.rejects(
+      formRequest('/slow-body', null, null, {
+        client: client({ requestTimeoutMs: 20, maxRetries: 0 }),
+      }),
+      (error) => error instanceof KoleoTransportError && error.cause?.name === 'TimeoutError'
     );
   });
 
