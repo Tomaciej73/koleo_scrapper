@@ -126,6 +126,10 @@ export default defineConfig({
       pattern: 'certs/**/*.pem',
       reloadServer: false,
     },
+    {
+      pattern: 'config/pretty_logger_transport.mjs',
+      reloadServer: false,
+    },
   ],
 
   /*

@@ -118,6 +118,54 @@ test.group('Price watch flow', (group) => {
     assert.notInclude(favorites.text(), user.email)
   })
 
+  test('renders UTC watch timestamps in the configured application timezone', async ({
+    client,
+    assert,
+  }) => {
+    const user = await User.create({
+      fullName: 'Konto strefy czasowej',
+      email: 'timezone@example.test',
+      password: 'Qa-Test-2026!',
+    })
+    const lastCheckedAt = DateTime.fromISO('2026-11-25T09:05:52Z')
+    const nextCheckAt = DateTime.fromISO('2026-11-25T09:35:52Z')
+    const watch = await PriceWatch.create({
+      userId: user.id,
+      origin: 'Wrocław Główny',
+      originStationId: 1,
+      destination: 'Olsztyn Główny',
+      destinationStationId: 4,
+      travelDate: DateTime.fromISO(futureDate()),
+      departureTime: '07:10',
+      connectionUuid: 'demo-timezone',
+      baselinePriceCents: 7_900,
+      lastPriceCents: 7_900,
+      lowestPriceCents: 7_900,
+      checkIntervalMinutes: 30,
+      lastCheckedAt,
+      nextCheckAt,
+      notificationChannel: 'email',
+      notificationDestination: user.email,
+      status: 'active',
+    })
+    await PriceObservation.create({
+      priceWatchId: watch.id,
+      priceCents: 7_900,
+      observedAt: lastCheckedAt,
+    })
+
+    const response = await client
+      .get('/favorites')
+      .withSession({ authVersion: user.authVersion })
+      .loginAs(user)
+
+    response.assertStatus(200)
+    response.assertTextIncludes('25.11.2026 10:05:52')
+    response.assertTextIncludes('25.11.2026 10:35')
+    assert.notInclude(response.text(), '25.11.2026 09:05')
+    assert.notInclude(response.text(), '25.11.2026 09:35')
+  })
+
   test('renders an empty result instead of an error when KOLEO finds no connections', async ({
     client,
     assert,

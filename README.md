@@ -363,10 +363,13 @@ docker compose --env-file .env_conf down
 Format logów `web` i `worker` jest konfigurowany wyłącznie w `.env_conf`:
 
 ```dotenv
-CONTAINER_TIMEZONE=Europe/Warsaw
+CONTAINER_TIMEZONE=UTC
+APP_TIMEZONE=Europe/Warsaw
 LOG_LEVEL=info
 LOG_FORMAT=pretty
 LOG_COLORIZE=true
+LOG_LEVEL_COLORS="info:blue,warn:yellow,error:red,fatal:red"
+LOG_MESSAGE_COLORS="default:white,warn:yellow,error:red,fatal:red"
 LOG_TIME_FORMAT="SYS:dd/mm/yyyy HH:MM:ss"
 LOG_SINGLE_LINE=false
 LOG_SHOW_CONTEXT=false
@@ -374,10 +377,16 @@ LOG_SHOW_CONTEXT=false
 
 Tryb `pretty` daje krótkie wpisy w postaci
 `INFO [25/11/2026 14:30:15]: Sprawdzono...` oraz
-koloruje poziomy w terminalu. `LOG_SHOW_CONTEXT=true` dopisuje pola techniczne
+koloruje etykietę `INFO` na niebiesko, `WARN` na żółto, a `ERROR` na czerwono.
+`LOG_MESSAGE_COLORS` osobno ustawia treść: zwykły komunikat jest biały,
+ostrzeżenie żółte, a błąd czerwony. `LOG_SHOW_CONTEXT=true` dopisuje pola techniczne
 potrzebne do szczegółowego debugowania. Ustaw `LOG_LEVEL=debug`, aby dopuścić
 komunikaty DEBUG. Dla Loki, ELK albo innego parsera logów ustaw
 `LOG_FORMAT=json` i `LOG_COLORIZE=false`.
+
+Proces aplikacji działa w `TZ=UTC`, aby daty SQLite nie przesuwały terminów
+zadań. Widoczny czas logu nadal jest formatowany w strefie `APP_TIMEZONE`,
+domyślnie `Europe/Warsaw`.
 
 Baza SQLite znajduje się na trwałym wolumenie `koleo-watch-data`; zwykłe
 `docker compose down` jej nie usuwa. Polecenie `docker compose down -v` usuwa

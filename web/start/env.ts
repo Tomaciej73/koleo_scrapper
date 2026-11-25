@@ -19,10 +19,12 @@ export default await Env.create(new URL('../', import.meta.url), {
   LOG_LEVEL: Env.schema.string(),
   LOG_FORMAT: Env.schema.enum(['json', 'pretty'] as const),
   LOG_COLORIZE: Env.schema.boolean(),
+  LOG_LEVEL_COLORS: Env.schema.string(),
+  LOG_MESSAGE_COLORS: Env.schema.string(),
   LOG_TIME_FORMAT: Env.schema.string(),
   LOG_SINGLE_LINE: Env.schema.boolean(),
   LOG_SHOW_CONTEXT: Env.schema.boolean(),
-  APP_TIMEZONE: Env.schema.string.optional(),
+  APP_TIMEZONE: Env.schema.string(),
 
   // App
   APP_KEY: Env.schema.secret(),

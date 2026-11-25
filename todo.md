@@ -23,10 +23,12 @@ Ostatnia aktualizacja: 2026-11-25
 - [x] Usunięto angielski komunikat `No connections found.` z interfejsu WWW.
 - [x] Ujednolicono czytelny format logów `web` i `worker` z poziomem, datą, godziną i kolorami.
 - [x] Dodano przełączanie `pretty/json` oraz opcjonalny pełny kontekst diagnostyczny przez `.env_conf`.
+- [x] Rozdzielono konfigurowalne kolory etykiet poziomu i treści komunikatu (`INFO` niebieski/biały, `WARN` żółty, `ERROR` czerwony).
+- [x] Rozdzielono techniczne `TZ=UTC` od prezentacyjnego `APP_TIMEZONE=Europe/Warsaw` i dodano test godzin obserwacji.
 
 ## Walidacja
 
-- [x] Pełny zestaw testów: 46/46 zaliczone.
+- [x] Pełny zestaw testów: 47/47 zaliczone.
 - [x] `npm run typecheck` zaliczony.
 - [x] `npm run lint` zaliczony.
 - [x] `npm run build` zaliczony.
