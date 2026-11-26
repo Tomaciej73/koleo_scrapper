@@ -173,6 +173,7 @@ export class PriceWatchSchema extends BaseModel {
     'originStationId',
     'processingStartedAt',
     'processingToken',
+    'provider',
     'status',
     'targetPriceCents',
     'trainName',
@@ -235,6 +236,8 @@ export class PriceWatchSchema extends BaseModel {
   declare processingStartedAt: DateTime | null
   @column()
   declare processingToken: string | null
+  @column()
+  declare provider: string
   @column()
   declare status: string
   @column()

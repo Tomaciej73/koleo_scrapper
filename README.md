@@ -1,7 +1,7 @@
 # Koleo Watch
 
-Nieoficjalny klient API KOLEO oraz prosta aplikacja WWW do wyszukiwania
-połączeń i obserwowania zmian cen.
+Nieoficjalny klient API KOLEO oraz aplikacja WWW do wyszukiwania
+połączeń i obserwowania zmian cen KOLEO lub ČD.
 
 ## Co jest gotowe
 
@@ -16,6 +16,9 @@ połączeń i obserwowania zmian cen.
 - ręczne oraz cykliczne sprawdzanie alertów z osobnym interwałem dla każdej obserwacji,
 - powiadomienia e-mail przez konfigurowalny serwer SMTP,
 - przygotowane kanały SMS i WhatsApp, oczekujące na wybór dostawcy.
+- wybór źródła KOLEO/ČD w wyszukiwarce; osobne identyfikatory kursów i waluty
+  PLN/CZK w obserwacjach, historii oraz wiadomościach e-mail. Ceny ČD mają
+  orientacyjny odpowiednik PLN według datowanego kursu średniego NBP.
 
 Aplikacja domyślnie działa w trybie `demo`: nie łączy się z KOLEO i generuje
 deterministyczne wyniki, dzięki czemu interfejs oraz alerty można sprawdzić
@@ -99,12 +102,12 @@ do liczby kolejnych nieudanych sprawdzeń ustawionej przez
 status `connection_missing` i zostaje zatrzymana.
 
 Brak ceny przed rozpoczęciem sprzedaży nie jest błędem workera. Obserwacja
-pozostaje aktywna, zachowuje komunikat zwrócony przez KOLEO i sprawdza kurs
+pozostaje aktywna, zachowuje komunikat zwrócony przez dostawcę i sprawdza kurs
 ponownie zgodnie ze swoim harmonogramem.
 
 ### Dostępność zakupu i miejsc
 
-Wyniki wyszukiwania i obserwowane połączenia pokazują, czy KOLEO potwierdza
+Wyniki wyszukiwania i obserwowane połączenia pokazują, czy dostawca potwierdza
 aktualną możliwość zakupu biletu. Ten status nie jest gwarancją konkretnego
 miejsca siedzącego. Dokładna mapa zajętości foteli korzysta z osobnych endpointów
 KOLEO wymagających uwierzytelnionego konta i tokenu, dlatego nie jest odpytywana
@@ -124,6 +127,86 @@ Worker odpytuje publiczne wyszukiwanie KOLEO dla jednego pasażera bez ulgi;
 logowanie do KOLEO nie jest do tego wymagane. Łączna kwota na koleo.pl może być
 inna po wybraniu większej liczby pasażerów lub ulg. Aplikacja nie przechowuje
 danych pasażerów użytkownika.
+
+### Publiczne ceny ČD
+
+W `web/.env` ustaw `CD_ENABLED=true` oraz `CD_WEB_BASE_URL`,
+`CD_STATION_AUTOCOMPLETE_URL`, `CD_STATION_COMBINATION` i
+`CD_STATION_LANGUAGE` według `web/.env.example`. Przy `PRICE_PROVIDER=koleo`
+formularz pokaże dwa źródła; `PRICE_PROVIDER=demo` zachowuje bezpieczny tryb
+domyślny. Skonfiguruj też `CD_REQUEST_TIMEOUT_MS` i `CD_WEB_MAX_REDIRECTS`.
+W Dockerze te ustawienia pozostają w montowanym `web/.env`; nie wpisuj ich do
+obrazu. Po wdrożeniu uruchom migrację i odtwórz kontenery WWW i workera.
+
+Nazwy polskich stacji można wpisywać z polskimi znakami (np. „Wrocław Główny”).
+W zapytaniu do ČD są transliterowane, a po wyborze formularz przechowuje
+kanoniczną nazwę i identyfikator ČD. Stacje KOLEO pozostają w osobnej
+przestrzeni dostawcy; przełączenie źródła czyści wybór stacji.
+
+Adapter korzysta z publicznej wyszukiwarki ČD bez logowania: najpierw pobiera
+stacje z ich identyfikatorami SR70 i kursy, a następnie dokładną cenę wybranego
+kursu w tej samej sesji.
+Nie używa partnerskiego Ticket API wymagającego `X-User`, nie tworzy rezerwacji
+i nie kupuje biletu. Cena dotyczy domyślnego jednego dorosłego pasażera w
+drugiej klasie, bez zniżek. ČD podaje ją w CZK. W `web/.env` ustaw `NBP_*`
+według `web/.env.example`: aplikacja obok ceny CZK pokazuje orientacyjną kwotę
+PLN według ostatniego kursu średniego NBP, wraz z datą tabeli. Próg alertu,
+porównania i historia pozostają w CZK; przy awarii NBP cena źródłowa jest nadal
+widoczna. Kurs NBP nie jest kursem zakupu ani gwarancją kwoty pobranej przez bank.
+Cena oznaczona przez ČD jako „od” lub dostępna dopiero w kolejnym kroku
+nie jest traktowana jako dokładna i nie wywoła fałszywego alertu. Publiczna
+strona i jej kontrakt techniczny mogą się zmienić; wtedy obserwacja pokaże
+błąd, a worker ponowi sprawdzenie zgodnie z harmonogramem.
+
+Opcjonalny test rzeczywistego odczytu bez wysyłki e-mail i bez zmiany bazy
+uruchamia się tylko po jawnym ustawieniu `CD_LIVE_SMOKE=1` dla testu
+`tests/unit/cd_public_service.spec.ts`. Zwykłe `node ace test --no-ansi` jest
+w pełni offline.
+
+Na serwerze z publicznym adresem `https://koleowatch.dpdns.org` sprawdź, czy
+ignorowany przez Git `web/.env` zawiera co najmniej:
+
+```dotenv
+APP_URL=https://koleowatch.dpdns.org
+PRICE_PROVIDER=koleo
+CD_ENABLED=true
+CD_WEB_BASE_URL=https://www.cd.cz/en/spojeni-a-jizdenka/
+CD_STATION_AUTOCOMPLETE_URL=https://ip4azak-prod.cdis.cz/DataWS/ACEStations
+CD_STATION_COMBINATION=CDvyhledavacWeb
+CD_STATION_LANGUAGE=en
+CD_REQUEST_TIMEOUT_MS=10000
+CD_REQUEST_MAX_RETRIES=2
+CD_REQUEST_RETRY_BASE_DELAY_MS=250
+CD_REQUEST_MAX_CONCURRENCY=2
+CD_WEB_MAX_REDIRECTS=3
+NBP_CZK_RATE_URL=https://api.nbp.pl/api/exchangerates/rates/a/czk/?format=json
+NBP_REQUEST_TIMEOUT_MS=5000
+NBP_RATE_CACHE_SECONDS=21600
+NBP_RATE_FAILURE_RETRY_SECONDS=300
+NBP_RATE_MAX_STALE_SECONDS=604800
+```
+
+Nie zmieniaj istniejących ustawień SMTP, `APP_KEY` i alertów przy aktualizacji.
+Przed uruchomieniem migracji zachowaj kopię bazy. Po przesłaniu kodu do repozytorium
+wykonaj na VPS (o ile katalog instalacji nadal jest `/opt/koleo_scrapper`):
+
+```sh
+cd /opt/koleo_scrapper
+git status --short --branch
+git pull --ff-only
+docker compose --env-file /opt/koleo_scrapper/.env_conf exec web node ace.js db:backup
+docker compose --env-file /opt/koleo_scrapper/.env_conf config --quiet
+docker compose --env-file /opt/koleo_scrapper/.env_conf build
+docker compose --env-file /opt/koleo_scrapper/.env_conf up -d
+docker compose --env-file /opt/koleo_scrapper/.env_conf ps
+curl -fsS https://koleowatch.dpdns.org/health/ready
+curl -fsS https://koleowatch.dpdns.org/health/worker
+```
+
+W panelu wyszukaj ČD: „Brno hl.n.” → „Wrocław Główny”, wybierz stacje z listy,
+otwórz wynik z ceną CZK i sprawdź kwotę PLN oraz datę kursu NBP. Dodaj
+testową obserwację i zweryfikuj worker oraz e-mail po rzeczywistej zmianie ceny.
+Nie używaj `docker compose down -v` — usunęłoby wolumen z bazą.
 
 ## Powiadomienia
 

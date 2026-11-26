@@ -30,7 +30,7 @@
     <div class="status-grid">
       <div class="status-card">
         <span>Źródło cen</span>
-        <strong>{{ providerMode === 'demo' ? 'Tryb demo offline' : 'Źródło KOLEO' }}</strong>
+        <strong>{{ providerMode === 'demo' ? 'Tryb demo offline' : cdEnabled ? 'KOLEO i ČD' : 'Źródło KOLEO' }}</strong>
       </div>
       <div class="status-card">
         <span>Automatyczne sprawdzanie</span>
@@ -44,9 +44,20 @@
     @if(providerMode === 'koleo')
       <p class="availability-disclaimer">
         @svg('lucide:info', { width: 14, height: 14 })
-        Worker śledzi publiczną cenę KOLEO dla jednego pasażera bez ulgi. Logowanie
-        do KOLEO nie jest wymagane. Każda zmiana ceny — wzrost albo spadek — uruchamia
+        Worker śledzi publiczne ceny wybranego źródła dla jednego pasażera bez ulgi.
+        Każda zmiana ceny — wzrost albo spadek — uruchamia
         alert; ustawiony próg jest dodatkowym warunkiem powiadomienia.
+      </p>
+    @end
+    @if(watchItems.some((item) => item.watch.provider === 'cd'))
+      <p class="availability-disclaimer">
+        @svg('lucide:badge-info', { width: 14, height: 14 })
+        @if(czkRate)
+          Kwoty PLN w nawiasach są orientacyjne: kurs średni NBP z {{ czkRate.effectiveDate }}
+          (1 CZK = {{ czkRate.mid }} PLN). Historia i progi alertów ČD pozostają w CZK.
+        @else
+          Kurs NBP jest chwilowo niedostępny — ceny i progi ČD pokazujemy w CZK.
+        @end
       </p>
     @end
     @if(watchItems.length === 0)
@@ -69,6 +80,7 @@
           <article class="watch-card">
             <div class="watch-card__status">
               <div class="watch-card__status-badges">
+                <span class="status-pill status-pill--muted">{{ watch.provider === 'cd' ? 'ČD · CZK' : watch.provider === 'demo' ? 'Demo' : 'KOLEO · PLN' }}</span>
                 <span
                   class="status-pill {{ watch.status === 'active' ? 'status-pill--ok' : 'status-pill--muted' }}"
                 >
@@ -84,7 +96,7 @@
                 </span>
                 <span
                   class="status-pill {{ watch.lastTicketAvailability === 'available' ? 'status-pill--ok' : 'status-pill--muted' }}"
-                  title="Informacja dotyczy możliwości zakupu biletu w KOLEO, a nie gwarancji konkretnego miejsca siedzącego."
+                  title="Informacja dotyczy możliwości zakupu biletu u wybranego dostawcy, a nie gwarancji konkretnego miejsca siedzącego."
                 >
                   @svg(
                     watch.lastTicketAvailability === 'available'
@@ -170,14 +182,14 @@
             <div class="watch-card__prices">
               <div>
                 <span>Cena początkowa</span><strong>
-                  {{ formatPrice(watch.baselinePriceCents) }}
+                  {{ formatPriceWithConversion(watch.baselinePriceCents, watch.provider, czkRate) }}
                 </strong>
               </div>
               <div>
-                <span>Ostatnia cena</span><strong>{{ formatPrice(watch.lastPriceCents) }}</strong>
+                <span>Ostatnia cena</span><strong>{{ formatPriceWithConversion(watch.lastPriceCents, watch.provider, czkRate) }}</strong>
               </div>
               <div>
-                <span>Najniższa</span><strong>{{ formatPrice(watch.lowestPriceCents) }}</strong>
+                <span>Najniższa</span><strong>{{ formatPriceWithConversion(watch.lowestPriceCents, watch.provider, czkRate) }}</strong>
               </div>
               <div>
                 <span>Zasada alertu</span>
@@ -185,7 +197,7 @@
                   {{
                     watch.targetPriceCents === null
                       ? 'każda zmiana'
-                      : `każda zmiana + próg ≤ ${formatPrice(watch.targetPriceCents)}`
+                      : `każda zmiana + próg ≤ ${formatPriceWithConversion(watch.targetPriceCents, watch.provider, czkRate)}`
                   }}
                 </strong>
               </div>
@@ -195,14 +207,14 @@
                 @svg('lucide:trending-down', { width: 15, height: 15 })
 
                 Spadek o
-                {{ formatPrice(priceChange * -1) }}
+                {{ formatPriceWithConversion(priceChange * -1, watch.provider, czkRate) }}
               </div>
             @elseif(priceChange !== null && priceChange > 0)
               <div class="price-change price-change--up">
                 @svg('lucide:trending-up', { width: 15, height: 15 })
 
                 Wzrost o
-                {{ formatPrice(priceChange) }}
+                {{ formatPriceWithConversion(priceChange, watch.provider, czkRate) }}
               </div>
             @end
 
@@ -234,7 +246,7 @@
                       @each(dot in item.chartDots)
                         <circle cx="{{ dot.x }}" cy="{{ dot.y }}" r="1.8">
                           <title>
-                            {{ formatPrice(dot.priceCents) }}
+                            {{ formatPriceWithConversion(dot.priceCents, watch.provider, czkRate) }}
                             ·
                             {{
                               dot.observedAt
@@ -246,8 +258,8 @@
                       @end
                     </svg>
                     <div class="price-chart__legend">
-                      <span>min. {{ formatPrice(item.minimumPrice) }}</span>
-                      <span>maks. {{ formatPrice(item.maximumPrice) }}</span>
+                      <span>min. {{ formatPriceWithConversion(item.minimumPrice, watch.provider, czkRate) }}</span>
+                      <span>maks. {{ formatPriceWithConversion(item.maximumPrice, watch.provider, czkRate) }}</span>
                     </div>
                   </div>
                   <ol class="price-history__list">
@@ -260,7 +272,7 @@
                               .toFormat('dd.LL.yyyy HH:mm')
                           }}
                         </time>
-                        <strong>{{ formatPrice(entry.priceCents) }}</strong>
+                        <strong>{{ formatPriceWithConversion(entry.priceCents, watch.provider, czkRate) }}</strong>
                       </li>
                     @end
                   </ol>
@@ -335,7 +347,7 @@
                       'x-on:submit': 'handleSubmit($event)',
                     })
                       <label>
-                        <span>Próg ceny</span>
+                        <span>Próg ceny ({{ watch.provider === 'cd' ? 'CZK' : 'PLN' }})</span>
                         <input
                           type="number"
                           name="targetPrice"

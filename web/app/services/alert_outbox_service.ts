@@ -7,6 +7,7 @@ import db from '@adonisjs/lucid/services/db'
 import logger from '@adonisjs/core/services/logger'
 import { randomUUID } from 'node:crypto'
 import { DateTime } from 'luxon'
+import NbpExchangeRateService from '#services/nbp_exchange_rate_service'
 
 export interface OutboxProcessingSummary {
   delivered: number
@@ -27,10 +28,12 @@ export default class AlertOutboxService {
       : `price-watch:${watch.id}:transition:${previousPriceCents}:${currentPriceCents}`
     const timezone = env.get('APP_TIMEZONE') ?? 'Europe/Warsaw'
     const dayStart = DateTime.now().setZone(timezone).startOf('day').toUTC()
+    const czkRate = watch.provider === 'cd' ? await new NbpExchangeRateService().getCzkRate() : null
     const message = new NotificationService().buildPriceChange(
       watch,
       previousPriceCents,
-      currentPriceCents
+      currentPriceCents,
+      czkRate
     )
 
     return db.transaction(async (trx) => {

@@ -56,3 +56,18 @@ Ostatnia aktualizacja: 2026-11-26
 - Ustawić nowe zmienne w serwerowym `.env_conf` zgodnie z `.env.example` i README.
 - Zbudować obrazy oraz uruchomić migrację, WWW i worker przez Docker Compose.
 - Po wdrożeniu sprawdzić listę aktywnych sesji, eksport danych i usuwanie konta na koncie testowym.
+
+## Bieżąca zmiana: publiczne ceny ČD (2026-11-26)
+
+- [x] Dodano wybór KOLEO/ČD, podpowiedzi stacji, kursy i ceny CZK z publicznej wyszukiwarki.
+- [x] Dodano migrację źródła obserwacji, wspólny worker i alerty zmian cen w odpowiedniej walucie.
+- [x] Potwierdzono publiczny odczyt ceny ČD bez logowania; test offline i build WWW przechodzą.
+- [ ] Uzupełnić `CD_*` w nieśledzonym `web/.env`, wdrożyć migrację i sprawdzić pełny cykl obserwacji na VPS.
+- [ ] Monitorować zmiany publicznego kontraktu strony ČD.
+
+## Bieżąca zmiana: polskie nazwy stacji ČD i kurs NBP (2026-11-26)
+
+- [x] Polskie znaki są akceptowane w zapytaniu stacji ČD; identyfikator i nazwa kanoniczna nie mieszają się z KOLEO.
+- [x] Ceny ČD pokazują orientacyjne PLN z datowanym kursem średnim NBP; alerty i progi nadal są liczone w CZK.
+- [x] Testy offline (57/57), lint, typecheck, build produkcyjny oraz test odczytu publicznej ceny ČD po wpisaniu polskiej nazwy stacji przechodzą.
+- [ ] Użytkownik wdroży na VPS według README i sprawdzi pełny cykl. Połączenie SSH do skonfigurowanego `k.pl` (83.168.90.138:22) jest obecnie odrzucane.

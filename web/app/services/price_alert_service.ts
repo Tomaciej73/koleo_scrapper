@@ -85,7 +85,7 @@ export default class PriceAlertService {
       delivered: 0,
       errors: 0,
     }
-    const searchService = new ConnectionSearchService()
+    const searchServices = new Map<string, ConnectionSearchService>()
     const outboxService = new AlertOutboxService()
     const timezone = env.get('APP_TIMEZONE') ?? 'Europe/Warsaw'
     let circuitOpen = false
@@ -97,6 +97,10 @@ export default class PriceAlertService {
       }
 
       const { watch, token } = claimed
+      if (circuitOpen && watch.provider === 'koleo') {
+        await this.releaseWatch(watch.id, token)
+        continue
+      }
       const now = DateTime.utc()
       try {
         const localNow = now.setZone(timezone)
@@ -122,8 +126,21 @@ export default class PriceAlertService {
           )
         }
 
+        const watchProvider = watch.provider
+        if (watchProvider !== 'demo' && watchProvider !== 'koleo' && watchProvider !== 'cd') {
+          throw new ConnectionSearchError(
+            'Nieznane źródło ceny obserwacji.',
+            'invalidWatchProvider'
+          )
+        }
+        let searchService = searchServices.get(watchProvider)
+        if (!searchService) {
+          searchService = new ConnectionSearchService(watchProvider)
+          searchServices.set(watchProvider, searchService)
+        }
         const { connection, resultCount } = await searchService.searchForWatch(
           {
+            provider: watchProvider,
             origin: watch.origin,
             originStationId: watch.originStationId,
             destination: watch.destination,
@@ -179,7 +196,6 @@ export default class PriceAlertService {
               matchStrategy,
               previousConnectionUuid,
               providerConnectionUuid: connection.uuid,
-              provider: connection.provider,
               resultArrivalTime: connection.arrival,
               resultArrivalDate: connection.arrivalDate,
               resultTrains: connection.trains,
@@ -274,7 +290,6 @@ export default class PriceAlertService {
             matchStrategy,
             previousConnectionUuid,
             providerConnectionUuid: connection.uuid,
-            provider: connection.provider,
             previousPriceCents: storedPrice,
             currentPriceCents: connection.priceCents,
             priceDeltaCents: storedPrice === null ? null : connection.priceCents - storedPrice,
@@ -315,9 +330,6 @@ export default class PriceAlertService {
         }
       } finally {
         await this.releaseWatch(watch.id, token)
-      }
-      if (circuitOpen) {
-        break
       }
     }
 
@@ -439,6 +451,7 @@ export default class PriceAlertService {
       travelDate: watch.travelDate.toISODate(),
       departureTime: watch.departureTime,
       connectionUuid: watch.connectionUuid,
+      provider: watch.provider,
       connectionMissCount: watch.connectionMissCount,
     }
   }

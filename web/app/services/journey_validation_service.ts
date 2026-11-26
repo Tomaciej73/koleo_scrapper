@@ -1,8 +1,10 @@
 import StationSearchService from '#services/station_search_service'
 import env from '#start/env'
 import { DateTime } from 'luxon'
+import type { PriceProviderName } from '#services/connection_search_service'
 
 export interface JourneySelection {
+  provider?: PriceProviderName
   origin: string
   originStationId: number
   destination: string
@@ -61,7 +63,7 @@ export default class JourneyValidationService {
       throw new JourneyValidationError('Stacje początkowa i końcowa muszą być różne.')
     }
 
-    const stations = new StationSearchService()
+    const stations = new StationSearchService(input.provider)
     await Promise.all([
       this.validateStation(stations, input.origin, input.originStationId, 'początkową'),
       this.validateStation(stations, input.destination, input.destinationStationId, 'końcową'),

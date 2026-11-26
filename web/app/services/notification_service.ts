@@ -3,6 +3,8 @@ import type AlertOutbox from '#models/alert_outbox'
 import MetricsService from '#services/metrics_service'
 import env from '#start/env'
 import mail from '@adonisjs/mail/services/main'
+import type { CzkExchangeRate } from '#services/nbp_exchange_rate_service'
+import { formatPriceWithConversion } from '#services/price_format_service'
 
 export interface NotificationResult {
   delivered: boolean
@@ -94,9 +96,14 @@ export default class NotificationService {
     return { delivered: true }
   }
 
-  buildPriceChange(watch: PriceWatch, previousPriceCents: number, currentPriceCents: number) {
-    const previous = this.formatPrice(previousPriceCents)
-    const current = this.formatPrice(currentPriceCents)
+  buildPriceChange(
+    watch: PriceWatch,
+    previousPriceCents: number,
+    currentPriceCents: number,
+    czkRate: CzkExchangeRate | null = null
+  ) {
+    const previous = formatPriceWithConversion(previousPriceCents, watch.provider, czkRate)
+    const current = formatPriceWithConversion(currentPriceCents, watch.provider, czkRate)
     const priceDropped = currentPriceCents < previousPriceCents
     const priceIncreased = currentPriceCents > previousPriceCents
     const subjectPrefix = priceDropped
@@ -113,6 +120,9 @@ export default class NotificationService {
           : `Cena połączenia ${watch.origin} → ${watch.destination} wynosi ${current} i spełnia ustawiony próg.`,
       `Wyjazd: ${watch.travelDate.toISODate()} o ${watch.departureTime}.`,
       watch.trainName ? `Pociąg: ${watch.trainName}.` : null,
+      watch.provider === 'cd' && czkRate
+        ? `Przeliczenie PLN jest orientacyjne (kurs średni NBP z ${czkRate.effectiveDate}); cena i próg alertu są w CZK.`
+        : null,
     ]
       .filter(Boolean)
       .join('\n')
@@ -141,13 +151,6 @@ export default class NotificationService {
     )
 
     return { delivered: true }
-  }
-
-  private formatPrice(priceCents: number) {
-    return new Intl.NumberFormat('pl-PL', {
-      style: 'currency',
-      currency: 'PLN',
-    }).format(priceCents / 100)
   }
 
   private async sendMail(operation: () => Promise<unknown>) {

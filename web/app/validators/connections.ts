@@ -4,6 +4,7 @@ const datePattern = /^\d{4}-\d{2}-\d{2}$/
 const timePattern = /^([01]\d|2[0-3]):[0-5]\d$/
 
 export const connectionSearchValidator = vine.create({
+  provider: vine.enum(['demo', 'koleo', 'cd'] as const).optional(),
   origin: vine.string().trim().minLength(2).maxLength(120),
   originStationId: vine.number().withoutDecimals().positive(),
   destination: vine.string().trim().minLength(2).maxLength(120),
@@ -14,6 +15,7 @@ export const connectionSearchValidator = vine.create({
 })
 
 export const priceWatchValidator = vine.create({
+  provider: vine.enum(['demo', 'koleo', 'cd'] as const).optional(),
   origin: vine.string().trim().minLength(2).maxLength(120),
   originStationId: vine.number().withoutDecimals().positive(),
   destination: vine.string().trim().minLength(2).maxLength(120),

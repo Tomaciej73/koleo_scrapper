@@ -1,6 +1,8 @@
 import env from '#start/env'
 import { createKoleoClient } from '#services/koleo_client_factory'
 import { type KoleoStation, type KoleoStationSearch } from 'open-koleo'
+import CdPublicService from '#services/cd_public_service'
+import { resolvePriceProvider, type PriceProviderName } from '#services/connection_search_service'
 
 export interface StationSuggestion {
   id: number
@@ -29,20 +31,27 @@ export default class StationSearchService {
   readonly resultLimit = env.get('STATION_SEARCH_RESULT_LIMIT') ?? 8
   private static cache = new Map<string, CacheEntry>()
 
+  constructor(private readonly requestedProvider?: PriceProviderName) {}
+
   async search(rawQuery: string): Promise<StationSuggestion[]> {
     const query = rawQuery.trim().slice(0, 80)
     if (query.length < this.minimumQueryLength) {
       return []
     }
 
-    const provider = env.get('PRICE_PROVIDER') ?? 'demo'
+    const provider = resolvePriceProvider(this.requestedProvider)
     const cacheKey = `${provider}:${this.normalize(query)}`
     const cached = StationSearchService.cache.get(cacheKey)
     if (cached && cached.expiresAt > Date.now()) {
       return cached.stations
     }
 
-    const stations = provider === 'koleo' ? await this.searchKoleo(query) : this.searchDemo(query)
+    const stations =
+      provider === 'koleo'
+        ? await this.searchKoleo(query)
+        : provider === 'cd'
+          ? await new CdPublicService().stations(query, this.resultLimit)
+          : this.searchDemo(query)
 
     const cacheSeconds = Math.max(1, env.get('STATION_SEARCH_CACHE_SECONDS') ?? 300)
     StationSearchService.cache.set(cacheKey, {

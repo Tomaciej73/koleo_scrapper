@@ -36,6 +36,10 @@ Alpine.data('journeySearch', function () {
   return {
     submitting: false,
 
+    sourceChanged() {
+      window.dispatchEvent(new Event('journey-source-changed'))
+    },
+
     stationValue(fieldName) {
       const field = this.$root.querySelector(`[data-field="${fieldName}"]`)
       return {
@@ -93,6 +97,19 @@ Alpine.data('stationAutocomplete', function () {
     fieldName: '',
     minimumLength: 2,
 
+    clearForProvider() {
+      window.clearTimeout(this.timer)
+      this.controller?.abort()
+      this.requestNumber += 1
+      this.query = ''
+      this.stationId = ''
+      this.selectedName = ''
+      this.stations = []
+      this.searched = false
+      this.loading = false
+      this.close()
+    },
+
     init() {
       this.query = this.$refs.input.value
       this.stationId = this.$el.dataset.selectedId || ''
@@ -147,7 +164,8 @@ Alpine.data('stationAutocomplete', function () {
       this.errorMessage = ''
 
       try {
-        const params = new URLSearchParams({ q: query })
+        const provider = this.$root.closest('form')?.querySelector('[name="provider"]')?.value || ''
+        const params = new URLSearchParams({ q: query, provider })
         const response = await fetch(`${this.endpoint}?${params.toString()}`, {
           headers: { Accept: 'application/json' },
           signal: this.controller.signal,

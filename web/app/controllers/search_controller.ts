@@ -1,5 +1,6 @@
 import ConnectionSearchService, {
   ConnectionSearchError,
+  resolvePriceProvider,
   type ConnectionSearchInput,
 } from '#services/connection_search_service'
 import JourneyValidationService, {
@@ -11,12 +12,16 @@ import { connectionSearchValidator } from '#validators/connections'
 import type { HttpContext } from '@adonisjs/core/http'
 import { DateTime } from 'luxon'
 import SecurityEventService from '#services/security_event_service'
+import NbpExchangeRateService from '#services/nbp_exchange_rate_service'
 
 export default class SearchController {
   async index({ view }: HttpContext) {
     return view.render('pages/dashboard', {
+      czkRate: null,
       defaultDate: this.defaultDate(),
       providerMode: env.get('PRICE_PROVIDER') ?? 'demo',
+      koleoEnabled: (env.get('PRICE_PROVIDER') ?? 'demo') === 'koleo',
+      cdEnabled: env.get('CD_ENABLED') ?? false,
       alertsEnabled: env.get('ALERTS_ENABLED') ?? false,
       stationSearchMinLength: env.get('STATION_SEARCH_MIN_LENGTH') ?? 2,
       defaultCheckInterval: env.get('ALERT_CHECK_INTERVAL_MINUTES') ?? 15,
@@ -28,6 +33,7 @@ export default class SearchController {
   async search({ request, auth, view, logger }: HttpContext) {
     const payload = await request.validateUsing(connectionSearchValidator)
     const searchInput: ConnectionSearchInput = {
+      provider: payload.provider,
       origin: payload.origin,
       originStationId: payload.originStationId,
       destination: payload.destination,
@@ -36,7 +42,28 @@ export default class SearchController {
       departureTime: payload.departureTime,
       onlyDirect: payload.onlyDirect ?? false,
     }
-    const service = new ConnectionSearchService()
+    let provider
+    try {
+      provider = resolvePriceProvider(payload.provider)
+    } catch (error) {
+      return view.render('pages/dashboard', {
+        czkRate: null,
+        defaultDate: this.defaultDate(),
+        providerMode: env.get('PRICE_PROVIDER') ?? 'demo',
+        koleoEnabled: (env.get('PRICE_PROVIDER') ?? 'demo') === 'koleo',
+        cdEnabled: env.get('CD_ENABLED') ?? false,
+        alertsEnabled: env.get('ALERTS_ENABLED') ?? false,
+        stationSearchMinLength: env.get('STATION_SEARCH_MIN_LENGTH') ?? 2,
+        defaultCheckInterval: env.get('ALERT_CHECK_INTERVAL_MINUTES') ?? 15,
+        minimumCheckInterval: env.get('ALERT_MIN_CHECK_INTERVAL_MINUTES') ?? 5,
+        maximumCheckInterval: env.get('ALERT_MAX_CHECK_INTERVAL_MINUTES') ?? 1_440,
+        search: searchInput,
+        searchError:
+          error instanceof ConnectionSearchError ? error.message : 'Nieznane źródło cen.',
+      })
+    }
+    searchInput.provider = provider
+    const service = new ConnectionSearchService(provider)
     const startedAt = performance.now()
     const user = auth.user!
     const includePersonalData = env.get('AUDIT_LOG_PERSONAL_DATA') ?? false
@@ -73,6 +100,10 @@ export default class SearchController {
     try {
       await new JourneyValidationService().validate(searchInput)
       const results = await service.search(searchInput)
+      const czkRate =
+        provider === 'cd' && results.some((row) => row.priceCents !== null)
+          ? await new NbpExchangeRateService().getCzkRate()
+          : null
       const resultContext = {
         event: results.length === 0 ? 'connection_search_empty' : 'connection_search_succeeded',
         ...logContext,
@@ -94,6 +125,8 @@ export default class SearchController {
       return view.render('pages/dashboard', {
         defaultDate: this.defaultDate(),
         providerMode: service.provider,
+        koleoEnabled: (env.get('PRICE_PROVIDER') ?? 'demo') === 'koleo',
+        cdEnabled: env.get('CD_ENABLED') ?? false,
         alertsEnabled: env.get('ALERTS_ENABLED') ?? false,
         stationSearchMinLength: env.get('STATION_SEARCH_MIN_LENGTH') ?? 2,
         defaultCheckInterval: env.get('ALERT_CHECK_INTERVAL_MINUTES') ?? 15,
@@ -101,6 +134,7 @@ export default class SearchController {
         maximumCheckInterval: env.get('ALERT_MAX_CHECK_INTERVAL_MINUTES') ?? 1_440,
         search: searchInput,
         results,
+        czkRate,
       })
     } catch (error) {
       const isExpectedError =
@@ -137,8 +171,11 @@ export default class SearchController {
       }
 
       return view.render('pages/dashboard', {
+        czkRate: null,
         defaultDate: this.defaultDate(),
         providerMode: service.provider,
+        koleoEnabled: (env.get('PRICE_PROVIDER') ?? 'demo') === 'koleo',
+        cdEnabled: env.get('CD_ENABLED') ?? false,
         alertsEnabled: env.get('ALERTS_ENABLED') ?? false,
         stationSearchMinLength: env.get('STATION_SEARCH_MIN_LENGTH') ?? 2,
         defaultCheckInterval: env.get('ALERT_CHECK_INTERVAL_MINUTES') ?? 15,

@@ -12,11 +12,13 @@ import {
 } from 'open-koleo'
 import type Koleo from 'open-koleo'
 import { DateTime } from 'luxon'
+import CdPublicService from '#services/cd_public_service'
 
-export type PriceProviderName = 'demo' | 'koleo'
+export type PriceProviderName = 'demo' | 'koleo' | 'cd'
 export type TicketAvailability = 'available' | 'unavailable' | 'unknown'
 
 export interface ConnectionSearchInput {
+  provider?: PriceProviderName
   origin: string
   originStationId: number
   destination: string
@@ -67,6 +69,14 @@ export class ConnectionSearchError extends Error {
   }
 }
 
+export function resolvePriceProvider(requested?: PriceProviderName): PriceProviderName {
+  const configured = env.get('PRICE_PROVIDER') ?? 'demo'
+  if (!requested || requested === configured) return configured
+  if (requested === 'cd' && env.get('CD_ENABLED')) return 'cd'
+  if (requested === 'koleo' && configured === 'koleo') return 'koleo'
+  throw new ConnectionSearchError('Wybrane źródło cen nie jest włączone.', 'providerUnavailable')
+}
+
 function upstreamStatus(response: { error?: string; status?: number }): number | null {
   if (typeof response.status === 'number') {
     return response.status
@@ -111,11 +121,17 @@ export function normalizeKoleoSearchResponse(
 }
 
 export default class ConnectionSearchService {
-  readonly provider: PriceProviderName = env.get('PRICE_PROVIDER') ?? 'demo'
+  readonly provider: PriceProviderName
+  private readonly cd = new CdPublicService()
   private readonly watchedConnections = new Map<string, Promise<KoleoConnection[]>>()
   private readonly watchedPrices = new Map<string, Promise<KoleoPrice>>()
 
+  constructor(provider?: PriceProviderName) {
+    this.provider = resolvePriceProvider(provider)
+  }
+
   async search(input: ConnectionSearchInput): Promise<ConnectionResult[]> {
+    if (this.provider === 'cd') return this.cd.search(input)
     if (this.provider === 'koleo') {
       return this.withKoleoMonitoring(() => this.searchKoleo(input))
     }
@@ -127,6 +143,7 @@ export default class ConnectionSearchService {
     input: ConnectionSearchInput,
     select: (connections: ConnectionMetadata[]) => string | undefined
   ): Promise<WatchedConnectionResult> {
+    if (this.provider === 'cd') return this.cd.searchForWatch(input, select)
     if (this.provider !== 'koleo') {
       const results = await this.search(input)
       const uuid = select(results)

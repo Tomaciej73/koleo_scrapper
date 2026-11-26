@@ -15,6 +15,12 @@ import {
 import type { HttpContext } from '@adonisjs/core/http'
 import db from '@adonisjs/lucid/services/db'
 import { DateTime } from 'luxon'
+import ConnectionSearchService, {
+  ConnectionSearchError,
+  resolvePriceProvider,
+  type ConnectionResult,
+} from '#services/connection_search_service'
+import NbpExchangeRateService from '#services/nbp_exchange_rate_service'
 
 export default class PriceWatchesController {
   async index({ auth, view }: HttpContext) {
@@ -23,6 +29,9 @@ export default class PriceWatchesController {
       .orderBy('status', 'asc')
       .orderBy('travelDate', 'asc')
       .orderBy('departureTime', 'asc')
+    const czkRate = watches.some((watch) => watch.provider === 'cd')
+      ? await new NbpExchangeRateService().getCzkRate()
+      : null
 
     const observations = watches.length
       ? await PriceObservation.query()
@@ -99,22 +108,26 @@ export default class PriceWatchesController {
     return view.render('pages/price_watches/index', {
       watchItems,
       providerMode: env.get('PRICE_PROVIDER') ?? 'demo',
+      cdEnabled: env.get('CD_ENABLED') ?? false,
       alertsEnabled: env.get('ALERTS_ENABLED') ?? false,
       mailEnabled: env.get('MAIL_ENABLED') ?? false,
       minimumCheckInterval: env.get('ALERT_MIN_CHECK_INTERVAL_MINUTES') ?? 5,
       maximumCheckInterval: env.get('ALERT_MAX_CHECK_INTERVAL_MINUTES') ?? 1_440,
       appTimezone: env.get('APP_TIMEZONE') ?? 'Europe/Warsaw',
+      czkRate,
     })
   }
 
   async store({ auth, request, response, session }: HttpContext) {
     const payload = await request.validateUsing(priceWatchValidator)
+    let provider
     try {
-      await new JourneyValidationService().validate(payload)
+      provider = resolvePriceProvider(payload.provider)
+      await new JourneyValidationService().validate({ ...payload, provider })
     } catch (error) {
       session.flash(
         'error',
-        error instanceof JourneyValidationError
+        error instanceof JourneyValidationError || error instanceof ConnectionSearchError
           ? error.message
           : 'Nie udało się zweryfikować wybranych stacji.'
       )
@@ -122,9 +135,43 @@ export default class PriceWatchesController {
     }
     const timezone = env.get('APP_TIMEZONE') ?? 'Europe/Warsaw'
     const travelDate = DateTime.fromISO(payload.travelDate, { zone: timezone })
-    const arrivalDate = payload.arrivalDate
-      ? DateTime.fromISO(payload.arrivalDate, { zone: timezone })
+    let verifiedConnection: ConnectionResult | null = null
+    if (provider === 'cd') {
+      try {
+        const result = await new ConnectionSearchService(provider).searchForWatch(
+          {
+            provider,
+            origin: payload.origin,
+            originStationId: payload.originStationId,
+            destination: payload.destination,
+            destinationStationId: payload.destinationStationId,
+            travelDate: payload.travelDate,
+            departureTime: payload.departureTime,
+            onlyDirect: false,
+          },
+          (connections) => connections.find((row) => row.uuid === payload.connectionUuid)?.uuid
+        )
+        verifiedConnection = result.connection
+        if (!verifiedConnection) {
+          session.flash('error', 'Nie znaleziono wybranego kursu ČD. Wyszukaj go ponownie.')
+          return response.redirect().back()
+        }
+      } catch (error) {
+        session.flash(
+          'error',
+          error instanceof ConnectionSearchError
+            ? error.message
+            : 'Nie udało się sprawdzić kursu ČD.'
+        )
+        return response.redirect().back()
+      }
+    }
+    const arrivalDateValue = verifiedConnection?.arrivalDate ?? payload.arrivalDate
+    const arrivalDate = arrivalDateValue
+      ? DateTime.fromISO(arrivalDateValue, { zone: timezone })
       : null
+    const priceCents =
+      provider === 'cd' ? verifiedConnection!.priceCents : (payload.priceCents ?? null)
     const checkIntervalMinutes = this.normalizeCheckInterval(payload.checkIntervalMinutes)
 
     if (!travelDate.isValid || (arrivalDate && !arrivalDate.isValid)) {
@@ -133,15 +180,16 @@ export default class PriceWatchesController {
     }
 
     const attributes = {
+      provider,
       originStationId: payload.originStationId,
       destinationStationId: payload.destinationStationId,
-      arrivalTime: payload.arrivalTime ?? null,
+      arrivalTime: verifiedConnection?.arrival ?? payload.arrivalTime ?? null,
       arrivalDate,
-      connectionUuid: payload.connectionUuid ?? null,
-      trainName: payload.trainName ?? null,
-      baselinePriceCents: payload.priceCents ?? null,
-      lastPriceCents: payload.priceCents ?? null,
-      lowestPriceCents: payload.priceCents ?? null,
+      connectionUuid: verifiedConnection?.uuid ?? payload.connectionUuid ?? null,
+      trainName: verifiedConnection?.trains ?? payload.trainName ?? null,
+      baselinePriceCents: priceCents,
+      lastPriceCents: priceCents,
+      lowestPriceCents: priceCents,
       targetPriceCents: payload.targetPrice ? Math.round(payload.targetPrice * 100) : null,
       notificationChannel: 'email',
       notificationDestination: auth.user!.email,
@@ -152,8 +200,10 @@ export default class PriceWatchesController {
       lastErrorMessage: null,
       lastErrorAt: null,
       connectionMissCount: 0,
-      lastTicketAvailability: payload.ticketAvailability ?? 'unknown',
-      lastAvailabilityMessage: payload.availabilityMessage ?? null,
+      lastTicketAvailability:
+        verifiedConnection?.ticketAvailability ?? payload.ticketAvailability ?? 'unknown',
+      lastAvailabilityMessage:
+        verifiedConnection?.availabilityMessage ?? payload.availabilityMessage ?? null,
       status: 'active',
     }
 
@@ -161,6 +211,7 @@ export default class PriceWatchesController {
       await User.query({ client: trx }).where('id', auth.user!.id).forUpdate().firstOrFail()
       const existing = await PriceWatch.query({ client: trx })
         .where('userId', auth.user!.id)
+        .where('provider', provider)
         .where('origin', payload.origin)
         .where('destination', payload.destination)
         .where('travelDate', travelDate.toISODate()!)
@@ -198,11 +249,11 @@ export default class PriceWatchesController {
         )
       }
 
-      if (payload.priceCents !== undefined && storedPrice !== payload.priceCents) {
+      if (priceCents !== null && storedPrice !== priceCents) {
         await PriceObservation.create(
           {
             priceWatchId: watch.id,
-            priceCents: payload.priceCents,
+            priceCents,
             observedAt: DateTime.utc(),
           },
           { client: trx }
