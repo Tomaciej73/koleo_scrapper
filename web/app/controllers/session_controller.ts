@@ -97,13 +97,17 @@ export default class SessionController {
     await auth.use('web').login(user)
     session.put(AUTH_VERSION_SESSION_KEY, user.authVersion)
     await new SessionManagementService().track(session, request, user.id)
+    const includePersonalData = env.get('AUDIT_LOG_PERSONAL_DATA') ?? false
+    const emailForLog = SecurityEventService.emailForLog(user.email, includePersonalData)
     logger.info(
       {
         event: 'auth_login_succeeded',
         userId: user.id,
+        emailHash: SecurityEventService.emailHash(user.email),
+        ...(includePersonalData ? { email: emailForLog } : {}),
         ...SecurityEventService.requestContext(request),
       },
-      'Użytkownik zalogował się'
+      `Użytkownik #${user.id} (${emailForLog}) zalogował się`
     )
     return response.redirect().toRoute('dashboard')
   }
@@ -114,13 +118,17 @@ export default class SessionController {
   async destroy({ auth, request, response, session, logger }: HttpContext) {
     const user = auth.user
     if (user) {
+      const includePersonalData = env.get('AUDIT_LOG_PERSONAL_DATA') ?? false
+      const emailForLog = SecurityEventService.emailForLog(user.email, includePersonalData)
       logger.info(
         {
           event: 'auth_logout',
           userId: user.id,
+          emailHash: SecurityEventService.emailHash(user.email),
+          ...(includePersonalData ? { email: emailForLog } : {}),
           ...SecurityEventService.requestContext(request),
         },
-        'Użytkownik wylogował się'
+        `Użytkownik #${user.id} (${emailForLog}) wylogował się`
       )
       if (session.supportsTagging()) {
         await session.untag(String(user.id))

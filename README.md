@@ -254,7 +254,14 @@ limitu HTTP zwraca `429 Too Many Requests` z nagłówkiem `Retry-After`.
 
 Shield wysyła politykę CSP konfigurowaną przez `CSP_*`. Pierwsze wdrożenie
 powinno mieć `CSP_ENABLED=true` i `CSP_REPORT_ONLY=true`. Naruszenia trafiają do
-`CSP_REPORT_URI` i są zapisywane w logach bez query stringów. Frontend używa
+`CSP_REPORT_URI` i są zapisywane w logach bez query stringów. Log pokazuje teraz
+naruszoną dyrektywę, zablokowane źródło, ścieżkę strony i — jeśli przeglądarka
+ją poda — plik oraz numer linii. Dzięki temu szczegóły są widoczne również przy
+`LOG_SHOW_CONTEXT=false`. Sama zmiana publicznej domeny nie wymaga dopisywania
+jej do dyrektyw z `'self'`. Jeśli produkcja wysyła nagłówek
+`Content-Security-Policy` zamiast `Content-Security-Policy-Report-Only`, ustaw
+`CSP_REPORT_ONLY=true` w serwerowym `.env_conf` na czas diagnozy; nie dodawaj
+`unsafe-inline` ani obcych domen bez sprawdzenia konkretnych raportów. Frontend używa
 `@alpinejs/csp`, nie wymaga `unsafe-eval` i nie zawiera stylów inline. Po
 przejrzeniu logów ustaw `CSP_REPORT_ONLY=false` i odtwórz kontenery.
 
@@ -389,6 +396,16 @@ ostrzeżenie żółte, a błąd czerwony. `LOG_SHOW_CONTEXT=true` dopisuje pola 
 potrzebne do szczegółowego debugowania. Ustaw `LOG_LEVEL=debug`, aby dopuścić
 komunikaty DEBUG. Dla Loki, ELK albo innego parsera logów ustaw
 `LOG_FORMAT=json` i `LOG_COLORIZE=false`.
+
+Logowanie i wyszukiwanie mają czytelny opis także bez `LOG_SHOW_CONTEXT`: ID
+użytkownika, zamaskowany e-mail, identyfikatory stacji, datę, godzinę, filtr,
+liczbę wyników i czas odpowiedzi. Jeśli na potrzeby audytu trzeba zobaczyć
+pełny adres konta i nazwy stacji, ustaw `AUDIT_LOG_PERSONAL_DATA=true` w
+serwerowym `web/.env` i odtwórz kontener WWW. Domyślnie jest `false`, ponieważ
+pełny e-mail i trasa powiązana z użytkownikiem są danymi osobowymi. Ogranicz
+dostęp i retencję takich logów; nigdy nie trafiają do nich hasła, kody ani
+tokeny. Nie ustawiaj `LOG_SHOW_CONTEXT=true` tylko po to, by zobaczyć te
+podstawowe informacje.
 
 Proces aplikacji działa w `TZ=UTC`, aby daty SQLite nie przesuwały terminów
 zadań. Widoczny czas logu nadal jest formatowany w strefie `APP_TIMEZONE`,

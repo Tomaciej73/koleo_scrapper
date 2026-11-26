@@ -10,6 +10,7 @@ import env from '#start/env'
 import { connectionSearchValidator } from '#validators/connections'
 import type { HttpContext } from '@adonisjs/core/http'
 import { DateTime } from 'luxon'
+import SecurityEventService from '#services/security_event_service'
 
 export default class SearchController {
   async index({ view }: HttpContext) {
@@ -24,7 +25,7 @@ export default class SearchController {
     })
   }
 
-  async search({ request, view, logger }: HttpContext) {
+  async search({ request, auth, view, logger }: HttpContext) {
     const payload = await request.validateUsing(connectionSearchValidator)
     const searchInput: ConnectionSearchInput = {
       origin: payload.origin,
@@ -37,7 +38,22 @@ export default class SearchController {
     }
     const service = new ConnectionSearchService()
     const startedAt = performance.now()
+    const user = auth.user!
+    const includePersonalData = env.get('AUDIT_LOG_PERSONAL_DATA') ?? false
+    const emailForLog = SecurityEventService.emailForLog(user.email, includePersonalData)
+    const journeyForLog = SecurityEventService.journeyForLog(searchInput, includePersonalData)
+    const searchDescription = `użytkownik #${user.id} (${emailForLog}); ${journeyForLog}`
     const logContext = {
+      userId: user.id,
+      emailHash: SecurityEventService.emailHash(user.email),
+      ...(includePersonalData
+        ? {
+            email: emailForLog,
+            origin: SecurityEventService.safeText(searchInput.origin, 120),
+            destination: SecurityEventService.safeText(searchInput.destination, 120),
+          }
+        : {}),
+      ...SecurityEventService.requestContext(request),
       provider: service.provider,
       originStationId: searchInput.originStationId,
       destinationStationId: searchInput.destinationStationId,
@@ -51,7 +67,7 @@ export default class SearchController {
         event: 'connection_search_started',
         ...logContext,
       },
-      'Rozpoczęto wyszukiwanie połączeń'
+      `Rozpoczęto wyszukiwanie połączeń: ${searchDescription}`
     )
 
     try {
@@ -66,10 +82,13 @@ export default class SearchController {
       if (results.length === 0) {
         logger.warn(
           resultContext,
-          'KOLEO nie zwróciło połączeń dla wybranych parametrów wyszukiwania'
+          `Nie znaleziono połączeń: ${searchDescription}; ${resultContext.durationMs} ms`
         )
       } else {
-        logger.info(resultContext, 'Zakończono wyszukiwanie połączeń')
+        logger.info(
+          resultContext,
+          `Zakończono wyszukiwanie: ${searchDescription}; ${results.length} połączeń, ${resultContext.durationMs} ms`
+        )
       }
 
       return view.render('pages/dashboard', {
@@ -106,9 +125,15 @@ export default class SearchController {
       }
 
       if (isExpectedError) {
-        logger.warn({ ...errorContext, err: error }, 'Wyszukiwanie połączeń nie powiodło się')
+        logger.warn(
+          { ...errorContext, err: error },
+          `Wyszukiwanie połączeń nie powiodło się: ${searchDescription}; ${message}`
+        )
       } else {
-        logger.error({ ...errorContext, err: error }, 'Nieoczekiwany błąd wyszukiwania połączeń')
+        logger.error(
+          { ...errorContext, err: error },
+          `Nieoczekiwany błąd wyszukiwania połączeń: ${searchDescription}`
+        )
       }
 
       return view.render('pages/dashboard', {

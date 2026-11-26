@@ -1,6 +1,6 @@
 # Plan i stan prac
 
-Ostatnia aktualizacja: 2026-11-25
+Ostatnia aktualizacja: 2026-11-26
 
 ## Wykonane
 
@@ -28,10 +28,12 @@ Ostatnia aktualizacja: 2026-11-25
 - [x] Worker wybiera obserwowany kurs przed pobraniem ceny i współdzieli wyszukanie oraz cenę w jednym cyklu.
 - [x] Circuit breaker liczy tylko błędy transportowe, timeouty oraz HTTP 408/429/5xx, nie błędne zapytania.
 - [x] `/health/worker` korzysta z SQL `COUNT`/`MIN` zamiast wczytywać rekordy kolejek.
+- [x] Dodano czytelne logi logowania i wyszukiwania z ID konta, datą i trasą; pełne dane osobowe są opcjonalne przez `AUDIT_LOG_PERSONAL_DATA`.
+- [x] Raporty CSP pokazują naruszoną dyrektywę i zablokowane źródło nawet przy ukrytym kontekście logów.
 
 ## Walidacja
 
-- [x] Pełny zestaw testów WWW: 52/52 zaliczone; 10/10 testów offline wrappera w poprzedniej walidacji.
+- [x] Pełny zestaw testów WWW: 54/54 zaliczone; 10/10 testów offline wrappera w poprzedniej walidacji.
 - [x] `npm run typecheck` zaliczony.
 - [x] `npm run lint` zaliczony.
 - [x] `npm run build` zaliczony.

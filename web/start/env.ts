@@ -24,6 +24,7 @@ export default await Env.create(new URL('../', import.meta.url), {
   LOG_TIME_FORMAT: Env.schema.string(),
   LOG_SINGLE_LINE: Env.schema.boolean(),
   LOG_SHOW_CONTEXT: Env.schema.boolean(),
+  AUDIT_LOG_PERSONAL_DATA: Env.schema.boolean.optional(),
   APP_TIMEZONE: Env.schema.string(),
 
   // App
