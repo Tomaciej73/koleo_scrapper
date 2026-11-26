@@ -6,6 +6,8 @@ import ConnectionSearchService, {
   type ConnectionMetadata,
 } from '#services/connection_search_service'
 import MetricsService from '#services/metrics_service'
+import NbpExchangeRateService from '#services/nbp_exchange_rate_service'
+import { czkToPlnCents } from '#services/price_format_service'
 import { KoleoCircuitOpenError } from '#services/koleo_circuit_breaker_service'
 import env from '#start/env'
 import logger from '@adonisjs/core/services/logger'
@@ -214,9 +216,26 @@ export default class PriceAlertService {
         const priceChanged = storedPrice !== null && storedPrice !== connection.priceCents
         const priceDropped = storedPrice !== null && connection.priceCents < storedPrice
         const priceIncreased = storedPrice !== null && connection.priceCents > storedPrice
+        const needsPlnConversion =
+          watch.provider === 'cd' &&
+          watch.targetPriceCurrency !== 'CZK' &&
+          watch.targetPriceCents !== null
+        const czkRate = needsPlnConversion ? await new NbpExchangeRateService().getCzkRate() : null
+        const comparedPriceCents = needsPlnConversion
+          ? czkRate
+            ? czkToPlnCents(connection.priceCents, czkRate)
+            : null
+          : connection.priceCents
+        if (needsPlnConversion && !czkRate) {
+          logger.warn(
+            { event: 'price_target_rate_unavailable', ...this.watchLogContext(watch) },
+            'Nie można sprawdzić progu PLN bez kursu NBP; cena źródłowa jest nadal śledzona'
+          )
+        }
         const firstTargetMatch =
           watch.targetPriceCents !== null &&
-          connection.priceCents <= watch.targetPriceCents &&
+          comparedPriceCents !== null &&
+          comparedPriceCents <= watch.targetPriceCents &&
           watch.lastNotifiedPriceCents === null
         const notificationReason = priceChanged
           ? 'price_change'
@@ -259,7 +278,7 @@ export default class PriceAlertService {
           const idempotencyEvent =
             priceChanged && observation
               ? `observation:${observation.id}`
-              : `target:${watch.targetPriceCents}:${connection.priceCents}`
+              : `target:${watch.targetPriceCurrency}:${watch.targetPriceCents}:${connection.priceCents}`
           enqueueResult = await outboxService.enqueuePriceAlert(
             watch,
             previousPrice,
@@ -293,6 +312,9 @@ export default class PriceAlertService {
             previousPriceCents: storedPrice,
             currentPriceCents: connection.priceCents,
             priceDeltaCents: storedPrice === null ? null : connection.priceCents - storedPrice,
+            targetPriceCurrency: watch.targetPriceCurrency,
+            comparedPriceCents,
+            nbpEffectiveDate: czkRate?.effectiveDate ?? null,
             priceChanged,
             notificationReason,
             enqueueResult,

@@ -120,8 +120,10 @@ export default class NotificationService {
           : `Cena połączenia ${watch.origin} → ${watch.destination} wynosi ${current} i spełnia ustawiony próg.`,
       `Wyjazd: ${watch.travelDate.toISODate()} o ${watch.departureTime}.`,
       watch.trainName ? `Pociąg: ${watch.trainName}.` : null,
-      watch.provider === 'cd' && czkRate
-        ? `Przeliczenie PLN jest orientacyjne (kurs średni NBP z ${czkRate.effectiveDate}); cena i próg alertu są w CZK.`
+      watch.provider === 'cd'
+        ? czkRate
+          ? `Przeliczenie PLN jest orientacyjne (kurs średni NBP z ${czkRate.effectiveDate}); cena ČD jest w CZK, a próg alertu w ${watch.targetPriceCurrency}.`
+          : `Cena ČD jest w CZK, a próg alertu w ${watch.targetPriceCurrency}; przeliczenie NBP jest chwilowo niedostępne.`
         : null,
     ]
       .filter(Boolean)

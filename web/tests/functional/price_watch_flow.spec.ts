@@ -7,12 +7,14 @@ import ConnectionSearchService from '#services/connection_search_service'
 import AlertOutboxService from '#services/alert_outbox_service'
 import NotificationService from '#services/notification_service'
 import PriceObservationRetentionService from '#services/price_observation_retention_service'
+import TargetCurrencyMigration from '#database/migrations/1795007600000_add_price_watch_target_currency'
 import env from '#start/env'
 import testUtils from '@adonisjs/core/services/test_utils'
 import mail from '@adonisjs/mail/services/main'
 import { test } from '@japa/runner'
 import { DateTime } from 'luxon'
 import limiter from '@adonisjs/limiter/services/main'
+import db from '@adonisjs/lucid/services/db'
 
 const futureDate = () => DateTime.now().setZone('Europe/Warsaw').plus({ days: 2 }).toISODate()!
 
@@ -23,6 +25,40 @@ test.group('Price watch flow', (group) => {
   group.each.setup(() => {
     mail.fake()
     return () => mail.restore()
+  })
+
+  test('marks pre-existing ČD thresholds as CZK without changing KOLEO thresholds', async ({
+    assert,
+  }) => {
+    const tableName = 'price_watch_target_currency_probe'
+    const connection = db.connection()
+    await connection.schema.createTable(tableName, (table) => {
+      table.increments('id')
+      table.string('provider', 12).notNullable()
+      table.integer('target_price_cents').nullable()
+    })
+    try {
+      await db.table(tableName).insert([
+        { provider: 'cd', target_price_cents: 80_000 },
+        { provider: 'koleo', target_price_cents: 5_500 },
+        { provider: 'cd', target_price_cents: null },
+      ])
+      class ProbeMigration extends TargetCurrencyMigration {
+        protected tableName = tableName
+      }
+      await new ProbeMigration(connection, 'target-currency-probe').execUp()
+      const rows = await db
+        .from(tableName)
+        .select('provider', 'target_price_cents', 'target_price_currency')
+        .orderBy('id', 'asc')
+      assert.deepEqual(rows, [
+        { provider: 'cd', target_price_cents: 80_000, target_price_currency: 'CZK' },
+        { provider: 'koleo', target_price_cents: 5_500, target_price_currency: 'PLN' },
+        { provider: 'cd', target_price_cents: null, target_price_currency: 'PLN' },
+      ])
+    } finally {
+      await connection.schema.dropTableIfExists(tableName)
+    }
   })
 
   test('renders search results and saves a watched connection', async ({ client, assert }) => {
@@ -958,108 +994,201 @@ test.group('Price watch flow', (group) => {
     assert.isNotNull(watch.lastErrorAt)
   })
 
-  if (process.env.CD_WORKER_TEST === '1') {
-    test('tracks a ČD price change and sends a CZK alert with a mocked public site', async ({
-      assert,
-      client,
-    }) => {
-      const originalFetch = globalThis.fetch
-      const travelDate = futureDate()
-      const cdDate = DateTime.fromISO(travelDate).toFormat('dd.LL.yyyy')
-      const user = await User.create({
-        fullName: 'Konto ČD',
-        email: 'cd-watch@example.test',
-        password: 'Qa-Test-2026!',
-      })
-      const watch = await PriceWatch.create({
-        userId: user.id,
-        provider: 'cd',
-        origin: 'Brno hl.n.',
-        originStationId: 5_433_295,
-        destination: 'Wroclaw Glowny; Poland',
-        destinationStationId: 5_100_069,
-        travelDate: DateTime.fromISO(travelDate),
-        departureTime: '14:56',
-        arrivalTime: '18:45',
-        arrivalDate: DateTime.fromISO(travelDate),
-        trainName: 'EC 281',
-        baselinePriceCents: 50_000,
-        lastPriceCents: 50_000,
-        lowestPriceCents: 50_000,
-        notificationChannel: 'email',
-        notificationDestination: user.email,
-        status: 'active',
-      })
-      globalThis.fetch = async (input) => {
-        const url = String(input)
-        if (url === 'https://nbp.example.test/czk') {
-          return Response.json({
-            table: 'A',
-            code: 'CZK',
-            rates: [{ no: '1/A/NBP/2026', effectiveDate: '2026-11-26', mid: 0.1833 }],
-          })
-        }
-        if (url.includes('/apiform?')) {
-          return new Response(null, {
-            status: 302,
-            headers: { location: '/en/spojeni-a-jizdenka/spojeni-tam/test-guid' },
-          })
-        }
-        if (url.includes('/spojeni-tam/')) {
-          const model = {
-            guid: 'test-guid',
-            pageType: 0,
-            list: [
-              {
-                handle: 123,
-                id: 456,
-                auxDesc: 'route',
-                changesCount: 0,
-                trains: [
-                  {
-                    trainName: 'EC 281',
-                    trainNum: '281',
-                    from: 'Brno hl.n.',
-                    to: 'Wroclaw Glowny',
-                    depDate: cdDate,
-                    depTime: '14:56',
-                    arrDate: cdDate,
-                    arrTime: '18:45',
-                  },
-                ],
-              },
-            ],
-          }
-          return new Response(
-            `<input name="__RequestVerificationToken" type="hidden" value="token" />\nvar model = ${JSON.stringify(model)};`
-          )
-        }
-        if (url.includes('/GetConnListPrice/')) {
-          return Response.json({ list: [{ id: 456, price: { price: 62_000, canProceed: true } }] })
-        }
-        throw new Error(`Unexpected test request: ${url}`)
-      }
-      try {
-        const summary = await new PriceAlertService().checkForUser(user.id)
-        await watch.refresh()
-        const alert = await AlertOutbox.query().where('priceWatchId', watch.id).firstOrFail()
-        assert.equal(summary.priceIncreases, 1)
-        assert.equal(summary.alertsQueued, 1)
-        assert.equal(summary.delivered, 1)
-        assert.equal(watch.lastPriceCents, 62_000)
-        assert.equal(watch.provider, 'cd')
-        assert.include(alert.body, 'CZK')
-        assert.include(alert.body, '113,65')
-        const favorites = await client
-          .get('/favorites')
-          .withSession({ authVersion: user.authVersion })
-          .loginAs(user)
-        favorites.assertStatus(200)
-        favorites.assertTextIncludes('620,00')
-        favorites.assertTextIncludes('113,65')
-      } finally {
-        globalThis.fetch = originalFetch
-      }
+  test('tracks a ČD price change and evaluates a PLN threshold with a mocked public site', async ({
+    assert,
+    client,
+  }) => {
+    const originalFetch = globalThis.fetch
+    const travelDate = futureDate()
+    const cdDate = DateTime.fromISO(travelDate).toFormat('dd.LL.yyyy')
+    const user = await User.create({
+      fullName: 'Konto ČD',
+      email: 'cd-watch@example.test',
+      password: 'Qa-Test-2026!',
     })
-  }
+    const watch = await PriceWatch.create({
+      userId: user.id,
+      provider: 'cd',
+      origin: 'Brno hl.n.',
+      originStationId: 5_433_295,
+      destination: 'Wroclaw Glowny; Poland',
+      destinationStationId: 5_100_069,
+      travelDate: DateTime.fromISO(travelDate),
+      departureTime: '14:56',
+      arrivalTime: '18:45',
+      arrivalDate: DateTime.fromISO(travelDate),
+      trainName: 'EC 281',
+      baselinePriceCents: 50_000,
+      lastPriceCents: 50_000,
+      lowestPriceCents: 50_000,
+      targetPriceCents: 11_365,
+      targetPriceCurrency: 'PLN',
+      notificationChannel: 'email',
+      notificationDestination: user.email,
+      status: 'active',
+    })
+    globalThis.fetch = async (input) => {
+      const url = String(input)
+      if (url.startsWith('https://cd.example.test/stations?')) {
+        const query = new URL(url).searchParams.get('prefixText')
+        const station = query?.startsWith('Brno')
+          ? { selectedText: 'Brno hl.n.', iconId: 3, value: '5433295' }
+          : { selectedText: 'Wroclaw Glowny; Poland', iconId: 3, value: '5100069' }
+        return new Response(`cdwatch(${JSON.stringify([station])});`)
+      }
+      if (url === 'https://nbp.example.test/czk') {
+        return Response.json({
+          table: 'A',
+          code: 'CZK',
+          rates: [{ no: '1/A/NBP/2026', effectiveDate: '2026-11-26', mid: 0.1833 }],
+        })
+      }
+      if (url.includes('/apiform?')) {
+        return new Response(null, {
+          status: 302,
+          headers: { location: '/en/spojeni-a-jizdenka/spojeni-tam/test-guid' },
+        })
+      }
+      if (url.includes('/spojeni-tam/')) {
+        const model = {
+          guid: 'test-guid',
+          pageType: 0,
+          list: [
+            {
+              handle: 123,
+              id: 456,
+              auxDesc: 'route',
+              changesCount: 0,
+              trains: [
+                {
+                  trainName: 'EC 281',
+                  trainNum: '281',
+                  from: 'Brno hl.n.',
+                  to: 'Wroclaw Glowny',
+                  depDate: cdDate,
+                  depTime: '14:56',
+                  arrDate: cdDate,
+                  arrTime: '18:45',
+                },
+              ],
+            },
+          ],
+        }
+        return new Response(
+          `<input name="__RequestVerificationToken" type="hidden" value="token" />\nvar model = ${JSON.stringify(model)};`
+        )
+      }
+      if (url.includes('/GetConnListPrice/')) {
+        return Response.json({ list: [{ id: 456, price: { price: 62_000, canProceed: true } }] })
+      }
+      throw new Error(`Unexpected test request: ${url}`)
+    }
+    try {
+      const summary = await new PriceAlertService().checkForUser(user.id)
+      await watch.refresh()
+      const alert = await AlertOutbox.query().where('priceWatchId', watch.id).firstOrFail()
+      assert.equal(summary.priceIncreases, 1)
+      assert.equal(summary.alertsQueued, 1)
+      assert.equal(summary.delivered, 1)
+      assert.equal(watch.lastPriceCents, 62_000)
+      assert.equal(watch.provider, 'cd')
+      assert.equal(watch.targetPriceCents, 11_365)
+      assert.equal(watch.targetPriceCurrency, 'PLN')
+      assert.include(alert.body, 'CZK')
+      assert.include(alert.body, '113,65')
+      assert.include(alert.body, 'próg alertu w PLN')
+      const favorites = await client
+        .get('/favorites')
+        .withSession({ authVersion: user.authVersion })
+        .loginAs(user)
+      favorites.assertStatus(200)
+      favorites.assertTextIncludes('620,00')
+      favorites.assertTextIncludes('113,65')
+      favorites.assertTextIncludes('Próg ceny (PLN)')
+
+      watch.lastNotifiedPriceCents = null
+      await watch.save()
+      const inclusive = await new PriceAlertService().checkForUser(user.id)
+      assert.equal(inclusive.priceChanges, 0)
+      assert.equal(inclusive.alertsQueued, 1)
+
+      await watch.refresh()
+      watch.targetPriceCents = 11_364
+      watch.lastNotifiedPriceCents = null
+      await watch.save()
+      const belowTarget = await new PriceAlertService().checkForUser(user.id)
+      assert.equal(belowTarget.priceChanges, 0)
+      assert.equal(belowTarget.alertsQueued, 0)
+
+      await watch.refresh()
+      watch.targetPriceCents = 70_000
+      watch.targetPriceCurrency = 'CZK'
+      watch.lastNotifiedPriceCents = null
+      await watch.save()
+      const legacyTarget = await new PriceAlertService().checkForUser(user.id)
+      assert.equal(legacyTarget.priceChanges, 0)
+      assert.equal(legacyTarget.alertsQueued, 1)
+      const legacyFavorites = await client
+        .get('/favorites')
+        .withSession({ authVersion: user.authVersion })
+        .loginAs(user)
+      legacyFavorites.assertStatus(200)
+      legacyFavorites.assertTextIncludes('Dotychczasowy próg')
+      legacyFavorites.assertTextIncludes('700,00')
+
+      const settings = await client
+        .post(`/favorites/${watch.id}/settings`)
+        .redirects(0)
+        .withSession({ authVersion: user.authVersion })
+        .loginAs(user)
+        .withCsrfToken()
+        .form({ targetPrice: '120.00', checkIntervalMinutes: '30' })
+      settings.assertStatus(302)
+      await watch.refresh()
+      assert.equal(watch.targetPriceCents, 12_000)
+      assert.equal(watch.targetPriceCurrency, 'PLN')
+
+      const search = await client
+        .post('/search')
+        .withSession({ authVersion: user.authVersion })
+        .loginAs(user)
+        .withCsrfToken()
+        .form({
+          provider: 'cd',
+          origin: watch.origin,
+          originStationId: String(watch.originStationId),
+          destination: watch.destination,
+          destinationStationId: String(watch.destinationStationId),
+          travelDate,
+          departureTime: watch.departureTime,
+        })
+      search.assertStatus(200)
+      search.assertTextIncludes('Maksymalna cena do alertu w PLN')
+
+      const store = await client
+        .post('/favorites')
+        .redirects(0)
+        .withSession({ authVersion: user.authVersion })
+        .loginAs(user)
+        .withCsrfToken()
+        .form({
+          provider: 'cd',
+          origin: watch.origin,
+          originStationId: String(watch.originStationId),
+          destination: watch.destination,
+          destinationStationId: String(watch.destinationStationId),
+          travelDate,
+          departureTime: watch.departureTime,
+          connectionUuid: watch.connectionUuid!,
+          targetPrice: '110.00',
+          checkIntervalMinutes: '30',
+        })
+      store.assertStatus(302)
+      await watch.refresh()
+      assert.equal(watch.targetPriceCents, 11_000)
+      assert.equal(watch.targetPriceCurrency, 'PLN')
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
 })

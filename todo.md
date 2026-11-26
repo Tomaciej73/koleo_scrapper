@@ -68,7 +68,7 @@ Ostatnia aktualizacja: 2026-11-26
 ## Bieżąca zmiana: polskie nazwy stacji ČD i kurs NBP (2026-11-26)
 
 - [x] Polskie znaki są akceptowane w zapytaniu stacji ČD; identyfikator i nazwa kanoniczna nie mieszają się z KOLEO.
-- [x] Ceny ČD pokazują orientacyjne PLN z datowanym kursem średnim NBP; alerty i progi nadal są liczone w CZK.
+- [x] Ceny ČD pokazują orientacyjne PLN z datowanym kursem średnim NBP; pierwotne progi CZK zostały później zastąpione progami PLN (sekcja poniżej).
 - [x] Testy offline (57/57), lint, typecheck, build produkcyjny oraz test odczytu publicznej ceny ČD po wpisaniu polskiej nazwy stacji przechodzą.
 - [ ] Użytkownik wdroży na VPS według README i sprawdzi pełny cykl. Połączenie SSH do skonfigurowanego `k.pl` (83.168.90.138:22) jest obecnie odrzucane.
 
@@ -91,3 +91,12 @@ Ostatnia aktualizacja: 2026-11-26
 - [x] Dobrowolny test sieciowy publicznej wyszukiwarki ČD przeszedł dla Brno hl.n. → Wrocław Główny, 27.11.2026, bez podanej godziny, przy `--timeout=30000`.
 - [x] Po końcowej zmianie przeszły lint, typecheck, pełne testy offline 60/60 i build produkcyjny.
 - [ ] Użytkownik wdroży nowy obraz na VPS, opcjonalnie ustawi `CD_SEARCH_MAX_PAGES=6` w `web/.env` i potwierdzi wynik w aplikacji.
+
+## Bieżąca zmiana: progi cenowe w PLN dla KOLEO i ČD (2026-11-26)
+
+- [x] Pola progu w wyszukiwarce i obserwowanych są w PLN dla obu źródeł.
+- [x] Dodano zapis waluty progu; migracja oznacza istniejące progi ČD jako CZK, aby nie zmienić ich znaczenia. Edycja zastępuje je progiem PLN.
+- [x] Worker porównuje cenę ČD przeliczoną po kursie NBP z progiem PLN, zachowując oryginalne ceny i alerty zmian w CZK.
+- [x] Lokalnie przeszły pełne testy offline 62/62 (w tym formularze, worker ČD i migracja istniejących progów), lint, typecheck oraz build produkcyjny; 13 migracji przeszło na czystej bazie testowej.
+- [ ] Przed wdrożeniem wykonać kopię produkcyjnej bazy; po migracji potwierdzić oznaczenie istniejących progów ČD jako `CZK` i zapisać wybrany próg ponownie w PLN.
+- [ ] Użytkownik wdroży zmianę na VPS i sprawdzi alerty progu PLN przy dostępnym kursie NBP.

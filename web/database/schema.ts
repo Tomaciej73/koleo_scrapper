@@ -176,6 +176,7 @@ export class PriceWatchSchema extends BaseModel {
     'provider',
     'status',
     'targetPriceCents',
+    'targetPriceCurrency',
     'trainName',
     'travelDate',
     'updatedAt',
@@ -242,6 +243,8 @@ export class PriceWatchSchema extends BaseModel {
   declare status: string
   @column()
   declare targetPriceCents: number | null
+  @column()
+  declare targetPriceCurrency: string
   @column()
   declare trainName: string | null
   @column.date()

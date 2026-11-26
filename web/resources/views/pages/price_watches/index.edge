@@ -54,9 +54,9 @@
         @svg('lucide:badge-info', { width: 14, height: 14 })
         @if(czkRate)
           Kwoty PLN w nawiasach są orientacyjne: kurs średni NBP z {{ czkRate.effectiveDate }}
-          (1 CZK = {{ czkRate.mid }} PLN). Historia i progi alertów ČD pozostają w CZK.
+          (1 CZK = {{ czkRate.mid }} PLN). Historia cen ČD pozostaje w CZK; nowe progi podajesz w PLN.
         @else
-          Kurs NBP jest chwilowo niedostępny — ceny i progi ČD pokazujemy w CZK.
+          Kurs NBP jest chwilowo niedostępny — ceny ČD pokazujemy w CZK, a ocena progów PLN czeka na kurs.
         @end
       </p>
     @end
@@ -194,11 +194,7 @@
               <div>
                 <span>Zasada alertu</span>
                 <strong>
-                  {{
-                    watch.targetPriceCents === null
-                      ? 'każda zmiana'
-                      : `każda zmiana + próg ≤ ${formatPriceWithConversion(watch.targetPriceCents, watch.provider, czkRate)}`
-                  }}
+                  {{ item.targetPriceLabel }}
                 </strong>
               </div>
             </div>
@@ -347,7 +343,7 @@
                       'x-on:submit': 'handleSubmit($event)',
                     })
                       <label>
-                        <span>Próg ceny ({{ watch.provider === 'cd' ? 'CZK' : 'PLN' }})</span>
+                        <span>Próg ceny (PLN)</span>
                         <input
                           type="number"
                           name="targetPrice"
@@ -359,7 +355,16 @@
                         <small>
                           Każda zmiana ceny uruchamia alert. Wpisz 0, aby wyłączyć
                           dodatkowe powiadomienie o osiągnięciu progu.
+                          @if(watch.provider === 'cd')
+                            Cenę ČD przeliczamy po kursie NBP podczas sprawdzania.
+                          @end
                         </small>
+                        @if(item.legacyCzkTarget)
+                          <small>
+                            Dotychczasowy próg {{ item.legacyCzkTarget }} nadal działa w CZK.
+                            Zapisz ustawienia, aby zastąpić go progiem w PLN.
+                          </small>
+                        @end
                       </label>
                       <label>
                         <span>Sprawdzaj co ile minut</span>

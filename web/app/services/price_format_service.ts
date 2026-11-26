@@ -1,5 +1,9 @@
 import type { CzkExchangeRate } from '#services/nbp_exchange_rate_service'
 
+export function czkToPlnCents(priceCents: number, rate: CzkExchangeRate): number {
+  return Math.round(priceCents * rate.mid)
+}
+
 export function formatPrice(priceCents: number | null, provider: string = 'koleo') {
   if (priceCents === null || priceCents === undefined) return 'brak ceny'
   return new Intl.NumberFormat('pl-PL', {
@@ -18,6 +22,6 @@ export function formatPriceWithConversion(
   const converted = new Intl.NumberFormat('pl-PL', {
     style: 'currency',
     currency: 'PLN',
-  }).format((priceCents / 100) * rate.mid)
+  }).format(czkToPlnCents(priceCents, rate) / 100)
   return `${original} (≈ ${converted})`
 }

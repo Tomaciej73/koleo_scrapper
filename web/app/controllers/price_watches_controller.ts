@@ -21,6 +21,11 @@ import ConnectionSearchService, {
   type ConnectionResult,
 } from '#services/connection_search_service'
 import NbpExchangeRateService from '#services/nbp_exchange_rate_service'
+import {
+  czkToPlnCents,
+  formatPrice,
+  formatPriceWithConversion,
+} from '#services/price_format_service'
 
 export default class PriceWatchesController {
   async index({ auth, view }: HttpContext) {
@@ -50,6 +55,15 @@ export default class PriceWatchesController {
 
     const historyLimit = Math.max(2, env.get('PRICE_HISTORY_DISPLAY_LIMIT') ?? 30)
     const watchItems = watches.map((watch) => {
+      const legacyCzkTarget =
+        watch.provider === 'cd' &&
+        watch.targetPriceCurrency === 'CZK' &&
+        watch.targetPriceCents !== null
+      const targetPricePlnCents = legacyCzkTarget
+        ? czkRate && watch.targetPriceCents !== null
+          ? czkToPlnCents(watch.targetPriceCents, czkRate)
+          : null
+        : watch.targetPriceCents
       const storedHistory = (observationsByWatch.get(watch.id) ?? []).slice(-historyLimit)
       const priceHistory = storedHistory.map((observation) => ({
         priceCents: observation.priceCents,
@@ -96,7 +110,18 @@ export default class PriceWatchesController {
           watch.notificationChannel
         ),
         targetPriceValue:
-          watch.targetPriceCents === null ? '0' : (watch.targetPriceCents / 100).toFixed(2),
+          watch.targetPriceCents === null
+            ? '0'
+            : targetPricePlnCents === null
+              ? ''
+              : (targetPricePlnCents / 100).toFixed(2),
+        targetPriceLabel:
+          watch.targetPriceCents === null
+            ? 'każda zmiana'
+            : legacyCzkTarget
+              ? `każda zmiana + dotychczasowy próg ≤ ${formatPriceWithConversion(watch.targetPriceCents, 'cd', czkRate)}`
+              : `każda zmiana + próg ≤ ${formatPrice(watch.targetPriceCents, 'koleo')}`,
+        legacyCzkTarget: legacyCzkTarget ? formatPrice(watch.targetPriceCents, 'cd') : null,
         priceHistory: [...priceHistory].reverse().slice(0, 8),
         chartDots,
         chartPoints: chartDots.map((point) => `${point.x},${point.y}`).join(' '),
@@ -191,6 +216,7 @@ export default class PriceWatchesController {
       lastPriceCents: priceCents,
       lowestPriceCents: priceCents,
       targetPriceCents: payload.targetPrice ? Math.round(payload.targetPrice * 100) : null,
+      targetPriceCurrency: 'PLN',
       notificationChannel: 'email',
       notificationDestination: auth.user!.email,
       checkIntervalMinutes,
@@ -308,6 +334,7 @@ export default class PriceWatchesController {
 
     watch.targetPriceCents =
       payload.targetPrice === 0 ? null : Math.round(payload.targetPrice * 100)
+    watch.targetPriceCurrency = 'PLN'
     watch.checkIntervalMinutes = this.normalizeCheckInterval(payload.checkIntervalMinutes)
     if (watch.status === 'active') {
       watch.nextCheckAt = DateTime.utc()

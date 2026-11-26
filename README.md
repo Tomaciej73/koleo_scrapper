@@ -159,9 +159,14 @@ Nie używa partnerskiego Ticket API wymagającego `X-User`, nie tworzy rezerwacj
 i nie kupuje biletu. Cena dotyczy domyślnego jednego dorosłego pasażera w
 drugiej klasie, bez zniżek. ČD podaje ją w CZK. W `web/.env` ustaw `NBP_*`
 według `web/.env.example`: aplikacja obok ceny CZK pokazuje orientacyjną kwotę
-PLN według ostatniego kursu średniego NBP, wraz z datą tabeli. Próg alertu,
-porównania i historia pozostają w CZK; przy awarii NBP cena źródłowa jest nadal
-widoczna. Kurs NBP nie jest kursem zakupu ani gwarancją kwoty pobranej przez bank.
+PLN według ostatniego kursu średniego NBP, wraz z datą tabeli. Nowy próg
+alertu podajesz i zapisujesz w PLN dla obu źródeł. Worker przelicza cenę ČD
+po dostępnym kursie NBP i porównuje ją z progiem PLN; zmiany samej ceny i
+historia pozostają w walucie źródłowej. Przy awarii NBP cena źródłowa jest
+nadal widoczna i śledzona, ale progu PLN ČD nie da się wtedy ocenić. Migracja
+zachowuje dotychczasowe progi ČD w CZK; są oznaczone w interfejsie i można je
+zastąpić wartością PLN w „Ustawieniach”. Kurs NBP nie jest kursem zakupu ani
+gwarancją kwoty pobranej przez bank.
 Cena oznaczona przez ČD jako „od” lub dostępna dopiero w kolejnym kroku
 nie jest traktowana jako dokładna i nie wywoła fałszywego alertu. Publiczna
 strona i jej kontrakt techniczny mogą się zmienić; wtedy obserwacja pokaże
