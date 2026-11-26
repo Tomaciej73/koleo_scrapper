@@ -79,4 +79,15 @@ Ostatnia aktualizacja: 2026-11-26
 - [x] Dodano bezpieczne wpisy DEBUG dla etapów zapytania i odczytu odpowiedzi ČD oraz kod błędu w podstawowym logu wyszukiwania.
 - [x] Udokumentowano przełączniki `LOG_LEVEL=debug` i `LOG_SHOW_CONTEXT=true` w `.env_conf` oraz sposób zebrania logów.
 - [x] Lokalnie po końcowej zmianie: pełne testy offline 59/59, dodatkowy test przeglądarkowy ČD 2/2, lint, typecheck i build produkcyjny przechodzą.
-- [ ] Użytkownik wdroży zmianę na VPS i sprawdzi wynik ponownie. Odmowa po stronie ČD może nadal ograniczać dostęp z IP serwera; aplikacja nie obchodzi tego ograniczenia.
+- [ ] Użytkownik wdroży zmianę na VPS i sprawdzi wynik ponownie. ČD może nadal odrzucać inne zapytania; aplikacja nie obchodzi ograniczeń dostępu źródła.
+
+## Bieżąca zmiana: działające wyszukiwanie całodzienne ČD (2026-11-26)
+
+- [x] Odtworzono błąd: zapytanie bez godziny wysyłało `00:00`, dla którego ČD zwracało `DENY/last` mimo HTTP 200; ta sama trasa z późniejszą godziną dawała wyniki.
+- [x] Wyszukiwanie bez godziny zaczyna się minutę przed wybraną datą i filtruje wyłącznie kursy z tej daty.
+- [x] Obserwacja kursu z pierwszej godziny dnia również korzysta z zapytania rozpoczynającego się poprzedniego dnia.
+- [x] Dodano pobieranie kolejnych stron publicznej listy ČD, deduplikację kursów oraz limit liczby stron `CD_SEARCH_MAX_PAGES`.
+- [x] Test offline obejmuje kurs po północy, nakładające się strony i pojedyncze pobranie ceny dla każdego kursu.
+- [x] Dobrowolny test sieciowy publicznej wyszukiwarki ČD przeszedł dla Brno hl.n. → Wrocław Główny, 27.11.2026, bez podanej godziny, przy `--timeout=30000`.
+- [x] Po końcowej zmianie przeszły lint, typecheck, pełne testy offline 60/60 i build produkcyjny.
+- [ ] Użytkownik wdroży nowy obraz na VPS, opcjonalnie ustawi `CD_SEARCH_MAX_PAGES=6` w `web/.env` i potwierdzi wynik w aplikacji.

@@ -146,6 +146,15 @@ przestrzeni dostawcy; przełączenie źródła czyści wybór stacji.
 Adapter korzysta z publicznej wyszukiwarki ČD bez logowania: najpierw pobiera
 stacje z ich identyfikatorami SR70 i kursy, a następnie dokładną cenę wybranego
 kursu w tej samej sesji.
+Gdy nie podasz godziny lub wybierzesz kurs w pierwszej godzinie dnia,
+zapytanie zaczyna się minutę przed wybraną datą, ponieważ publiczna
+wyszukiwarka ČD potrafi odrzucić zapytania blisko północy.
+Adapter pobiera kolejne strony wyników tak jak przycisk „Późniejsze” na stronie
+ČD, usuwa nakładające się kursy i zatrzymuje się po `SEARCH_RESULT_LIMIT`
+wynikach, końcu dnia lub `CD_SEARCH_MAX_PAGES` stronach. Ustaw limit stron
+w `web/.env` odpowiednio do ruchu i potrzeb; jeśli go nie ustawisz, limit
+zostanie obliczony z liczby wyników na pierwszej stronie i
+`SEARCH_RESULT_LIMIT`. Worker nadal pobiera cenę tylko obserwowanego kursu.
 Nie używa partnerskiego Ticket API wymagającego `X-User`, nie tworzy rezerwacji
 i nie kupuje biletu. Cena dotyczy domyślnego jednego dorosłego pasażera w
 drugiej klasie, bez zniżek. ČD podaje ją w CZK. W `web/.env` ustaw `NBP_*`
@@ -168,7 +177,8 @@ przez ČD ma kod `cdSearchRejected`.
 Opcjonalny test rzeczywistego odczytu bez wysyłki e-mail i bez zmiany bazy
 uruchamia się tylko po jawnym ustawieniu `CD_LIVE_SMOKE=1` dla testu
 `tests/unit/cd_public_service.spec.ts`. Zwykłe `node ace test --no-ansi` jest
-w pełni offline.
+w pełni offline. Dla testu sieciowego podnieś limit czasu Japa przez
+`--timeout=30000`; domyślne 2 sekundy nie wystarczają na kilka stron i ceny.
 
 Na serwerze z publicznym adresem `https://koleowatch.dpdns.org` sprawdź, czy
 ignorowany przez Git `web/.env` zawiera co najmniej:
@@ -186,6 +196,7 @@ CD_REQUEST_MAX_RETRIES=2
 CD_REQUEST_RETRY_BASE_DELAY_MS=250
 CD_REQUEST_MAX_CONCURRENCY=2
 CD_WEB_MAX_REDIRECTS=3
+CD_SEARCH_MAX_PAGES=6
 NBP_CZK_RATE_URL=https://api.nbp.pl/api/exchangerates/rates/a/czk/?format=json
 NBP_REQUEST_TIMEOUT_MS=5000
 NBP_RATE_CACHE_SECONDS=21600

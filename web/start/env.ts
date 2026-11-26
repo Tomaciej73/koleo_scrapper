@@ -105,6 +105,7 @@ export default await Env.create(new URL('../', import.meta.url), {
   CD_REQUEST_RETRY_BASE_DELAY_MS: Env.schema.number.optional(),
   CD_REQUEST_MAX_CONCURRENCY: Env.schema.number.optional(),
   CD_WEB_MAX_REDIRECTS: Env.schema.number.optional(),
+  CD_SEARCH_MAX_PAGES: Env.schema.number.optional(),
   NBP_CZK_RATE_URL: Env.schema.string.optional({ format: 'url', tld: false }),
   NBP_REQUEST_TIMEOUT_MS: Env.schema.number.optional(),
   NBP_RATE_CACHE_SECONDS: Env.schema.number.optional(),

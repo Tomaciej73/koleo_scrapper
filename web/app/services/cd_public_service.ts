@@ -33,6 +33,7 @@ interface CdPageModel {
   guid: string
   pageType: number
   list: CdConnection[]
+  allowNext?: boolean
 }
 
 function cdPageFailure(model: Record<string, unknown>) {
@@ -76,6 +77,7 @@ interface CdPublicOptions {
   maxRetries?: number
   retryBaseDelayMs?: number
   maxConcurrency?: number
+  maxSearchPages?: number
 }
 
 export default class CdPublicService {
@@ -137,8 +139,7 @@ export default class CdPublicService {
   }
 
   async search(input: ConnectionSearchInput): Promise<ConnectionResult[]> {
-    const page = await this.getPage(input)
-    const candidates = this.candidates(page, input)
+    const candidates = await this.searchCandidates(input)
     const results: ConnectionResult[] = []
     const concurrency = this.requiredNumber(
       this.options.maxConcurrency ?? env.get('CD_REQUEST_MAX_CONCURRENCY'),
@@ -149,7 +150,7 @@ export default class CdPublicService {
         ...(await Promise.all(
           candidates
             .slice(index, index + concurrency)
-            .map((candidate) => this.price(page, candidate))
+            .map(({ page, candidate }) => this.price(page, candidate))
         ))
       )
     }
@@ -200,8 +201,14 @@ export default class CdPublicService {
     url.searchParams.set('dosearch', 'true')
     url.searchParams.set('f', input.origin)
     url.searchParams.set('t', input.destination)
-    url.searchParams.set('date', DateTime.fromISO(input.travelDate).toFormat('dd.LL.yyyy'))
-    url.searchParams.set('time', input.departureTime ?? '00:00')
+    // The public ČD search can reject queries close to midnight. Start from
+    // the previous day for an all-day search or a train in the first hour.
+    const searchStart =
+      input.departureTime && !input.departureTime.startsWith('00:')
+        ? DateTime.fromISO(`${input.travelDate}T${input.departureTime}`)
+        : DateTime.fromISO(input.travelDate).startOf('day').minus({ minutes: 1 })
+    url.searchParams.set('date', searchStart.toFormat('dd.LL.yyyy'))
+    url.searchParams.set('time', searchStart.toFormat('HH:mm'))
     const startedAt = performance.now()
     const { response, cookies } = await this.requestSessionPage(url)
     const html = await response.text()
@@ -308,19 +315,119 @@ export default class CdPublicService {
     throw new ConnectionSearchError('Zbyt wiele przekierowań wyszukiwarki ČD.', 'cdRedirectInvalid')
   }
 
+  private async searchCandidates(input: ConnectionSearchInput) {
+    const limit = this.requiredNumber(env.get('SEARCH_RESULT_LIMIT'), 1)
+    const found = new Map<string, { page: CdPage; candidate: CdConnection }>()
+    let page = await this.getPage(input)
+    const configuredMaxPages = this.options.maxSearchPages ?? env.get('CD_SEARCH_MAX_PAGES')
+    const maxPages =
+      configuredMaxPages === undefined
+        ? Math.ceil(limit / Math.max(1, page.model.list.length - 1)) + 1
+        : this.requiredNumber(configuredMaxPages, 1)
+
+    for (let pageNumber = 0; pageNumber < maxPages; pageNumber += 1) {
+      for (const candidate of this.candidates(page, input)) {
+        const uuid = this.metadata(candidate).uuid
+        if (!found.has(uuid)) found.set(uuid, { page, candidate })
+        if (found.size >= limit) return [...found.values()]
+      }
+
+      const lastDepartureDate = page.model.list.at(-1)?.trains?.[0]?.depDate
+      const lastDate = lastDepartureDate
+        ? DateTime.fromFormat(lastDepartureDate, 'dd.LL.yyyy').toISODate()
+        : null
+      if (
+        pageNumber + 1 >= maxPages ||
+        !page.model.allowNext ||
+        lastDepartureDate === undefined ||
+        (lastDate !== null && lastDate > input.travelDate)
+      ) {
+        break
+      }
+
+      const nextPage = await this.loadNextPage(page)
+      if (
+        nextPage.model.list.length === 0 ||
+        (nextPage.model.list.length === page.model.list.length &&
+          nextPage.model.list.every(
+            (candidate, index) =>
+              candidate.id === page.model.list[index]?.id &&
+              candidate.handle === page.model.list[index]?.handle
+          ))
+      ) {
+        break
+      }
+      page = nextPage
+    }
+    return [...found.values()]
+  }
+
+  private async loadNextPage(page: CdPage): Promise<CdPage> {
+    const base = this.options.webBaseUrl ?? env.get('CD_WEB_BASE_URL')!
+    const url = new URL('getconnectionlist/', base.endsWith('/') ? base : `${base}/`)
+    const connections = page.model.list
+    if (connections.length === 0) return page
+    const first = connections[0]
+    const previous = connections.length <= 2 ? first : connections[1]
+    const next = connections.length <= 2 ? first : connections[connections.length - 2]
+    const body = new URLSearchParams({
+      '__RequestVerificationToken': page.token,
+      'model[guid]': page.model.guid,
+      'model[SearchType]': '2',
+      'model[pageType]': String(page.model.pageType),
+      'model[refreshID]': String(first.id),
+      'model[prevID]': String(previous.id),
+      'model[nextID]': String(next.id),
+      'model[priceType]': '0',
+      'model[sortType]': '0',
+      'model[onlyReservation]': 'false',
+    })
+    const response = await this.request(
+      url,
+      {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/x-www-form-urlencoded; charset=UTF-8',
+          'x-requested-with': 'XMLHttpRequest',
+          'cookie': page.cookies,
+        },
+        body,
+      },
+      false,
+      'search'
+    )
+    let parsed: unknown
+    try {
+      parsed = await response.json()
+    } catch {
+      throw new ConnectionSearchError('Nieprawidłowa kolejna strona połączeń ČD.', 'cdPageInvalid')
+    }
+    const model =
+      parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)
+        ? (parsed as Record<string, unknown>)
+        : null
+    const failure = model && !Array.isArray(model.list) ? cdPageFailure(model) : null
+    if (failure) throw failure
+    if (!model || !Array.isArray(model.list) || typeof model.guid !== 'string') {
+      throw new ConnectionSearchError('Nieprawidłowa kolejna strona połączeń ČD.', 'cdPageInvalid')
+    }
+    logger.debug(
+      { event: 'cd_search_next_page', resultCount: model.list.length, allowNext: model.allowNext },
+      'Odczytano kolejną stronę połączeń ČD'
+    )
+    return { model: model as unknown as CdPageModel, token: page.token, cookies: page.cookies }
+  }
+
   private candidates(page: CdPage, input: ConnectionSearchInput) {
-    const limit = Math.max(1, env.get('SEARCH_RESULT_LIMIT') ?? 20)
-    return page.model.list
-      .filter((connection) => {
-        const trains = connection.trains
-        return (
-          Array.isArray(trains) &&
-          trains.length > 0 &&
-          trains[0].depDate === DateTime.fromISO(input.travelDate).toFormat('dd.LL.yyyy') &&
-          (!input.onlyDirect || (trains.length === 1 && (connection.changesCount ?? 0) === 0))
-        )
-      })
-      .slice(0, limit)
+    return page.model.list.filter((connection) => {
+      const trains = connection.trains
+      return (
+        Array.isArray(trains) &&
+        trains.length > 0 &&
+        trains[0].depDate === DateTime.fromISO(input.travelDate).toFormat('dd.LL.yyyy') &&
+        (!input.onlyDirect || (trains.length === 1 && (connection.changesCount ?? 0) === 0))
+      )
+    })
   }
 
   private metadata(connection: CdConnection): ConnectionMetadata {

@@ -15,6 +15,7 @@ const options = {
   maxRetries: 0,
   retryBaseDelayMs: 0,
   maxConcurrency: 2,
+  maxSearchPages: 3,
 }
 
 test.group('Public ČD adapter', () => {
@@ -136,6 +137,126 @@ test.group('Public ČD adapter', () => {
     }
   })
 
+  test('searches the whole selected day using ČD result pagination without duplicate prices', async ({
+    assert,
+  }) => {
+    const originalFetch = globalThis.fetch
+    const date = DateTime.now().plus({ days: 3 }).toISODate()!
+    const previousDate = DateTime.fromISO(date).minus({ days: 1 }).toFormat('dd.LL.yyyy')
+    const cdDate = DateTime.fromISO(date).toFormat('dd.LL.yyyy')
+    let pageRequests = 0
+    let nextRequests = 0
+    let priceRequests = 0
+    const connection = (id: number, time: string, departureDate = cdDate) => ({
+      handle: id,
+      id,
+      changesCount: 0,
+      trains: [
+        {
+          trainName: `EC ${id}`,
+          trainNum: String(id),
+          from: 'Brno hl.n.',
+          to: 'Wroclaw Glowny',
+          depDate: departureDate,
+          depTime: time,
+          arrDate: departureDate,
+          arrTime: time,
+        },
+      ],
+    })
+    globalThis.fetch = async (input, init) => {
+      const url = new URL(String(input))
+      if (url.pathname.endsWith('/apiform')) {
+        pageRequests += 1
+        assert.equal(url.searchParams.get('date'), previousDate)
+        assert.equal(url.searchParams.get('time'), '23:59')
+        return new Response(
+          `<input name="__RequestVerificationToken" type="hidden" value="test-token" />\nvar model = ${JSON.stringify(
+            {
+              guid: 'test-guid',
+              pageType: 0,
+              allowNext: true,
+              list: [connection(1, '00:05'), connection(2, '06:00'), connection(3, '10:00')],
+            }
+          )};`,
+          { headers: { 'set-cookie': 'session=test-cookie; Path=/; HttpOnly' } }
+        )
+      }
+      if (url.pathname.endsWith('/getconnectionlist/')) {
+        nextRequests += 1
+        assert.equal(init?.method, 'POST')
+        const body = new URLSearchParams(String(init?.body))
+        assert.equal(body.get('model[SearchType]'), '2')
+        assert.equal(body.get('model[nextID]'), '2')
+        assert.include(JSON.stringify(init?.headers), 'session=test-cookie')
+        return Response.json({
+          guid: 'test-guid',
+          pageType: 0,
+          allowNext: false,
+          list: [
+            connection(3, '10:00'),
+            connection(4, '18:00'),
+            connection(5, '00:30', DateTime.fromISO(date).plus({ days: 1 }).toFormat('dd.LL.yyyy')),
+          ],
+        })
+      }
+      if (url.pathname.endsWith('/GetConnListPrice/')) {
+        priceRequests += 1
+        const body = new URLSearchParams(String(init?.body))
+        const id = Number(body.get('model[loadPrices][0][connID]'))
+        return Response.json({ list: [{ id, price: { price: 12_000, canProceed: true } }] })
+      }
+      throw new Error(`Unexpected test request: ${url.pathname}`)
+    }
+
+    try {
+      const results = await new CdPublicService(options).search({
+        origin: 'Brno hl.n.',
+        originStationId: 1,
+        destination: 'Wroclaw Glowny',
+        destinationStationId: 2,
+        travelDate: date,
+        onlyDirect: false,
+      })
+      assert.deepEqual(
+        results.map((result) => result.departure),
+        ['00:05', '06:00', '10:00', '18:00']
+      )
+      assert.equal(pageRequests, 1)
+      assert.equal(nextRequests, 1)
+      assert.equal(priceRequests, 4)
+
+      const limitedResults = await new CdPublicService({ ...options, maxSearchPages: 1 }).search({
+        origin: 'Brno hl.n.',
+        originStationId: 1,
+        destination: 'Wroclaw Glowny',
+        destinationStationId: 2,
+        travelDate: date,
+        onlyDirect: false,
+      })
+      assert.lengthOf(limitedResults, 3)
+      assert.equal(nextRequests, 1)
+
+      const watched = await new CdPublicService(options).searchForWatch(
+        {
+          origin: 'Brno hl.n.',
+          originStationId: 1,
+          destination: 'Wroclaw Glowny',
+          destinationStationId: 2,
+          travelDate: date,
+          departureTime: '00:05',
+          onlyDirect: false,
+        },
+        (rows) => rows.find((row) => row.departure === '00:05')?.uuid
+      )
+      assert.equal(watched.connection?.departure, '00:05')
+      assert.equal(pageRequests, 3)
+      assert.equal(priceRequests, 8)
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+
   test('reports ČD access denial instead of a malformed connection list without leaking the upstream address', async ({
     assert,
   }) => {
@@ -239,8 +360,9 @@ if (process.env.CD_LIVE_SMOKE === '1') {
       assert.isAbove(results.length, 0)
       assert.isTrue(results.some((row) => row.priceCents !== null && row.priceCents > 0))
     } catch (error) {
-      console.error('ČD smoke:', error instanceof Error ? error.message : String(error))
-      throw error
+      throw new Error(`ČD smoke: ${error instanceof Error ? error.message : String(error)}`, {
+        cause: error,
+      })
     }
   })
 }
