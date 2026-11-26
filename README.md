@@ -158,6 +158,13 @@ nie jest traktowana jako dokładna i nie wywoła fałszywego alertu. Publiczna
 strona i jej kontrakt techniczny mogą się zmienić; wtedy obserwacja pokaże
 błąd, a worker ponowi sprawdzenie zgodnie z harmonogramem.
 
+Jeżeli ČD zwróci odmowę dostępu wewnątrz strony z HTTP 200, wyszukiwarka
+pokazuje komunikat „ČD odmówiło dostępu do wyników wyszukiwania” i kod
+`cdAccessDenied`, a nie błędnie „Nieprawidłowa lista połączeń ČD”. To
+ograniczenie po stronie źródła, nie problem z logowaniem do Koleo Watch;
+nie należy automatycznie ponawiać zapytania wiele razy. Inny błąd zwrócony
+przez ČD ma kod `cdSearchRejected`.
+
 Opcjonalny test rzeczywistego odczytu bez wysyłki e-mail i bez zmiany bazy
 uruchamia się tylko po jawnym ustawieniu `CD_LIVE_SMOKE=1` dla testu
 `tests/unit/cd_public_service.spec.ts`. Zwykłe `node ace test --no-ansi` jest
@@ -479,6 +486,31 @@ ostrzeżenie żółte, a błąd czerwony. `LOG_SHOW_CONTEXT=true` dopisuje pola 
 potrzebne do szczegółowego debugowania. Ustaw `LOG_LEVEL=debug`, aby dopuścić
 komunikaty DEBUG. Dla Loki, ELK albo innego parsera logów ustaw
 `LOG_FORMAT=json` i `LOG_COLORIZE=false`.
+
+Na VPS z Docker Compose zmień **w `/opt/koleo_scrapper/.env_conf`** (a nie
+wyłącznie w `web/.env`) tymczasowo:
+
+```dotenv
+LOG_LEVEL=debug
+LOG_SHOW_CONTEXT=true
+```
+
+Po wdrożeniu kodu odtwórz procesy WWW i workera oraz odczytaj ostatnie logi:
+
+```sh
+docker compose --project-directory /opt/koleo_scrapper -f /opt/koleo_scrapper/compose.yaml --env-file /opt/koleo_scrapper/.env_conf up -d --force-recreate web worker
+docker compose --project-directory /opt/koleo_scrapper -f /opt/koleo_scrapper/compose.yaml --env-file /opt/koleo_scrapper/.env_conf logs --tail=200 --since=15m web worker
+```
+
+Wpisy `cd_request_completed`, `cd_request_failed` i `cd_search_page_parsed`
+podają etap, HTTP, liczbę prób, czas i klasyfikację odpowiedzi. Nie zawierają
+cookies, tokenu CSRF, pełnego URL, adresu IP zwróconego przez ČD ani e-maila.
+Wpis `connection_search_failed` ma kod błędu także przy
+`LOG_SHOW_CONTEXT=false`. Przed przesłaniem logów ustaw w serwerowym
+`web/.env` `AUDIT_LOG_PERSONAL_DATA=false` lub zamaskuj dane konta i trasy.
+Po diagnozie przywróć `LOG_LEVEL=info` i `LOG_SHOW_CONTEXT=false`, a potem
+ponownie odtwórz oba kontenery. Nie zmieniaj `NODE_ENV` na `development` na
+publicznym serwerze.
 
 Logowanie i wyszukiwanie mają czytelny opis także bez `LOG_SHOW_CONTEXT`: ID
 użytkownika, zamaskowany e-mail, identyfikatory stacji, datę, godzinę, filtr,

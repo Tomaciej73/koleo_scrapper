@@ -161,12 +161,12 @@ export default class SearchController {
       if (isExpectedError) {
         logger.warn(
           { ...errorContext, err: error },
-          `Wyszukiwanie połączeń nie powiodło się: ${searchDescription}; ${message}`
+          `Wyszukiwanie połączeń nie powiodło się: ${searchDescription}; kod: ${errorContext.errorCode}; ${message}`
         )
       } else {
         logger.error(
           { ...errorContext, err: error },
-          `Nieoczekiwany błąd wyszukiwania połączeń: ${searchDescription}`
+          `Nieoczekiwany błąd wyszukiwania połączeń: ${searchDescription}; kod: ${errorContext.errorCode}`
         )
       }
 

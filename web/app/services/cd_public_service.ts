@@ -8,6 +8,7 @@ import type {
 import { ConnectionSearchError } from '#services/connection_search_service'
 import { createHash } from 'node:crypto'
 import { DateTime } from 'luxon'
+import logger from '@adonisjs/core/services/logger'
 
 interface CdTrain {
   trainName?: string
@@ -32,6 +33,31 @@ interface CdPageModel {
   guid: string
   pageType: number
   list: CdConnection[]
+}
+
+function cdPageFailure(model: Record<string, unknown>) {
+  const errors = Array.isArray(model.errors) ? model.errors : [model.errors]
+  const descriptions = errors
+    .filter(
+      (error): error is Record<string, unknown> =>
+        error !== null && typeof error === 'object' && !Array.isArray(error)
+    )
+    .flatMap((error) => [error.title, error.content])
+    .filter((value): value is string => typeof value === 'string')
+
+  if (descriptions.some((value) => /DENY\/last|denied due to the rule/i.test(value))) {
+    return new ConnectionSearchError(
+      'ČD odmówiło dostępu do wyników wyszukiwania. Spróbuj ponownie później.',
+      'cdAccessDenied'
+    )
+  }
+  if (descriptions.length > 0) {
+    return new ConnectionSearchError(
+      'ČD zgłosiło błąd wyszukiwania połączeń. Sprawdź stacje i termin.',
+      'cdSearchRejected'
+    )
+  }
+  return null
 }
 
 interface CdPage {
@@ -89,7 +115,7 @@ export default class CdPublicService {
     )
     url.searchParams.set('format', 'json')
     url.searchParams.set('callback', 'cdwatch')
-    const response = await this.request(url)
+    const response = await this.request(url, undefined, false, 'stations')
     const body = await response.text()
     const match = /^cdwatch\((\[.*\])\);?\s*$/s.exec(body.trim())
     if (!match)
@@ -176,23 +202,64 @@ export default class CdPublicService {
     url.searchParams.set('t', input.destination)
     url.searchParams.set('date', DateTime.fromISO(input.travelDate).toFormat('dd.LL.yyyy'))
     url.searchParams.set('time', input.departureTime ?? '00:00')
+    const startedAt = performance.now()
     const { response, cookies } = await this.requestSessionPage(url)
     const html = await response.text()
     const modelText = /^\s*var model = (\{.*\});\r?$/gm.exec(html)?.[1]
     const token = /name="__RequestVerificationToken" type="hidden" value="([^"]+)"/.exec(html)?.[1]
-    if (!modelText || !token) {
+    if (!modelText) {
+      logger.debug(
+        {
+          event: 'cd_search_page_parsed',
+          httpStatus: response.status,
+          outcome: 'model_missing',
+          tokenPresent: Boolean(token),
+          responseLength: html.length,
+          durationMs: Math.round(performance.now() - startedAt),
+        },
+        'Nie znaleziono modelu wyników ČD'
+      )
       throw new ConnectionSearchError('Nie można odczytać publicznych wyników ČD.', 'cdPageInvalid')
     }
-    let model: CdPageModel
+    let parsed: unknown
     try {
-      model = JSON.parse(modelText)
+      parsed = JSON.parse(modelText)
     } catch {
+      logger.debug(
+        {
+          event: 'cd_search_page_parsed',
+          httpStatus: response.status,
+          outcome: 'invalid_json',
+          responseLength: html.length,
+          durationMs: Math.round(performance.now() - startedAt),
+        },
+        'Nie udało się odczytać modelu wyników ČD'
+      )
       throw new ConnectionSearchError('Nieprawidłowa odpowiedź wyszukiwarki ČD.', 'cdPageInvalid')
     }
-    if (!Array.isArray(model.list) || typeof model.guid !== 'string') {
+    const model =
+      parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)
+        ? (parsed as Record<string, unknown>)
+        : null
+    const hasResultsModel = Array.isArray(model?.list) && typeof model.guid === 'string'
+    const failure = model && !hasResultsModel ? cdPageFailure(model) : null
+    logger.debug(
+      {
+        event: 'cd_search_page_parsed',
+        httpStatus: response.status,
+        outcome: failure?.code ?? (hasResultsModel ? 'results' : 'invalid_model'),
+        tokenPresent: Boolean(token),
+        resultCount: Array.isArray(model?.list) ? model.list.length : null,
+        responseLength: html.length,
+        durationMs: Math.round(performance.now() - startedAt),
+      },
+      'Odczytano odpowiedź wyszukiwarki ČD'
+    )
+    if (failure) throw failure
+    if (!hasResultsModel || !token) {
       throw new ConnectionSearchError('Nieprawidłowa lista połączeń ČD.', 'cdPageInvalid')
     }
-    return { model, token, cookies }
+    return { model: model as unknown as CdPageModel, token, cookies }
   }
 
   private async requestSessionPage(initialUrl: URL) {
@@ -209,7 +276,8 @@ export default class CdPublicService {
           headers: cookies.size ? { cookie: [...cookies.values()].join('; ') } : undefined,
           redirect: 'manual',
         },
-        true
+        true,
+        'search'
       )
       for (const item of response.headers.getSetCookie()) {
         const pair = item.split(';', 1)[0]
@@ -328,15 +396,20 @@ export default class CdPublicService {
       'model[trainIndex]': '0',
       'model[noCachePrices]': 'true',
     })
-    const response = await this.request(url, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/x-www-form-urlencoded; charset=UTF-8',
-        'x-requested-with': 'XMLHttpRequest',
-        'cookie': page.cookies,
+    const response = await this.request(
+      url,
+      {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/x-www-form-urlencoded; charset=UTF-8',
+          'x-requested-with': 'XMLHttpRequest',
+          'cookie': page.cookies,
+        },
+        body,
       },
-      body,
-    })
+      false,
+      'price'
+    )
     let json: unknown
     try {
       json = await response.json()
@@ -372,7 +445,12 @@ export default class CdPublicService {
     }
   }
 
-  private async request(url: URL, init?: RequestInit, allowRedirect = false) {
+  private async request(
+    url: URL,
+    init?: RequestInit,
+    allowRedirect = false,
+    phase: 'stations' | 'search' | 'price' = 'search'
+  ) {
     const timeout = this.requiredNumber(
       this.options.requestTimeoutMs ?? env.get('CD_REQUEST_TIMEOUT_MS'),
       1
@@ -387,19 +465,41 @@ export default class CdPublicService {
     )
     for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
       let response: Response
+      const startedAt = performance.now()
       try {
         response = await fetch(url, {
           ...init,
           redirect: 'manual',
           signal: AbortSignal.timeout(timeout),
         })
-      } catch {
+      } catch (error) {
+        logger.debug(
+          {
+            event: 'cd_request_failed',
+            phase,
+            attempt: attempt + 1,
+            failure:
+              error instanceof Error && error.name === 'TimeoutError' ? 'timeout' : 'network',
+            durationMs: Math.round(performance.now() - startedAt),
+          },
+          'Zapytanie do ČD nie powiodło się'
+        )
         if (attempt < maxRetries) {
           await this.backoff(baseDelay, attempt)
           continue
         }
         throw new ConnectionSearchError('Połączenie z ČD nie powiodło się.', 'cdNetworkFailed')
       }
+      logger.debug(
+        {
+          event: 'cd_request_completed',
+          phase,
+          attempt: attempt + 1,
+          httpStatus: response.status,
+          durationMs: Math.round(performance.now() - startedAt),
+        },
+        'Zakończono zapytanie do ČD'
+      )
       if (!response.ok && !(allowRedirect && response.status >= 300 && response.status < 400)) {
         if (
           (response.status === 408 || response.status === 429 || response.status >= 500) &&

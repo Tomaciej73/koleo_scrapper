@@ -71,3 +71,12 @@ Ostatnia aktualizacja: 2026-11-26
 - [x] Ceny ČD pokazują orientacyjne PLN z datowanym kursem średnim NBP; alerty i progi nadal są liczone w CZK.
 - [x] Testy offline (57/57), lint, typecheck, build produkcyjny oraz test odczytu publicznej ceny ČD po wpisaniu polskiej nazwy stacji przechodzą.
 - [ ] Użytkownik wdroży na VPS według README i sprawdzi pełny cykl. Połączenie SSH do skonfigurowanego `k.pl` (83.168.90.138:22) jest obecnie odrzucane.
+
+## Bieżąca zmiana: diagnostyka ČD i podpowiedź w formularzu (2026-11-26)
+
+- [x] Zastąpiono biały opis stacji ČD ikoną informacji z podpowiedzią dostępną myszą i klawiaturą.
+- [x] Rozpoznano odmowę dostępu `DENY/last` w odpowiedzi ČD HTTP 200; użytkownik dostaje odrębny kod `cdAccessDenied`, bez ujawniania adresu źródłowego.
+- [x] Dodano bezpieczne wpisy DEBUG dla etapów zapytania i odczytu odpowiedzi ČD oraz kod błędu w podstawowym logu wyszukiwania.
+- [x] Udokumentowano przełączniki `LOG_LEVEL=debug` i `LOG_SHOW_CONTEXT=true` w `.env_conf` oraz sposób zebrania logów.
+- [x] Lokalnie po końcowej zmianie: pełne testy offline 59/59, dodatkowy test przeglądarkowy ČD 2/2, lint, typecheck i build produkcyjny przechodzą.
+- [ ] Użytkownik wdroży zmianę na VPS i sprawdzi wynik ponownie. Odmowa po stronie ČD może nadal ograniczać dostęp z IP serwera; aplikacja nie obchodzi tego ograniczenia.

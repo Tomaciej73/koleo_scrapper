@@ -16,7 +16,7 @@ export default await Env.create(new URL('../', import.meta.url), {
   NODE_ENV: Env.schema.enum(['development', 'production', 'test'] as const),
   PORT: Env.schema.number(),
   HOST: Env.schema.string({ format: 'host' }),
-  LOG_LEVEL: Env.schema.string(),
+  LOG_LEVEL: Env.schema.enum(['trace', 'debug', 'info', 'warn', 'error', 'fatal'] as const),
   LOG_FORMAT: Env.schema.enum(['json', 'pretty'] as const),
   LOG_COLORIZE: Env.schema.boolean(),
   LOG_LEVEL_COLORS: Env.schema.string(),

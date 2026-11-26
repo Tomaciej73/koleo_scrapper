@@ -1531,6 +1531,52 @@ input {
   font: inherit;
 }
 
+.search-field__heading {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.search-field__help {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  color: var(--muted);
+  cursor: help;
+}
+
+.search-field__help:hover,
+.search-field__help:focus-visible {
+  color: var(--accent);
+  outline: none;
+}
+
+.search-field__help-tooltip {
+  position: absolute;
+  z-index: 50;
+  bottom: calc(100% + 9px);
+  left: -8px;
+  width: min(280px, 75vw);
+  padding: 9px 11px;
+  border: 1px solid var(--line-2);
+  border-radius: 9px;
+  background: var(--card);
+  box-shadow: 0 12px 32px rgba(10, 10, 11, 0.25);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.45;
+  opacity: 0;
+  pointer-events: none;
+  visibility: hidden;
+}
+
+.search-field__help:hover .search-field__help-tooltip,
+.search-field__help:focus-visible .search-field__help-tooltip {
+  opacity: 1;
+  visibility: visible;
+}
+
 .search-field {
   display: flex;
   flex-direction: column;

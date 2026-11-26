@@ -1,4 +1,5 @@
 import CdPublicService from '#services/cd_public_service'
+import { ConnectionSearchError } from '#services/connection_search_service'
 import { test } from '@japa/runner'
 import { DateTime } from 'luxon'
 
@@ -130,6 +131,76 @@ test.group('Public ČD adapter', () => {
       assert.equal(pageRequests, 1)
       assert.equal(redirectRequests, 1)
       assert.equal(priceRequests, 1)
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+
+  test('reports ČD access denial instead of a malformed connection list without leaking the upstream address', async ({
+    assert,
+  }) => {
+    const originalFetch = globalThis.fetch
+    globalThis.fetch = async () =>
+      new Response(
+        `<input name="__RequestVerificationToken" type="hidden" value="test-token" />\nvar model = ${JSON.stringify(
+          {
+            doSearch: false,
+            errors: {
+              title: 'The connection cannot be found',
+              content:
+                'Access to the timetable server from address 192.0.2.10 denied due to the rule DENY/last.',
+            },
+          }
+        )};`
+      )
+
+    try {
+      let failure: unknown
+      try {
+        await new CdPublicService(options).search({
+          origin: 'Brno hl.n.',
+          originStationId: 1,
+          destination: 'Wroclaw Glowny; Poland',
+          destinationStationId: 2,
+          travelDate: DateTime.now().plus({ days: 3 }).toISODate()!,
+          onlyDirect: false,
+        })
+      } catch (error) {
+        failure = error
+      }
+      assert.instanceOf(failure, ConnectionSearchError)
+      assert.equal((failure as ConnectionSearchError).code, 'cdAccessDenied')
+      assert.notInclude((failure as ConnectionSearchError).message, '192.0.2.10')
+      assert.notInclude((failure as ConnectionSearchError).message, 'DENY/last')
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+
+  test('classifies an upstream search error even when the price token is missing', async ({
+    assert,
+  }) => {
+    const originalFetch = globalThis.fetch
+    globalThis.fetch = async () =>
+      new Response(
+        `var model = ${JSON.stringify({ errors: { title: 'Invalid journey', content: 'Invalid stations' } })};`
+      )
+    try {
+      let failure: unknown
+      try {
+        await new CdPublicService(options).search({
+          origin: 'Brno hl.n.',
+          originStationId: 1,
+          destination: 'Wroclaw Glowny; Poland',
+          destinationStationId: 2,
+          travelDate: DateTime.now().plus({ days: 3 }).toISODate()!,
+          onlyDirect: false,
+        })
+      } catch (error) {
+        failure = error
+      }
+      assert.instanceOf(failure, ConnectionSearchError)
+      assert.equal((failure as ConnectionSearchError).code, 'cdSearchRejected')
     } finally {
       globalThis.fetch = originalFetch
     }
