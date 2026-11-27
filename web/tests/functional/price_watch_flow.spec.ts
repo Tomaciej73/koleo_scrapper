@@ -148,7 +148,7 @@ test.group('Price watch flow', (group) => {
       .withSession({ authVersion: user.authVersion })
       .loginAs(user)
     favorites.assertStatus(200)
-    favorites.assertTextIncludes('<title>Monitorowane połączenia - Koleo Watch</title>')
+    favorites.assertTextIncludes('<title>Monitorowane połączenia — Koleo Watch</title>')
     favorites.assertTextIncludes('<link rel="icon" type="image/svg+xml" href="/favicon.svg" />')
     favorites.assertTextIncludes('Wrocław Główny')
     favorites.assertTextIncludes('79,00')
@@ -800,6 +800,29 @@ test.group('Price watch flow', (group) => {
       fakeMailer.messages.sent()[0].nodeMailerMessage.messageId,
       `<${deliveryId}@example.com>`
     )
+    const email = fakeMailer.messages.sent()[0].nodeMailerMessage
+    assert.include(String(email.text), 'Monitorowane połączenia:')
+    assert.include(String(email.html), 'Alert zmiany ceny')
+    assert.include(String(email.html), 'Wrocław Główny')
+    assert.include(String(email.html), 'style=')
+  })
+
+  test('escapes untrusted alert text in the HTML email', async ({ assert }) => {
+    const fakeMailer = mail.fake()
+    const alert = new AlertOutbox()
+    alert.deliveryId = 'd238e6e8-309e-424a-9167-7bbcbdd8aefe'
+    alert.subject = 'Cena <script>alert(1)</script>'
+    alert.body = 'Trasa <img src=x onerror=alert(1)>\nPociąg & szczegóły'
+
+    await new NotificationService().sendQueuedAlert(alert, 'alert@example.test')
+
+    const email = fakeMailer.messages.sent()[0].nodeMailerMessage
+    const html = String(email.html)
+    assert.include(String(email.text), '<img src=x onerror=alert(1)>')
+    assert.include(html, '&lt;script&gt;')
+    assert.include(html, '&lt;img src=x onerror=alert(1)&gt;')
+    assert.notInclude(html, '<script>')
+    assert.notInclude(html, '<img src=x')
   })
 
   test('notifies about a change above the target and about an inclusive target', async ({

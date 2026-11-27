@@ -41,6 +41,11 @@ test.group('Account verification', (group) => {
     const content = String(sentMessages[0].nodeMailerMessage.text)
     const code = content.match(/\b\d{6}\b/)?.[0]
     assert.match(code ?? '', /^\d{6}$/)
+    const html = String(sentMessages[0].nodeMailerMessage.html)
+    assert.include(html, '<html lang="pl">')
+    assert.include(html, '<title>Potwierdź adres e-mail — Koleo Watch</title>')
+    assert.include(html, code!)
+    assert.include(html, 'style=')
 
     const verificationPage = await client
       .get('/verify-email')

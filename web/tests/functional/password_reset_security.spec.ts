@@ -53,6 +53,10 @@ test.group('Password reset and browser security', (group) => {
     const token = resetBody.match(/\/reset-password#token=([a-f0-9]{64})/)?.[1]
     assert.match(token ?? '', /^[a-f0-9]{64}$/)
     assert.notInclude(resetBody, `/reset-password/${token}`)
+    const resetHtml = String(resetMessage.nodeMailerMessage.html)
+    assert.include(resetHtml, '<html lang="pl">')
+    assert.include(resetHtml, `/reset-password#token=${token}`)
+    assert.include(resetHtml, 'Ustaw nowe hasło')
 
     const resetPage = await client.get('/reset-password')
     resetPage.assertStatus(200)
@@ -66,6 +70,9 @@ test.group('Password reset and browser security', (group) => {
     })
     reset.assertStatus(302)
     reset.assertHeader('location', '/login')
+    const confirmationHtml = String(fakeMailer.messages.sent()[1].nodeMailerMessage.html)
+    assert.include(confirmationHtml, 'Hasło zostało zmienione')
+    assert.notInclude(confirmationHtml, token!)
 
     await user.refresh()
     assert.equal(user.authVersion, previousAuthVersion + 1)

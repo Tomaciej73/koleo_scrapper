@@ -29,6 +29,7 @@ export default class MailTest extends BaseCommand {
         .to(this.recipient)
         .subject('Test SMTP — Koleo Watch')
         .text('Konfiguracja SMTP Koleo Watch działa poprawnie.')
+        .htmlView('emails/smtp_test')
     })
 
     this.logger.success('Wiadomość testowa została przekazana do serwera SMTP.')

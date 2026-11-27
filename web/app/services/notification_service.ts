@@ -38,6 +38,7 @@ export default class NotificationService {
               'Jeśli to nie Ty zakładasz konto, zignoruj tę wiadomość.',
             ].join('\n')
           )
+          .htmlView('emails/verification', { code, validForMinutes })
       })
     )
 
@@ -68,6 +69,7 @@ export default class NotificationService {
               'Jeśli to nie Ty wysłałeś prośbę, zignoruj tę wiadomość.',
             ].join('\n')
           )
+          .htmlView('emails/password_reset', { resetUrl, validForMinutes })
       })
     )
 
@@ -92,6 +94,7 @@ export default class NotificationService {
               'Jeśli to nie Ty zmieniłeś hasło, skontaktuj się z administratorem.',
             ].join('\n')
           )
+          .htmlView('emails/password_changed')
       })
     )
 
@@ -149,6 +152,7 @@ export default class NotificationService {
     if (!messageIdDomain) {
       throw new Error('MAIL_FROM_ADDRESS nie zawiera poprawnej domeny dla Message-ID.')
     }
+    const watchesUrl = new URL('/favorites', env.get('APP_URL')).toString()
 
     await this.sendMail(() =>
       mail.send((message) => {
@@ -156,7 +160,12 @@ export default class NotificationService {
           .to(recipient)
           .messageId(`<${alert.deliveryId}@${messageIdDomain}>`)
           .subject(alert.subject)
-          .text(alert.body)
+          .text(`${alert.body}\n\nMonitorowane połączenia: ${watchesUrl}`)
+          .htmlView('emails/price_alert', {
+            alertTitle: alert.subject,
+            lines: alert.body.split(/\r?\n/),
+            watchesUrl,
+          })
       })
     )
 

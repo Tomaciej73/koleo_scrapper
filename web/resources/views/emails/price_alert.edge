@@ -1,0 +1,16 @@
+@layouts.email({ title: 'Alert zmiany ceny', preheader: alertTitle })
+  <p style="margin: 0 0 18px; color: #0f766e; font-size: 16px; font-weight: 700;">{{ alertTitle }}</p>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse: collapse; margin: 0 0 22px;">
+    <tr>
+      <td style="padding: 18px 20px; background-color: #e9f8f5; border-left: 4px solid #0f766e; color: #123b38; font-size: 16px; line-height: 1.5;">
+        {{ lines[0] }}
+      </td>
+    </tr>
+  </table>
+  @each(line in lines.slice(1))
+    <p style="margin: 0 0 12px;">{{ line }}</p>
+  @end
+  <p style="margin: 22px 0 0;">
+    <a href="{{ watchesUrl }}" style="display: inline-block; padding: 12px 20px; background-color: #0f766e; border-radius: 8px; color: #ffffff; font-size: 14px; font-weight: 700; text-decoration: none;">Zobacz monitorowane połączenia</a>
+  </p>
+@end

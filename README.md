@@ -285,6 +285,14 @@ Set-Location -LiteralPath 'M:\GIT\koleo_scrapper\web'
 npm run mail:test -- odbiorca@example.com
 ```
 
+Wiadomości aktywacyjne, reset hasła, potwierdzenie zmiany hasła, alerty cenowe
+i test SMTP są wysyłane jednocześnie jako `text/plain` i `text/html`. Szablony
+HTML znajdują się w `web/resources/views/emails/` i korzystają ze wspólnego
+układu z CSS zapisanym bezpośrednio w elementach. Klient pocztowy sam wybiera
+obsługiwany wariant. Nie używamy JavaScript ani zewnętrznych arkuszy CSS,
+ponieważ klienci pocztowi mogą je usuwać. Treści dynamiczne w szablonach są
+automatycznie escapowane przez Edge.
+
 Alert cenowy jest zawsze wysyłany na aktualny, potwierdzony adres e-mail
 właściciela konta. Formularz nie przyjmuje dowolnego adresu odbiorcy. Kanały
 SMS i WhatsApp pozostają wyłączone do czasu dodania osobnej weryfikacji numeru.

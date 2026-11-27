@@ -116,3 +116,11 @@ Ostatnia aktualizacja: 2026-11-26
 - [x] Zmieniono widoczny nagłówek i nawigację z „Obserwowane” na „Monitorowane”.
 - [x] Testy offline 64/64, lint, typecheck i build produkcyjny przeszły; favicon jest kopiowany do obrazu aplikacji.
 - [ ] Po własnym wdrożeniu na VPS potwierdzić wygląd favicon i tytułów kart w przeglądarce; w razie starej ikony odświeżyć pamięć przeglądarki.
+
+## Bieżąca zmiana: wiadomości HTML e-mail (2026-11-27)
+
+- [x] Dodano wspólny szablon wiadomości z tabelowym układem i CSS inline oraz osobne widoki dla aktywacji konta, resetu hasła, potwierdzenia zmiany hasła, alertu cenowego i testu SMTP.
+- [x] Zachowano wersje tekstowe; alert zawiera w obu wariantach odnośnik do monitorowanych połączeń.
+- [x] Dodano testy renderowania HTML i escapowania niezaufanej treści alertu.
+- [x] Lokalnie przeszły testy offline 65/65, lint, typecheck i build produkcyjny.
+- [ ] Po wdrożeniu wysłać `mail:test` na własny adres i sprawdzić wygląd wiadomości w używanym kliencie pocztowym.
