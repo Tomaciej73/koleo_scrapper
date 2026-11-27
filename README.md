@@ -162,8 +162,18 @@ według `web/.env.example`: aplikacja obok ceny CZK pokazuje orientacyjną kwot�
 PLN według ostatniego kursu średniego NBP, wraz z datą tabeli. Nowy próg
 alertu podajesz i zapisujesz w PLN dla obu źródeł. Worker przelicza cenę ČD
 po dostępnym kursie NBP i porównuje ją z progiem PLN; zmiany samej ceny i
-historia pozostają w walucie źródłowej. Przy awarii NBP cena źródłowa jest
-nadal widoczna i śledzona, ale progu PLN ČD nie da się wtedy ocenić. Migracja
+historia pozostają w walucie źródłowej. Gdy cena ČD w CZK jest bez zmian,
+ale nowy kurs NBP przesunie jej wartość w PLN z poziomu powyżej progu do
+poziomu równego progowi lub niższego, aplikacja również wyśle alert. Ponowne
+sprawdzenie na tym samym kursie nie wysyła duplikatu; kolejne zejście poniżej
+progu po wcześniejszym wyjściu ponad niego może wysłać nowy alert.
+Historia zapisuje kurs, datę i numer tabeli NBP oraz wynik porównania przy
+zmianie ceny źródłowej, kursu albo stanu progu; wpisy podlegają istniejącej
+retencji `PRICE_HISTORY_RETENTION_DAYS`. E-mail korzysta z tego samego
+kursu co decyzja workera. Starsze wpisy bez zapisanego kursu są oznaczone w
+widoku; ich PLN pozostaje wyłącznie przeliczeniem po obecnie dostępnym kursie.
+Przy awarii NBP cena źródłowa jest nadal widoczna i śledzona, ale progu PLN
+ČD nie da się wtedy ocenić; ostatni znany stan progu nie jest zerowany. Migracja
 zachowuje dotychczasowe progi ČD w CZK; są oznaczone w interfejsie i można je
 zastąpić wartością PLN w „Ustawieniach”. Kurs NBP nie jest kursem zakupu ani
 gwarancją kwoty pobranej przez bank.

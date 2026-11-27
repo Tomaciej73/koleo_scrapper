@@ -242,7 +242,7 @@
                       @each(dot in item.chartDots)
                         <circle cx="{{ dot.x }}" cy="{{ dot.y }}" r="1.8">
                           <title>
-                            {{ formatPriceWithConversion(dot.priceCents, watch.provider, czkRate) }}
+                            {{ formatPriceWithConversion(dot.priceCents, watch.provider, dot.nbpRate ?? czkRate) }}
                             ·
                             {{
                               dot.observedAt
@@ -254,21 +254,38 @@
                       @end
                     </svg>
                     <div class="price-chart__legend">
-                      <span>min. {{ formatPriceWithConversion(item.minimumPrice, watch.provider, czkRate) }}</span>
-                      <span>maks. {{ formatPriceWithConversion(item.maximumPrice, watch.provider, czkRate) }}</span>
+                      <span>min. {{ formatPrice(item.minimumPrice, watch.provider) }}</span>
+                      <span>maks. {{ formatPrice(item.maximumPrice, watch.provider) }}</span>
                     </div>
                   </div>
                   <ol class="price-history__list">
                     @each(entry in item.priceHistory)
                       <li>
-                        <time datetime="{{ entry.observedAt.toISO() }}">
-                          {{
-                            entry.observedAt
-                              .setZone(appTimezone)
-                              .toFormat('dd.LL.yyyy HH:mm')
-                          }}
-                        </time>
-                        <strong>{{ formatPriceWithConversion(entry.priceCents, watch.provider, czkRate) }}</strong>
+                        <div class="price-history__detail">
+                          <time datetime="{{ entry.observedAt.toISO() }}">
+                            {{
+                              entry.observedAt
+                                .setZone(appTimezone)
+                                .toFormat('dd.LL.yyyy HH:mm')
+                            }}
+                          </time>
+                          @if(entry.nbpRate)
+                            <small>
+                              NBP {{ entry.nbpRate.effectiveDate }}, tabela {{ entry.nbpRate.tableNumber }},
+                              1 CZK = {{ entry.nbpRate.mid }} PLN
+                            </small>
+                          @elseif(watch.provider === 'cd' && czkRate)
+                            <small>PLN według bieżącego kursu; kurs z chwili odczytu nie był zapisany.</small>
+                          @end
+                          @if(entry.targetPriceCents !== null && entry.comparedPriceCents !== null)
+                            <small>
+                              Ocena: {{ formatPrice(entry.comparedPriceCents, entry.targetPriceCurrency === 'CZK' ? 'cd' : 'koleo') }}
+                              wobec progu {{ formatPrice(entry.targetPriceCents, entry.targetPriceCurrency === 'CZK' ? 'cd' : 'koleo') }}
+                              — {{ entry.targetMet ? 'próg osiągnięty' : 'próg nieosiągnięty' }}
+                            </small>
+                          @end
+                        </div>
+                        <strong>{{ formatPriceWithConversion(entry.priceCents, watch.provider, entry.nbpRate ?? czkRate) }}</strong>
                       </li>
                     @end
                   </ol>

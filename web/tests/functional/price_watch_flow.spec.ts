@@ -7,6 +7,7 @@ import ConnectionSearchService from '#services/connection_search_service'
 import AlertOutboxService from '#services/alert_outbox_service'
 import NotificationService from '#services/notification_service'
 import PriceObservationRetentionService from '#services/price_observation_retention_service'
+import NbpExchangeRateService from '#services/nbp_exchange_rate_service'
 import TargetCurrencyMigration from '#database/migrations/1795007600000_add_price_watch_target_currency'
 import env from '#start/env'
 import testUtils from '@adonisjs/core/services/test_utils'
@@ -994,6 +995,184 @@ test.group('Price watch flow', (group) => {
     assert.isNotNull(watch.lastErrorAt)
   })
 
+  test('alerts when the NBP rate alone crosses a PLN threshold and saves each rate snapshot', async ({
+    assert,
+    client,
+  }) => {
+    const originalFetch = globalThis.fetch
+    const originalSearch = ConnectionSearchService.prototype.searchForWatch
+    const travelDate = futureDate()
+    const user = await User.create({
+      fullName: 'Konto kursowe',
+      email: 'fx-watch@example.test',
+      password: 'Qa-Test-2026!',
+    })
+    const watch = await PriceWatch.create({
+      userId: user.id,
+      provider: 'cd',
+      origin: 'Brno hl.n.',
+      originStationId: 5_433_295,
+      destination: 'Wroclaw Glowny; Poland',
+      destinationStationId: 5_100_069,
+      travelDate: DateTime.fromISO(travelDate),
+      departureTime: '14:56',
+      arrivalTime: '18:45',
+      arrivalDate: DateTime.fromISO(travelDate),
+      trainName: 'EC 281',
+      connectionUuid: 'cd-fx-test',
+      baselinePriceCents: 62_000,
+      lastPriceCents: 62_000,
+      lowestPriceCents: 62_000,
+      targetPriceCents: 12_000,
+      targetPriceCurrency: 'PLN',
+      notificationChannel: 'email',
+      notificationDestination: user.email,
+      status: 'active',
+    })
+    const connection = {
+      uuid: 'cd-fx-test',
+      departure: '14:56',
+      departureMinutes: 896,
+      departureDate: travelDate,
+      arrival: '18:45',
+      arrivalDate: travelDate,
+      arrivalDateLabel: '',
+      arrivalDayOffset: 0,
+      durationMinutes: 229,
+      trains: 'EC 281',
+      changes: 0,
+      priceCents: 62_000,
+      purchasable: true,
+      ticketAvailability: 'available' as const,
+      availabilityMessage: null,
+      provider: 'cd' as const,
+    }
+    ConnectionSearchService.prototype.searchForWatch = async (_input, select) => ({
+      connection: select([connection]) === connection.uuid ? connection : null,
+      resultCount: 1,
+    })
+    const rates = new Map([
+      ['above', { no: '10/A/NBP/2026', mid: 0.2 }],
+      ['below', { no: '11/A/NBP/2026', mid: 0.19 }],
+      ['above-again', { no: '12/A/NBP/2026', mid: 0.21 }],
+      ['below-again', { no: '13/A/NBP/2026', mid: 0.18 }],
+    ])
+    globalThis.fetch = async (input) => {
+      const url = String(input)
+      const phase = url === 'https://nbp.example.test/czk' ? 'below-again' : url.split('/').at(-1)!
+      if (phase === 'unavailable') return new Response(null, { status: 503 })
+      const rate = rates.get(phase)
+      if (!rate) throw new Error(`Unexpected test request: ${url}`)
+      return Response.json({
+        table: 'A',
+        code: 'CZK',
+        rates: [{ ...rate, effectiveDate: '2026-11-27' }],
+      })
+    }
+    const checkWithRate = (phase: string, userId = user.id) =>
+      new PriceAlertService(
+        new NbpExchangeRateService({ url: `https://nbp.example.test/czk-fx/${phase}` })
+      ).checkForUser(userId)
+
+    try {
+      const above = await checkWithRate('above')
+      await watch.refresh()
+      assert.equal(above.alertsQueued, 0)
+      assert.equal(watch.lastTargetMet, false)
+
+      const unavailable = await checkWithRate('unavailable')
+      await watch.refresh()
+      assert.equal(unavailable.alertsQueued, 0)
+      assert.equal(watch.lastTargetMet, false)
+
+      const below = await checkWithRate('below')
+      await watch.refresh()
+      assert.equal(below.priceChanges, 0)
+      assert.equal(below.alertsQueued, 1)
+      assert.equal(below.delivered, 1)
+      assert.equal(watch.lastTargetMet, true)
+      const firstAlert = await AlertOutbox.query().where('priceWatchId', watch.id).firstOrFail()
+      assert.include(firstAlert.subject, 'kursu NBP')
+      assert.include(firstAlert.body, '117,80')
+      assert.include(firstAlert.body, '2026-11-27')
+
+      const repeated = await checkWithRate('below')
+      assert.equal(repeated.alertsQueued, 0)
+      const repeatedObservations = await PriceObservation.query().where('priceWatchId', watch.id)
+      assert.equal(repeatedObservations.length, 2)
+
+      await checkWithRate('above-again')
+      await watch.refresh()
+      assert.equal(watch.lastTargetMet, false)
+      const secondCrossing = await checkWithRate('below-again')
+      assert.equal(secondCrossing.priceChanges, 0)
+      assert.equal(secondCrossing.alertsQueued, 1)
+      assert.equal(secondCrossing.delivered, 1)
+
+      const observations = await PriceObservation.query()
+        .where('priceWatchId', watch.id)
+        .orderBy('id', 'asc')
+      assert.deepEqual(
+        observations.map((observation) => observation.comparedPriceCents),
+        [12_400, 11_780, 13_020, 11_160]
+      )
+      assert.deepEqual(
+        observations.map((observation) => Boolean(observation.targetMet)),
+        [false, true, false, true]
+      )
+      assert.deepEqual(
+        observations.map((observation) => observation.nbpTableNumber),
+        [...rates.values()].map((rate) => rate.no)
+      )
+      assert.equal(observations[1].nbpRateMid, '0.19')
+      assert.equal(observations[1].nbpEffectiveDate, '2026-11-27')
+      const alerts = await AlertOutbox.query().where('priceWatchId', watch.id)
+      assert.equal(alerts.length, 2)
+
+      const favorites = await client
+        .get('/favorites')
+        .withSession({ authVersion: user.authVersion })
+        .loginAs(user)
+      favorites.assertStatus(200)
+      favorites.assertTextIncludes('11/A/NBP/2026')
+      favorites.assertTextIncludes('117,80')
+
+      const previouslyAlertedUser = await User.create({
+        fullName: 'Konto sprzed migracji',
+        email: 'old-fx-watch@example.test',
+        password: 'Qa-Test-2026!',
+      })
+      const previouslyAlerted = await PriceWatch.create({
+        userId: previouslyAlertedUser.id,
+        provider: 'cd',
+        origin: watch.origin,
+        originStationId: watch.originStationId,
+        destination: watch.destination,
+        destinationStationId: watch.destinationStationId,
+        travelDate: DateTime.fromISO(travelDate),
+        departureTime: watch.departureTime,
+        connectionUuid: connection.uuid,
+        lastPriceCents: connection.priceCents,
+        lastNotifiedPriceCents: connection.priceCents,
+        targetPriceCents: 12_000,
+        targetPriceCurrency: 'PLN',
+        notificationChannel: 'email',
+        notificationDestination: previouslyAlertedUser.email,
+        status: 'active',
+      })
+      const migratedCheck = await checkWithRate('below', previouslyAlertedUser.id)
+      await previouslyAlerted.refresh()
+      assert.equal(migratedCheck.alertsQueued, 0)
+      assert.equal(Boolean(previouslyAlerted.lastTargetMet), true)
+    } finally {
+      await new NbpExchangeRateService({
+        url: 'https://nbp.example.test/czk-fx/above',
+      }).getCzkRate()
+      globalThis.fetch = originalFetch
+      ConnectionSearchService.prototype.searchForWatch = originalSearch
+    }
+  })
+
   test('tracks a ČD price change and evaluates a PLN threshold with a mocked public site', async ({
     assert,
     client,
@@ -1106,7 +1285,7 @@ test.group('Price watch flow', (group) => {
       favorites.assertTextIncludes('113,65')
       favorites.assertTextIncludes('Próg ceny (PLN)')
 
-      watch.lastNotifiedPriceCents = null
+      watch.lastTargetMet = false
       await watch.save()
       const inclusive = await new PriceAlertService().checkForUser(user.id)
       assert.equal(inclusive.priceChanges, 0)
@@ -1114,7 +1293,7 @@ test.group('Price watch flow', (group) => {
 
       await watch.refresh()
       watch.targetPriceCents = 11_364
-      watch.lastNotifiedPriceCents = null
+      watch.lastTargetMet = false
       await watch.save()
       const belowTarget = await new PriceAlertService().checkForUser(user.id)
       assert.equal(belowTarget.priceChanges, 0)
@@ -1123,7 +1302,7 @@ test.group('Price watch flow', (group) => {
       await watch.refresh()
       watch.targetPriceCents = 70_000
       watch.targetPriceCurrency = 'CZK'
-      watch.lastNotifiedPriceCents = null
+      watch.lastTargetMet = false
       await watch.save()
       const legacyTarget = await new PriceAlertService().checkForUser(user.id)
       assert.equal(legacyTarget.priceChanges, 0)

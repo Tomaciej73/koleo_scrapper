@@ -130,18 +130,45 @@ export class PasswordResetTokenSchema extends BaseModel {
 }
 
 export class PriceObservationSchema extends BaseModel {
-  static $columns = ['createdAt', 'id', 'observedAt', 'priceCents', 'priceWatchId'] as const
+  static $columns = [
+    'comparedPriceCents',
+    'createdAt',
+    'id',
+    'nbpEffectiveDate',
+    'nbpRateMid',
+    'nbpTableNumber',
+    'observedAt',
+    'priceCents',
+    'priceWatchId',
+    'targetMet',
+    'targetPriceCents',
+    'targetPriceCurrency',
+  ] as const
   $columns = PriceObservationSchema.$columns
+  @column()
+  declare comparedPriceCents: number | null
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
   @column({ isPrimary: true })
   declare id: number
+  @column()
+  declare nbpEffectiveDate: string | null
+  @column()
+  declare nbpRateMid: string | null
+  @column()
+  declare nbpTableNumber: string | null
   @column.dateTime()
   declare observedAt: DateTime
   @column()
   declare priceCents: number
   @column()
   declare priceWatchId: number
+  @column()
+  declare targetMet: boolean | null
+  @column()
+  declare targetPriceCents: number | null
+  @column()
+  declare targetPriceCurrency: string | null
 }
 
 export class PriceWatchSchema extends BaseModel {
@@ -161,9 +188,12 @@ export class PriceWatchSchema extends BaseModel {
     'lastCheckedAt',
     'lastErrorAt',
     'lastErrorMessage',
+    'lastNbpRateMid',
+    'lastNbpTableNumber',
     'lastNotifiedAt',
     'lastNotifiedPriceCents',
     'lastPriceCents',
+    'lastTargetMet',
     'lastTicketAvailability',
     'lowestPriceCents',
     'nextCheckAt',
@@ -213,12 +243,18 @@ export class PriceWatchSchema extends BaseModel {
   declare lastErrorAt: DateTime | null
   @column()
   declare lastErrorMessage: string | null
+  @column()
+  declare lastNbpRateMid: string | null
+  @column()
+  declare lastNbpTableNumber: string | null
   @column.dateTime()
   declare lastNotifiedAt: DateTime | null
   @column()
   declare lastNotifiedPriceCents: number | null
   @column()
   declare lastPriceCents: number | null
+  @column()
+  declare lastTargetMet: boolean | null
   @column()
   declare lastTicketAvailability: string
   @column()

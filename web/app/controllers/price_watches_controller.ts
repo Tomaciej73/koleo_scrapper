@@ -68,12 +68,29 @@ export default class PriceWatchesController {
       const priceHistory = storedHistory.map((observation) => ({
         priceCents: observation.priceCents,
         observedAt: observation.observedAt,
+        nbpRate:
+          observation.nbpRateMid && observation.nbpEffectiveDate && observation.nbpTableNumber
+            ? {
+                mid: Number(observation.nbpRateMid),
+                effectiveDate: observation.nbpEffectiveDate,
+                tableNumber: observation.nbpTableNumber,
+              }
+            : null,
+        comparedPriceCents: observation.comparedPriceCents,
+        targetPriceCents: observation.targetPriceCents,
+        targetPriceCurrency: observation.targetPriceCurrency,
+        targetMet: observation.targetMet === null ? null : Boolean(observation.targetMet),
       }))
 
       if (!priceHistory.length && watch.lastPriceCents !== null) {
         priceHistory.push({
           priceCents: watch.lastPriceCents,
           observedAt: watch.lastCheckedAt ?? watch.createdAt,
+          nbpRate: null,
+          comparedPriceCents: null,
+          targetPriceCents: null,
+          targetPriceCurrency: null,
+          targetMet: null,
         })
       }
 
@@ -90,6 +107,7 @@ export default class PriceWatchesController {
           y: y.toFixed(2),
           priceCents: entry.priceCents,
           observedAt: entry.observedAt,
+          nbpRate: entry.nbpRate,
         }
       })
       const inferredArrivalOffset =
@@ -223,6 +241,7 @@ export default class PriceWatchesController {
       nextCheckAt: DateTime.utc(),
       lastNotifiedAt: null,
       lastNotifiedPriceCents: null,
+      lastTargetMet: null,
       lastErrorMessage: null,
       lastErrorAt: null,
       connectionMissCount: 0,
@@ -332,8 +351,12 @@ export default class PriceWatchesController {
       .where('userId', auth.user!.id)
       .firstOrFail()
 
-    watch.targetPriceCents =
+    const targetPriceCents =
       payload.targetPrice === 0 ? null : Math.round(payload.targetPrice * 100)
+    if (watch.targetPriceCents !== targetPriceCents || watch.targetPriceCurrency !== 'PLN') {
+      watch.lastTargetMet = targetPriceCents === null ? null : false
+    }
+    watch.targetPriceCents = targetPriceCents
     watch.targetPriceCurrency = 'PLN'
     watch.checkIntervalMinutes = this.normalizeCheckInterval(payload.checkIntervalMinutes)
     if (watch.status === 'active') {

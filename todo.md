@@ -100,3 +100,11 @@ Ostatnia aktualizacja: 2026-11-26
 - [x] Lokalnie przeszły pełne testy offline 62/62 (w tym formularze, worker ČD i migracja istniejących progów), lint, typecheck oraz build produkcyjny; 13 migracji przeszło na czystej bazie testowej.
 - [ ] Przed wdrożeniem wykonać kopię produkcyjnej bazy; po migracji potwierdzić oznaczenie istniejących progów ČD jako `CZK` i zapisać wybrany próg ponownie w PLN.
 - [ ] Użytkownik wdroży zmianę na VPS i sprawdzi alerty progu PLN przy dostępnym kursie NBP.
+
+## Bieżąca zmiana: przejście przez próg po zmianie kursu NBP (2026-11-27)
+
+- [x] Worker pamięta poprzedni wynik porównania z progiem i wykrywa przejście z ceny PLN powyżej progu do ceny równej lub niższej, nawet bez zmiany ceny ČD w CZK.
+- [x] Przy braku kursu NBP stan progu pozostaje bez zmian; przy migracji istniejącej obserwacji z wysłanym alertem pierwszy odczyt tylko inicjalizuje stan, aby nie wysłać duplikatu.
+- [x] Historia istotnych odczytów przechowuje użyty kurs, datę i numer tabeli NBP, przeliczoną kwotę, próg oraz wynik porównania. Treść e-maila używa kursu z tego samego sprawdzenia.
+- [x] Testy offline 63/63, lint, typecheck i build produkcyjny przeszły; nowy test obejmuje dwa przekroczenia progu, powtórny odczyt, chwilowy brak NBP i istniejącą obserwację po migracji.
+- [ ] Wdrożyć migrację na VPS po wykonaniu kopii bazy i sprawdzić jeden pełny cykl zmiany kursu oraz widok historii.

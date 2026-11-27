@@ -34,6 +34,8 @@ interface ClaimedWatch {
 }
 
 export default class PriceAlertService {
+  constructor(private readonly exchangeRateService = new NbpExchangeRateService()) {}
+
   async checkAllActive(trigger: PriceCheckTrigger = 'worker'): Promise<AlertCheckSummary> {
     const now = DateTime.utc()
     const candidates = await PriceWatch.query()
@@ -104,6 +106,7 @@ export default class PriceAlertService {
         continue
       }
       const now = DateTime.utc()
+      let targetStateBeforeUnqueuedAlert: boolean | null | undefined
       try {
         const localNow = now.setZone(timezone)
         const departureAt = DateTime.fromISO(
@@ -220,29 +223,46 @@ export default class PriceAlertService {
           watch.provider === 'cd' &&
           watch.targetPriceCurrency !== 'CZK' &&
           watch.targetPriceCents !== null
-        const czkRate = needsPlnConversion ? await new NbpExchangeRateService().getCzkRate() : null
+        const czkRate = needsPlnConversion ? await this.exchangeRateService.getCzkRate() : null
         const comparedPriceCents = needsPlnConversion
           ? czkRate
             ? czkToPlnCents(connection.priceCents, czkRate)
             : null
           : connection.priceCents
+        const previousTargetMet = watch.lastTargetMet === null ? null : Boolean(watch.lastTargetMet)
+        const targetMet =
+          watch.targetPriceCents !== null && comparedPriceCents !== null
+            ? comparedPriceCents <= watch.targetPriceCents
+            : null
+        const rateChanged =
+          czkRate !== null &&
+          watch.lastNbpTableNumber !== null &&
+          watch.lastNbpRateMid !== null &&
+          (watch.lastNbpTableNumber !== czkRate.tableNumber ||
+            watch.lastNbpRateMid !== String(czkRate.mid))
+        const rateSnapshotNeeded =
+          czkRate !== null && (watch.lastNbpTableNumber === null || rateChanged)
         if (needsPlnConversion && !czkRate) {
           logger.warn(
             { event: 'price_target_rate_unavailable', ...this.watchLogContext(watch) },
             'Nie można sprawdzić progu PLN bez kursu NBP; cena źródłowa jest nadal śledzona'
           )
         }
-        const firstTargetMatch =
-          watch.targetPriceCents !== null &&
-          comparedPriceCents !== null &&
-          comparedPriceCents <= watch.targetPriceCents &&
-          watch.lastNotifiedPriceCents === null
+        const targetReached =
+          targetMet === true &&
+          (previousTargetMet === false ||
+            (previousTargetMet === null && watch.lastNotifiedPriceCents === null))
         const notificationReason = priceChanged
           ? 'price_change'
-          : firstTargetMatch
-            ? 'target_reached'
+          : targetReached
+            ? needsPlnConversion && rateChanged && previousTargetMet === false
+              ? 'exchange_rate_target_reached'
+              : 'target_reached'
             : null
         const shouldNotify = notificationReason !== null
+        if (targetReached && !priceChanged) {
+          targetStateBeforeUnqueuedAlert = previousTargetMet
+        }
 
         watch.lastPriceCents = connection.priceCents
         watch.lowestPriceCents = Math.min(
@@ -251,13 +271,33 @@ export default class PriceAlertService {
         )
         watch.lastErrorMessage = null
         watch.lastErrorAt = null
+        if (watch.targetPriceCents === null) {
+          watch.lastTargetMet = null
+        } else if (targetMet !== null) {
+          watch.lastTargetMet = targetMet
+        }
+        if (czkRate) {
+          watch.lastNbpRateMid = String(czkRate.mid)
+          watch.lastNbpTableNumber = czkRate.tableNumber
+        }
         await watch.save()
 
         const observation =
-          storedPrice === null || storedPrice !== connection.priceCents
+          storedPrice === null ||
+          priceChanged ||
+          rateSnapshotNeeded ||
+          (targetMet !== null && previousTargetMet !== targetMet)
             ? await PriceObservation.create({
                 priceWatchId: watch.id,
                 priceCents: connection.priceCents,
+                comparedPriceCents: watch.targetPriceCents === null ? null : comparedPriceCents,
+                targetPriceCents: watch.targetPriceCents,
+                targetPriceCurrency:
+                  watch.targetPriceCents === null ? null : watch.targetPriceCurrency,
+                targetMet,
+                nbpRateMid: czkRate ? String(czkRate.mid) : null,
+                nbpEffectiveDate: czkRate?.effectiveDate ?? null,
+                nbpTableNumber: czkRate?.tableNumber ?? null,
                 observedAt: now,
               })
             : null
@@ -278,17 +318,23 @@ export default class PriceAlertService {
           const idempotencyEvent =
             priceChanged && observation
               ? `observation:${observation.id}`
-              : `target:${watch.targetPriceCurrency}:${watch.targetPriceCents}:${connection.priceCents}`
+              : previousTargetMet === false
+                ? `target-crossed:${watch.targetPriceCurrency}:${watch.targetPriceCents}:${connection.priceCents}:${czkRate?.tableNumber}:${czkRate?.mid}`
+                : `target:${watch.targetPriceCurrency}:${watch.targetPriceCents}:${connection.priceCents}`
           enqueueResult = await outboxService.enqueuePriceAlert(
             watch,
             previousPrice,
             connection.priceCents,
-            idempotencyEvent
+            idempotencyEvent,
+            { czkRate: needsPlnConversion ? czkRate : undefined, reason: notificationReason }
           )
           if (enqueueResult === 'queued') {
             summary.alertsQueued += 1
           } else if (enqueueResult === 'daily_limit') {
             summary.errors += 1
+            if (targetStateBeforeUnqueuedAlert !== undefined) {
+              watch.lastTargetMet = targetStateBeforeUnqueuedAlert
+            }
             watch.lastErrorMessage = `Osiągnięto dzienny limit ${env.get('ALERT_DAILY_MAX_MESSAGES_PER_USER')} alertów.`
             watch.lastErrorAt = now
             await watch.save()
@@ -300,6 +346,7 @@ export default class PriceAlertService {
             )
             await new MetricsService().increment('worker_watch_errors_total')
           }
+          targetStateBeforeUnqueuedAlert = undefined
         }
 
         logger.info(
@@ -315,6 +362,11 @@ export default class PriceAlertService {
             targetPriceCurrency: watch.targetPriceCurrency,
             comparedPriceCents,
             nbpEffectiveDate: czkRate?.effectiveDate ?? null,
+            nbpRateMid: czkRate?.mid ?? null,
+            nbpTableNumber: czkRate?.tableNumber ?? null,
+            previousTargetMet,
+            targetMet,
+            rateChanged,
             priceChanged,
             notificationReason,
             enqueueResult,
@@ -327,10 +379,15 @@ export default class PriceAlertService {
           },
           priceChanged
             ? 'Wykryto zmianę ceny obserwowanego połączenia'
-            : 'Cena obserwowanego połączenia nie zmieniła się'
+            : notificationReason === 'exchange_rate_target_reached'
+              ? 'Próg PLN został osiągnięty po zmianie kursu NBP'
+              : 'Cena obserwowanego połączenia nie zmieniła się'
         )
       } catch (error) {
         summary.errors += 1
+        if (targetStateBeforeUnqueuedAlert !== undefined) {
+          watch.lastTargetMet = targetStateBeforeUnqueuedAlert
+        }
         watch.lastErrorMessage = this.userFacingError(error)
         watch.lastErrorAt = now
         await watch.save()

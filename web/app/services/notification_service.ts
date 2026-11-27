@@ -4,12 +4,14 @@ import MetricsService from '#services/metrics_service'
 import env from '#start/env'
 import mail from '@adonisjs/mail/services/main'
 import type { CzkExchangeRate } from '#services/nbp_exchange_rate_service'
-import { formatPriceWithConversion } from '#services/price_format_service'
+import { formatPrice, formatPriceWithConversion } from '#services/price_format_service'
 
 export interface NotificationResult {
   delivered: boolean
   reason?: string
 }
+
+export type PriceAlertReason = 'price_change' | 'target_reached' | 'exchange_rate_target_reached'
 
 export default class NotificationService {
   async sendEmailVerification(
@@ -100,24 +102,30 @@ export default class NotificationService {
     watch: PriceWatch,
     previousPriceCents: number,
     currentPriceCents: number,
-    czkRate: CzkExchangeRate | null = null
+    czkRate: CzkExchangeRate | null = null,
+    reason?: PriceAlertReason
   ) {
     const previous = formatPriceWithConversion(previousPriceCents, watch.provider, czkRate)
     const current = formatPriceWithConversion(currentPriceCents, watch.provider, czkRate)
     const priceDropped = currentPriceCents < previousPriceCents
     const priceIncreased = currentPriceCents > previousPriceCents
-    const subjectPrefix = priceDropped
-      ? 'Cena spadła'
-      : priceIncreased
-        ? 'Cena wzrosła'
-        : 'Cena osiągnęła próg'
+    const subjectPrefix =
+      reason === 'exchange_rate_target_reached'
+        ? 'Próg PLN osiągnięty po zmianie kursu NBP'
+        : priceDropped
+          ? 'Cena spadła'
+          : priceIncreased
+            ? 'Cena wzrosła'
+            : 'Cena osiągnęła próg'
     const subject = `${subjectPrefix}: ${watch.origin} → ${watch.destination}`
     const content = [
-      priceDropped
-        ? `Cena połączenia ${watch.origin} → ${watch.destination} spadła z ${previous} do ${current}.`
-        : priceIncreased
-          ? `Cena połączenia ${watch.origin} → ${watch.destination} wzrosła z ${previous} do ${current}.`
-          : `Cena połączenia ${watch.origin} → ${watch.destination} wynosi ${current} i spełnia ustawiony próg.`,
+      reason === 'exchange_rate_target_reached'
+        ? `Cena połączenia ${watch.origin} → ${watch.destination} w CZK nie zmieniła się. Po przeliczeniu według nowego kursu wynosi ${current} i spełnia próg ${formatPrice(watch.targetPriceCents, 'koleo')}.`
+        : priceDropped
+          ? `Cena połączenia ${watch.origin} → ${watch.destination} spadła z ${previous} do ${current}.`
+          : priceIncreased
+            ? `Cena połączenia ${watch.origin} → ${watch.destination} wzrosła z ${previous} do ${current}.`
+            : `Cena połączenia ${watch.origin} → ${watch.destination} wynosi ${current} i spełnia ustawiony próg.`,
       `Wyjazd: ${watch.travelDate.toISODate()} o ${watch.departureTime}.`,
       watch.trainName ? `Pociąg: ${watch.trainName}.` : null,
       watch.provider === 'cd'

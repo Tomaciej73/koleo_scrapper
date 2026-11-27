@@ -2271,6 +2271,18 @@ input {
   color: var(--ink);
 }
 
+.price-history__detail {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.price-history__detail small {
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
 .watch-card__schedule {
   display: flex;
   align-items: center;

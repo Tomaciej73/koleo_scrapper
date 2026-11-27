@@ -1,13 +1,14 @@
 import AlertOutbox from '#models/alert_outbox'
 import PriceWatch from '#models/price_watch'
 import User from '#models/user'
-import NotificationService from '#services/notification_service'
+import NotificationService, { type PriceAlertReason } from '#services/notification_service'
 import env from '#start/env'
 import db from '@adonisjs/lucid/services/db'
 import logger from '@adonisjs/core/services/logger'
 import { randomUUID } from 'node:crypto'
 import { DateTime } from 'luxon'
 import NbpExchangeRateService from '#services/nbp_exchange_rate_service'
+import type { CzkExchangeRate } from '#services/nbp_exchange_rate_service'
 
 export interface OutboxProcessingSummary {
   delivered: number
@@ -21,19 +22,26 @@ export default class AlertOutboxService {
     watch: PriceWatch,
     previousPriceCents: number,
     currentPriceCents: number,
-    idempotencyEvent?: string
+    idempotencyEvent?: string,
+    options: { czkRate?: CzkExchangeRate | null; reason?: PriceAlertReason } = {}
   ): Promise<EnqueueResult> {
     const idempotencyKey = idempotencyEvent
       ? `price-watch:${watch.id}:${idempotencyEvent}`
       : `price-watch:${watch.id}:transition:${previousPriceCents}:${currentPriceCents}`
     const timezone = env.get('APP_TIMEZONE') ?? 'Europe/Warsaw'
     const dayStart = DateTime.now().setZone(timezone).startOf('day').toUTC()
-    const czkRate = watch.provider === 'cd' ? await new NbpExchangeRateService().getCzkRate() : null
+    const czkRate =
+      watch.provider === 'cd'
+        ? options.czkRate === undefined
+          ? await new NbpExchangeRateService().getCzkRate()
+          : options.czkRate
+        : null
     const message = new NotificationService().buildPriceChange(
       watch,
       previousPriceCents,
       currentPriceCents,
-      czkRate
+      czkRate,
+      options.reason
     )
 
     return db.transaction(async (trx) => {
@@ -187,7 +195,7 @@ export default class AlertOutboxService {
             previousPriceCents: alert.previousPriceCents,
             currentPriceCents: alert.priceCents,
           },
-          'Wysłano alert o zmianie ceny'
+          'Wysłano alert cenowy'
         )
       } catch (error) {
         summary.errors += 1
