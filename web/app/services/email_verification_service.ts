@@ -1,13 +1,18 @@
 import type User from '#models/user'
+import PriceWatch from '#models/price_watch'
+import PasswordResetToken from '#models/password_reset_token'
+import UserModel from '#models/user'
 import NotificationService from '#services/notification_service'
 import env from '#start/env'
 import hash from '@adonisjs/core/services/hash'
+import db from '@adonisjs/lucid/services/db'
 import { randomInt } from 'node:crypto'
 import { DateTime } from 'luxon'
 
 export const EMAIL_VERIFICATION_SESSION_KEY = 'pendingEmailVerificationUserId'
 
-export type VerificationResult = 'verified' | 'invalid' | 'expired' | 'locked'
+export type VerificationResult =
+  'verified' | 'email_changed' | 'conflict' | 'invalid' | 'expired' | 'locked'
 
 export class EmailVerificationDeliveryError extends Error {}
 
@@ -42,9 +47,10 @@ export default class EmailVerificationService {
 
     try {
       const notification = await new NotificationService().sendEmailVerification(
-        user.email,
+        user.pendingEmail ?? user.email,
         code,
-        validForMinutes
+        validForMinutes,
+        user.pendingEmail ? 'email_change' : 'signup'
       )
 
       if (!notification.delivered) {
@@ -87,12 +93,60 @@ export default class EmailVerificationService {
       return user.emailVerificationAttempts >= maxAttempts ? 'locked' : 'invalid'
     }
 
-    user.emailVerifiedAt = DateTime.now()
-    user.emailVerificationCodeHash = null
-    user.emailVerificationExpiresAt = null
-    user.emailVerificationSentAt = null
-    user.emailVerificationAttempts = 0
-    await user.save()
-    return 'verified'
+    try {
+      return await db.transaction(async (trx) => {
+        const current = await UserModel.query({ client: trx })
+          .where('id', user.id)
+          .forUpdate()
+          .firstOrFail()
+        if (
+          current.emailVerificationCodeHash !== user.emailVerificationCodeHash ||
+          !current.emailVerificationExpiresAt ||
+          current.emailVerificationExpiresAt < DateTime.now()
+        ) {
+          return 'expired'
+        }
+        const pendingEmail = current.pendingEmail
+        if (pendingEmail) {
+          const occupied = await UserModel.query({ client: trx })
+            .whereNot('id', user.id)
+            .whereRaw('LOWER(TRIM(email)) = ?', [pendingEmail])
+            .first()
+          if (occupied) {
+            return 'conflict'
+          }
+          current.email = pendingEmail
+          current.pendingEmail = null
+          current.emailVerifiedAt = DateTime.now()
+          current.authVersion += 1
+        } else {
+          current.emailVerifiedAt = DateTime.now()
+        }
+        current.emailVerificationCodeHash = null
+        current.emailVerificationExpiresAt = null
+        current.emailVerificationSentAt = null
+        current.emailVerificationAttempts = 0
+        await current.save()
+        if (pendingEmail) {
+          await PasswordResetToken.query({ client: trx }).where('userId', user.id).delete()
+          await PriceWatch.query({ client: trx })
+            .where('userId', user.id)
+            .update({ notificationDestination: current.email })
+        }
+        user.email = current.email
+        user.pendingEmail = current.pendingEmail
+        user.emailVerifiedAt = current.emailVerifiedAt
+        user.authVersion = current.authVersion
+        return pendingEmail ? 'email_changed' : 'verified'
+      })
+    } catch (error) {
+      if (
+        (error as { code?: string }).code === 'SQLITE_CONSTRAINT_UNIQUE' ||
+        (error as { code?: string }).code === '23505'
+      ) {
+        return 'conflict'
+      }
+      throw error
+    }
   }
 }

@@ -4,6 +4,7 @@ import testUtils from '@adonisjs/core/services/test_utils'
 import mail from '@adonisjs/mail/services/main'
 import { test } from '@japa/runner'
 import limiter from '@adonisjs/limiter/services/main'
+import edge from 'edge.js'
 
 test.group('Account verification', (group) => {
   group.setup(() => testUtils.db().migrate())
@@ -68,6 +69,73 @@ test.group('Account verification', (group) => {
     await user.refresh()
     assert.isNotNull(user.emailVerifiedAt)
     assert.isNull(user.emailVerificationCodeHash)
+  })
+
+  test('resumes signup verification after the original session is lost', async ({
+    client,
+    assert,
+  }) => {
+    const user = await User.create({
+      email: 'resume@example.test',
+      password: 'Qa-Test-2026!',
+      emailVerifiedAt: null,
+    })
+
+    const missingSession = await client.get('/verify-email').redirects(0)
+    missingSession.assertStatus(302)
+    missingSession.assertHeader('location', '/login')
+
+    const login = await client.post('/login').redirects(0).withCsrfToken().form({
+      email: user.email,
+      password: 'Qa-Test-2026!',
+    })
+    login.assertStatus(302)
+    login.assertHeader('location', '/verify-email')
+    login.assertSession(EMAIL_VERIFICATION_SESSION_KEY, user.id)
+    assert.isNull(user.emailVerifiedAt)
+  })
+
+  test('limits name and email length and rejects control characters in names', async ({
+    client,
+    assert,
+  }) => {
+    const values = [
+      { fullName: 'A'.repeat(121), email: 'long-name@example.test' },
+      { fullName: 'Jan\nKowalski', email: 'control-name@example.test' },
+      { fullName: 'Jan', email: `${'a'.repeat(245)}@example.test` },
+    ]
+    for (const value of values) {
+      const response = await client
+        .post('/signup')
+        .redirects(0)
+        .withCsrfToken()
+        .form({
+          ...value,
+          password: 'Qa-Test-2026!',
+          passwordConfirmation: 'Qa-Test-2026!',
+        })
+      response.assertStatus(302)
+      assert.isNull(await User.findBy('email', value.email))
+    }
+    const valid = await client.post('/signup').redirects(0).withCsrfToken().form({
+      fullName: "  Anna Kowalska-Nowak O'Connor  ",
+      email: 'valid-name@example.test',
+      password: 'Qa-Test-2026!',
+      passwordConfirmation: 'Qa-Test-2026!',
+    })
+    valid.assertStatus(302)
+    const user = await User.findByOrFail('email', 'valid-name@example.test')
+    assert.equal(user.fullName, "Anna Kowalska-Nowak O'Connor")
+  })
+
+  test('escapes untrusted text passed to shared view components', async ({ assert }) => {
+    const payload = '<img src=x onerror=alert(1)>'
+    const rendered = await edge.renderRaw(
+      "@!alert.title({ text: payload })\n@!alert.description({ text: payload })\n@!button({ text: payload })\n@!link({ href: '#', text: payload })",
+      { payload }
+    )
+    assert.notInclude(rendered, payload)
+    assert.include(rendered, '&lt;img src=x onerror=alert(1)&gt;')
   })
 
   test('returns autocomplete results through the authenticated HTTP endpoint', async ({

@@ -69,6 +69,12 @@ export const otpAccountThrottle = byPendingAccount(
   authWindow,
   blockSeconds
 )
+export const emailChangeUserThrottle = byUser(
+  'email_change_user',
+  env.get('RATE_LIMIT_OTP_REQUESTS'),
+  authWindow,
+  blockSeconds
+)
 export const searchIpThrottle = byIp(
   'search_ip',
   env.get('RATE_LIMIT_SEARCH_REQUESTS'),

@@ -22,6 +22,8 @@ export default class NewAccountController {
     return view.render('pages/auth/signup', {
       passwordMinLength: env.get('PASSWORD_MIN_LENGTH'),
       passwordMaxLength: env.get('PASSWORD_MAX_LENGTH'),
+      emailMaxLength: env.get('EMAIL_MAX_LENGTH'),
+      fullNameMaxLength: env.get('FULL_NAME_MAX_LENGTH'),
     })
   }
 
@@ -36,6 +38,11 @@ export default class NewAccountController {
       blockDuration: env.get('RATE_LIMIT_BLOCK_SECONDS'),
     })
     await registrationLimiter.consume(RateLimitKeyService.email('signup', email))
+
+    if (await User.query().whereRaw('LOWER(TRIM(pending_email)) = ?', [email]).first()) {
+      session.flashInputErrors({ email: 'Nie można użyć tego adresu e-mail.' })
+      return response.redirect().back()
+    }
 
     const user = await User.create({ fullName, email, password })
     session.put(EMAIL_VERIFICATION_SESSION_KEY, user.id)

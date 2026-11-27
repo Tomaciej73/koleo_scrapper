@@ -12,15 +12,14 @@ import SecurityEventService from '#services/security_event_service'
 import SessionManagementService from '#services/session_management_service'
 
 export default class EmailVerificationController {
-  async create({ session, response, view }: HttpContext) {
-    const user = await this.getPendingUser(session.get(EMAIL_VERIFICATION_SESSION_KEY))
+  async create({ auth, session, response, view }: HttpContext) {
+    const user = await this.getPendingUser(auth, session)
     if (!user) {
       session.forget(EMAIL_VERIFICATION_SESSION_KEY)
-      return response.redirect().toRoute('new_account.create')
-    }
-
-    if (user.emailVerifiedAt) {
-      session.forget(EMAIL_VERIFICATION_SESSION_KEY)
+      session.flash(
+        'success',
+        'Zaloguj się adresem konta i hasłem, aby wznowić potwierdzanie e-maila.'
+      )
       return response.redirect().toRoute('session.create')
     }
 
@@ -33,7 +32,8 @@ export default class EmailVerificationController {
       : cooldownSeconds
 
     return view.render('pages/auth/verify_email', {
-      email: this.maskEmail(user.email),
+      email: this.maskEmail(user.pendingEmail ?? user.email),
+      isEmailChange: Boolean(user.pendingEmail),
       codeIndexes: Array.from({ length: codeLength }, (_, index) => index),
       resendAfterSeconds: Math.max(0, Math.ceil(cooldownSeconds - elapsedSeconds)),
     })
@@ -41,36 +41,48 @@ export default class EmailVerificationController {
 
   async store({ request, session, response, auth, logger }: HttpContext) {
     const { code } = await request.validateUsing(emailVerificationValidator)
-    const user = await this.getPendingUser(session.get(EMAIL_VERIFICATION_SESSION_KEY))
+    const user = await this.getPendingUser(auth, session)
     if (!user) {
       session.forget(EMAIL_VERIFICATION_SESSION_KEY)
-      return response.redirect().toRoute('new_account.create')
+      return response.redirect().toRoute('session.create')
     }
 
     const result = await new EmailVerificationService().verifyCode(user, code)
-    if (result === 'verified') {
+    if (result === 'verified' || result === 'email_changed') {
       session.forget(EMAIL_VERIFICATION_SESSION_KEY)
-      await auth.use('web').login(user)
+      if (result === 'email_changed') {
+        await new SessionManagementService().destroyOthers(user.id, session.sessionId)
+      } else {
+        await auth.use('web').login(user)
+      }
       session.put(AUTH_VERSION_SESSION_KEY, user.authVersion)
       await new SessionManagementService().track(session, request, user.id)
       logger.info(
         {
-          event: 'email_verification_succeeded',
+          event:
+            result === 'email_changed' ? 'account_email_changed' : 'email_verification_succeeded',
           userId: user.id,
           ...SecurityEventService.requestContext(request),
         },
         'Potwierdzono adres e-mail użytkownika'
       )
-      session.flash('success', 'Adres e-mail został potwierdzony. Konto jest aktywne.')
+      session.flash(
+        'success',
+        result === 'email_changed'
+          ? 'Nowy adres e-mail został potwierdzony. Od teraz używaj go do logowania i resetu hasła.'
+          : 'Adres e-mail został potwierdzony. Konto jest aktywne.'
+      )
       return response.redirect().toRoute('dashboard')
     }
 
     const message =
-      result === 'invalid'
-        ? 'Kod jest nieprawidłowy.'
-        : result === 'locked'
-          ? 'Przekroczono limit prób. Wyślij nowy kod.'
-          : 'Kod wygasł. Wyślij nowy kod.'
+      result === 'conflict'
+        ? 'Nie można już użyć tego adresu. Wybierz inny adres w ustawieniach konta.'
+        : result === 'invalid'
+          ? 'Kod jest nieprawidłowy.'
+          : result === 'locked'
+            ? 'Przekroczono limit prób. Wyślij nowy kod.'
+            : 'Kod wygasł. Wyślij nowy kod.'
 
     logger.warn(
       {
@@ -86,11 +98,11 @@ export default class EmailVerificationController {
     return response.redirect().toRoute('email_verification.create')
   }
 
-  async resend({ request, session, response, logger }: HttpContext) {
-    const user = await this.getPendingUser(session.get(EMAIL_VERIFICATION_SESSION_KEY))
+  async resend({ auth, request, session, response, logger }: HttpContext) {
+    const user = await this.getPendingUser(auth, session)
     if (!user) {
       session.forget(EMAIL_VERIFICATION_SESSION_KEY)
-      return response.redirect().toRoute('new_account.create')
+      return response.redirect().toRoute('session.create')
     }
 
     try {
@@ -123,9 +135,29 @@ export default class EmailVerificationController {
     return response.redirect().toRoute('email_verification.create')
   }
 
-  private async getPendingUser(value: unknown) {
-    const userId = Number(value)
-    return Number.isSafeInteger(userId) && userId > 0 ? User.find(userId) : null
+  private async getPendingUser(auth: HttpContext['auth'], session: HttpContext['session']) {
+    const userId = Number(session.get(EMAIL_VERIFICATION_SESSION_KEY))
+    if (!Number.isSafeInteger(userId) || userId <= 0) {
+      return null
+    }
+    const user = await User.find(userId)
+    if (!user) {
+      return null
+    }
+    const authenticated = await auth.check()
+    if (authenticated && auth.user?.id !== user.id) {
+      return null
+    }
+    if (user.emailVerifiedAt) {
+      const sessionVersion = Number(session.get(AUTH_VERSION_SESSION_KEY))
+      return authenticated &&
+        user.pendingEmail &&
+        Number.isSafeInteger(sessionVersion) &&
+        sessionVersion === user.authVersion
+        ? user
+        : null
+    }
+    return user
   }
 
   private maskEmail(email: string) {

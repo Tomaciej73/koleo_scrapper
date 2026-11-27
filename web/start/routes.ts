@@ -16,6 +16,7 @@ import {
   checkNowIpThrottle,
   checkNowUserThrottle,
   otpAccountThrottle,
+  emailChangeUserThrottle,
   otpIpThrottle,
   searchIpThrottle,
   searchUserThrottle,
@@ -41,24 +42,22 @@ router.post(env.get('CSP_REPORT_URI'), [CspReportsController, 'store']).use(cspR
 
 router.on('/').render('pages/home').as('home')
 
+router.get('/verify-email', [EmailVerificationController, 'create']).as('email_verification.create')
+router
+  .post('/verify-email', [EmailVerificationController, 'store'])
+  .as('email_verification.store')
+  .use(otpIpThrottle)
+  .use(otpAccountThrottle)
+router
+  .post('/verify-email/resend', [EmailVerificationController, 'resend'])
+  .as('email_verification.resend')
+  .use(otpIpThrottle)
+  .use(otpAccountThrottle)
+
 router
   .group(() => {
     router.get('signup', [controllers.NewAccount, 'create'])
     router.post('signup', [controllers.NewAccount, 'store']).use(authIpThrottle)
-    router
-      .get('verify-email', [EmailVerificationController, 'create'])
-      .as('email_verification.create')
-    router
-      .post('verify-email', [EmailVerificationController, 'store'])
-      .as('email_verification.store')
-      .use(otpIpThrottle)
-      .use(otpAccountThrottle)
-    router
-      .post('verify-email/resend', [EmailVerificationController, 'resend'])
-      .as('email_verification.resend')
-      .use(otpIpThrottle)
-      .use(otpAccountThrottle)
-
     router.get('login', [controllers.Session, 'create'])
     router.post('login', [controllers.Session, 'store']).use(authIpThrottle)
     router.get('forgot-password', [PasswordResetController, 'create']).as('password_reset.create')
@@ -90,7 +89,11 @@ router
     router.get('/favorites', [PriceWatchesController, 'index']).as('price_watches.index')
     router.get('/account', [AccountController, 'index']).as('account.index')
     router.get('/account/export', [AccountController, 'export']).as('account.export')
-    router.post('/account/email', [AccountController, 'updateEmail']).as('account.email')
+    router
+      .post('/account/email', [AccountController, 'updateEmail'])
+      .as('account.email')
+      .use(authIpThrottle)
+      .use(emailChangeUserThrottle)
     router.delete('/account', [AccountController, 'destroy']).as('account.destroy')
     router
       .post('/account/sessions/revoke', [AccountController, 'revokeSession'])

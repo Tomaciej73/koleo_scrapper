@@ -20,7 +20,10 @@ export default class SessionController {
    * Display the login page
    */
   async create({ view }: HttpContext) {
-    return view.render('pages/auth/login')
+    return view.render('pages/auth/login', {
+      emailMaxLength: env.get('EMAIL_MAX_LENGTH'),
+      passwordMaxLength: env.get('PASSWORD_MAX_LENGTH'),
+    })
   }
 
   /**
@@ -109,6 +112,10 @@ export default class SessionController {
       },
       `Użytkownik #${user.id} (${emailForLog}) zalogował się`
     )
+    if (user.pendingEmail) {
+      session.put(EMAIL_VERIFICATION_SESSION_KEY, user.id)
+      return response.redirect().toRoute('email_verification.create')
+    }
     return response.redirect().toRoute('dashboard')
   }
 

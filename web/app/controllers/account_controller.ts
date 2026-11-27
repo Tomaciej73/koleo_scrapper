@@ -4,6 +4,7 @@ import User from '#models/user'
 import EmailVerificationService, {
   EMAIL_VERIFICATION_SESSION_KEY,
 } from '#services/email_verification_service'
+import NotificationService from '#services/notification_service'
 import SecurityEventService from '#services/security_event_service'
 import SessionManagementService from '#services/session_management_service'
 import {
@@ -14,6 +15,7 @@ import {
 import type { HttpContext } from '@adonisjs/core/http'
 import { errors as authErrors } from '@adonisjs/auth'
 import { DateTime } from 'luxon'
+import env from '#start/env'
 
 export default class AccountController {
   async index({ auth, session, view }: HttpContext) {
@@ -31,6 +33,8 @@ export default class AccountController {
         lastSeenAtLabel: this.dateLabel(item.lastSeenAt),
       })),
       sessionTrackingAvailable: session.supportsTagging(),
+      emailMaxLength: env.get('EMAIL_MAX_LENGTH'),
+      passwordMaxLength: env.get('PASSWORD_MAX_LENGTH'),
     })
   }
 
@@ -83,30 +87,45 @@ export default class AccountController {
       return response.redirect().back()
     }
     if (normalizedEmail === user.email) {
-      session.flash('info', 'To jest już aktualny adres e-mail konta.')
+      session.flash('success', 'To jest już aktualny adres e-mail konta.')
       return response.redirect().back()
     }
-    if (await User.query().whereRaw('LOWER(TRIM(email)) = ?', [normalizedEmail]).first()) {
+    if (
+      await User.query()
+        .whereNot('id', user.id)
+        .where((query) => {
+          query
+            .whereRaw('LOWER(TRIM(email)) = ?', [normalizedEmail])
+            .orWhereRaw('LOWER(TRIM(pending_email)) = ?', [normalizedEmail])
+        })
+        .first()
+    ) {
       session.flash('error', 'Nie można użyć tego adresu e-mail.')
       return response.redirect().back()
     }
+    if (normalizedEmail === user.pendingEmail) {
+      session.put(EMAIL_VERIFICATION_SESSION_KEY, user.id)
+      return response.redirect().toRoute('email_verification.create')
+    }
 
     const previousEmailHash = SecurityEventService.emailHash(user.email)
-    user.email = normalizedEmail
-    user.emailVerifiedAt = null
+    user.pendingEmail = normalizedEmail
     user.emailVerificationCodeHash = null
     user.emailVerificationExpiresAt = null
     user.emailVerificationSentAt = null
     user.emailVerificationAttempts = 0
-    user.authVersion += 1
-    await user.save()
-
-    const sessions = new SessionManagementService()
-    await sessions.destroyOthers(user.id, session.sessionId)
-    if (session.supportsTagging()) {
-      await session.untag(String(user.id))
+    try {
+      await user.save()
+    } catch (error) {
+      if (
+        (error as { code?: string }).code === 'SQLITE_CONSTRAINT_UNIQUE' ||
+        (error as { code?: string }).code === '23505'
+      ) {
+        session.flash('error', 'Nie można użyć tego adresu e-mail.')
+        return response.redirect().back()
+      }
+      throw error
     }
-    await auth.use('web').logout()
     session.put(EMAIL_VERIFICATION_SESSION_KEY, user.id)
 
     try {
@@ -119,18 +138,26 @@ export default class AccountController {
       )
       session.flash(
         'error',
-        'Adres został zmieniony, ale nie udało się wysłać kodu. Wyślij go ponownie.'
+        'Stary adres pozostaje aktywny. Nie udało się wysłać kodu na nowy adres; spróbuj ponownie.'
+      )
+    }
+    try {
+      await new NotificationService().sendEmailChangeRequested(user.email)
+    } catch (error) {
+      logger.warn(
+        { err: error, event: 'account_email_change_notice_failed', userId: user.id },
+        'Nie udało się powiadomić dotychczasowego adresu e-mail o żądaniu zmiany'
       )
     }
     logger.info(
       {
-        event: 'account_email_changed',
+        event: 'account_email_change_requested',
         userId: user.id,
         previousEmailHash,
-        emailHash: SecurityEventService.emailHash(user.email),
+        pendingEmailHash: SecurityEventService.emailHash(user.pendingEmail),
         ...SecurityEventService.requestContext(request),
       },
-      'Użytkownik zmienił adres e-mail'
+      'Użytkownik rozpoczął zmianę adresu e-mail'
     )
     return response.redirect().toRoute('email_verification.create')
   }

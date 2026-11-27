@@ -15,6 +15,9 @@ export default class User extends compose(UserSchema, withAuthFinder(hash)) {
     if (user.$dirty.email && user.email) {
       user.email = user.email.trim().toLowerCase()
     }
+    if (user.$dirty.pendingEmail && user.pendingEmail) {
+      user.pendingEmail = user.pendingEmail.trim().toLowerCase()
+    }
   }
 
   @column()
@@ -22,6 +25,9 @@ export default class User extends compose(UserSchema, withAuthFinder(hash)) {
 
   @column({ serializeAs: null })
   declare emailVerificationCodeHash: string | null
+
+  @column({ serializeAs: null })
+  declare pendingEmail: string | null
 
   /**
    * Get the user's initials from their full name or email.

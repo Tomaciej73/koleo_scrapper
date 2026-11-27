@@ -10,7 +10,11 @@
   })
     @field.root({ name: 'fullName' })
       @!field.label({ text: 'Imię i nazwisko' })
-      @!input.control({ autocomplete: 'name', placeholder: 'Ada Lovelace' })
+      @!input.control({
+        autocomplete: 'name',
+        placeholder: 'Ada Lovelace',
+        maxlength: fullNameMaxLength,
+      })
       @!field.error()
     @end
     @field.root({ name: 'email' })
@@ -19,6 +23,7 @@
         type: 'email',
         autocomplete: 'email',
         placeholder: 'ty@example.com',
+        maxlength: emailMaxLength,
       })
       @!field.error()
     @end
@@ -28,6 +33,7 @@
         type: 'password',
         autocomplete: 'new-password',
         placeholder: '••••••••',
+        maxlength: passwordMaxLength,
       })
       <span class="field__hint">Od {{ passwordMinLength }} do {{ passwordMaxLength }} znaków.</span>
       @!field.error()
@@ -38,6 +44,7 @@
         type: 'password',
         autocomplete: 'new-password',
         placeholder: '••••••••',
+        maxlength: passwordMaxLength,
       })
       @!field.error()
     @end
@@ -52,9 +59,7 @@
   @end
 
   <p class="auth__foot">
-
     Masz już konto?
-
     @link({ route: 'session.create', class: 'il' })
       Zaloguj się
     @end

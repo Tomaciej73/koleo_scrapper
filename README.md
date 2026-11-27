@@ -309,6 +309,10 @@ rekordy wysyłki resetu hasła po `PASSWORD_RESET_DELIVERY_RETENTION_DAYS`.
 Nowe konto pozostaje nieaktywne do czasu wpisania kodu z wiadomości e-mail.
 Długość kodu, ważność, limit prób i czas przed ponowną wysyłką określają
 zmienne `EMAIL_VERIFICATION_*` w `.env`.
+Odświeżenie strony lub chwilowa utrata połączenia nie kasuje kodu. Jeśli sesja
+wygaśnie, zalogowanie adresem podanym przy rejestracji i hasłem przywraca ekran
+weryfikacji; tam można też ponownie wysłać kod. Gdy hasło zostało zapomniane,
+reset trafia na aktualny adres konta.
 
 Formularz „Nie pamiętasz hasła?” zleca wysłanie jednorazowego linku przez
 trwałą kolejkę `password_reset_deliveries`. Właściwy token jest przechowywany
@@ -324,7 +328,9 @@ czas oraz losowy dodatek ustawiane przez `PASSWORD_RESET_MIN_RESPONSE_MS` i
 backoffu i blokady `ALERT_OUTBOX_*` co kolejka alertów. Po zmianie hasła
 wszystkie wcześniejsze sesje są odrzucane przez numer `auth_version`.
 Minimalną i maksymalną długość hasła ustawiają `PASSWORD_MIN_LENGTH` oraz
-`PASSWORD_MAX_LENGTH`.
+`PASSWORD_MAX_LENGTH`. `EMAIL_MAX_LENGTH` (nie więcej niż 254, zgodnie z bazą)
+oraz `FULL_NAME_MAX_LENGTH` ograniczają pozostałe dane konta. Te wartości są
+sprawdzane przez backend i używane jako limity pól formularzy.
 
 Ekran „Konto” pozwala zmienić adres e-mail z ponownym potwierdzeniem, pobrać
 eksport danych, trwale usunąć konto oraz przeglądać i unieważniać aktywne
@@ -332,6 +338,11 @@ sesje. Lista sesji wymaga `SESSION_DRIVER=database` (zalecane w produkcji) albo
 `memory` w testach. Dane sesji w tabeli `sessions` są szyfrowane kluczem
 aplikacji. Przejście z wcześniejszego store'a `cookie` jednorazowo wyloguje
 dotychczasowe sesje.
+Podczas zmiany e-maila kod trafia na **nowy** adres, a powiadomienie o żądaniu
+zmiany na **stary**. Do wpisania kodu stary adres nadal służy do logowania,
+resetu hasła i alertów. Po utracie sesji zaloguj się starym adresem i hasłem,
+aby wrócić do ekranu kodu. Dopiero poprawny kod przełącza konto i obserwacje na
+nowy adres, unieważnia pozostałe sesje oraz wcześniejsze tokeny resetu.
 
 Adresy e-mail są przed walidacją i zapisem obcinane z białych znaków oraz
 zamieniane na małe litery. Baza dodatkowo wymusza unikalność wartości
@@ -444,6 +455,14 @@ podczas działania kontenerów. Przed wdrożeniem ustaw w `web/.env` co najmniej
 produkcyjne `APP_KEY`, publiczny `APP_URL`, konfigurację SMTP oraz provider cen.
 Ustawienia samego Compose znajdują się w ignorowanym przez Git pliku
 `.env_conf`; skopiuj go osobno na serwer razem z `web/.env`.
+Przy tej aktualizacji dopisz do serwerowego `.env_conf`:
+
+```dotenv
+EMAIL_MAX_LENGTH=254
+FULL_NAME_MAX_LENGTH=120
+```
+
+Hasła nadal ograniczają istniejące `PASSWORD_MIN_LENGTH` i `PASSWORD_MAX_LENGTH`.
 
 Parametry operacyjne wymagane także podczas kompilacji, takie jak typ bazy,
 limity parsera i zakres sprzedaży, są przekazywane z `.env_conf` jako build

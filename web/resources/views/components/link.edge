@@ -1,5 +1,4 @@
 @let(linkTextFromSlot = await $slots.main())
-@let(linkText = linkTextFromSlot.trim() ? linkTextFromSlot : ($props.get('text') ?? ''))
 @let(linkHref = $props.has('href')
   ? $props.get('href')
   : $props.get('route')
@@ -12,5 +11,9 @@
     .merge({ href: linkHref })
     .toAttrs()
 }}>
-  {{{ linkText }}}
+  @if(linkTextFromSlot.trim())
+    {{{ linkTextFromSlot }}}
+  @else
+    {{ $props.get('text') ?? '' }}
+  @end
 </a>

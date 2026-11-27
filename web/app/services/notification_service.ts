@@ -17,7 +17,8 @@ export default class NotificationService {
   async sendEmailVerification(
     recipient: string,
     code: string,
-    validForMinutes: number
+    validForMinutes: number,
+    purpose: 'signup' | 'email_change' = 'signup'
   ): Promise<NotificationResult> {
     if (!(env.get('MAIL_ENABLED') ?? false)) {
       return { delivered: false, reason: 'Powiadomienia e-mail są wyłączone.' }
@@ -27,18 +28,48 @@ export default class NotificationService {
       mail.send((message) => {
         message
           .to(recipient)
-          .subject('Kod aktywacyjny - Koleo Watch')
+          .subject(
+            purpose === 'email_change'
+              ? 'Kod potwierdzający zmianę adresu - Koleo Watch'
+              : 'Kod aktywacyjny - Koleo Watch'
+          )
           .text(
             [
-              'Dokończ zakładanie konta w Koleo Watch.',
+              purpose === 'email_change'
+                ? 'Potwierdź nowy adres e-mail w Koleo Watch.'
+                : 'Dokończ zakładanie konta w Koleo Watch.',
               '',
               `Twój kod aktywacyjny: ${code}`,
               `Kod jest ważny przez ${validForMinutes} min.`,
               '',
-              'Jeśli to nie Ty zakładasz konto, zignoruj tę wiadomość.',
+              'Jeśli to nie Ty zleciłeś tę operację, zignoruj tę wiadomość.',
             ].join('\n')
           )
-          .htmlView('emails/verification', { code, validForMinutes })
+          .htmlView('emails/verification', { code, validForMinutes, purpose })
+      })
+    )
+
+    return { delivered: true }
+  }
+
+  async sendEmailChangeRequested(recipient: string): Promise<NotificationResult> {
+    if (!(env.get('MAIL_ENABLED') ?? false)) {
+      return { delivered: false, reason: 'Powiadomienia e-mail są wyłączone.' }
+    }
+
+    await this.sendMail(() =>
+      mail.send((message) => {
+        message
+          .to(recipient)
+          .subject('Żądanie zmiany adresu e-mail - Koleo Watch')
+          .text(
+            [
+              'Otrzymaliśmy żądanie zmiany adresu e-mail Twojego konta Koleo Watch.',
+              'Dotychczasowy adres pozostaje aktywny do czasu potwierdzenia nowego adresu.',
+              'Jeśli to nie Ty, zaloguj się i zmień hasło albo skontaktuj się z administratorem.',
+            ].join('\n')
+          )
+          .htmlView('emails/email_change_requested')
       })
     )
 

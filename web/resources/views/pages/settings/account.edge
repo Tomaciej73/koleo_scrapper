@@ -5,7 +5,27 @@
         <span class="eyebrow">Profil</span>
         <h2>Adres e-mail</h2>
         <p>Zmiana adresu wymaga aktualnego hasła i ponownego potwierdzenia kodem.</p>
+        <p>
+          Do potwierdzenia nowego adresu logowanie, reset hasła i alerty używają dotychczasowego adresu.
+        </p>
       </div>
+      @if(user.pendingEmail)
+        <div class="notice notice--info">
+          @svg('lucide:mail-check', { width: 18, height: 18 })
+          <div>
+            <strong>Zmiana adresu oczekuje na potwierdzenie</strong>
+            <span>
+              Kod wysłano na
+              {{ user.pendingEmail }}. Dotychczasowy adres
+              {{ user.email }}
+              nadal działa.
+            </span>
+            @link({ route: 'email_verification.create', class: 'il' })
+              Wpisz kod lub wyślij go ponownie
+            @end
+          </div>
+        </div>
+      @end
       @form({
         route: 'account.email',
         method: 'POST',
@@ -19,12 +39,17 @@
             type: 'email',
             value: user.email,
             autocomplete: 'email',
+            maxlength: emailMaxLength,
           })
           @!field.error()
         @end
         @field.root({ name: 'currentPassword' })
           @!field.label({ text: 'Aktualne hasło' })
-          @!input.control({ type: 'password', autocomplete: 'current-password' })
+          @!input.control({
+            type: 'password',
+            autocomplete: 'current-password',
+            maxlength: passwordMaxLength,
+          })
           @!field.error()
         @end
         @!button({
@@ -91,9 +116,7 @@
         })
           <button type="submit" class="btn btn--secondary" x-bind:disabled="submitting">
             @svg('lucide:log-out', { width: 16, height: 16 })
-            
             Wyloguj wszystkie sesje
-
           </button>
         @end
       @end
@@ -107,9 +130,7 @@
       </div>
       <a class="btn btn--secondary" href="{{ urlFor('account.export') }}">
         @svg('lucide:download', { width: 16, height: 16 })
-        
         Pobierz moje dane
-
       </a>
     </section>
 
@@ -129,7 +150,11 @@
       })
         @field.root({ name: 'password' })
           @!field.label({ text: 'Aktualne hasło' })
-          @!input.control({ type: 'password', autocomplete: 'current-password' })
+          @!input.control({
+            type: 'password',
+            autocomplete: 'current-password',
+            maxlength: passwordMaxLength,
+          })
           @!field.error()
         @end
         @field.root({ name: 'confirmation' })
@@ -140,9 +165,7 @@
 
         <button type="submit" class="btn btn--danger" x-bind:disabled="submitting">
           @svg('lucide:trash-2', { width: 16, height: 16 })
-          
           Usuń konto na zawsze
-
         </button>
       @end
     </section>

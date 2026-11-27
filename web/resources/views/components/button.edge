@@ -1,5 +1,4 @@
 @let(buttonTextFromSlot = await $slots.main())
-@let(buttonText = buttonTextFromSlot.trim() ? buttonTextFromSlot : ($props.get('text') ?? ''))
 @let(variant = $props.get('variant', 'primary'))
 @let(sizeMod = $props.get('size') === 'sm' ? 'btn--sm' : '')
 @let(block = $props.get('block') ? 'btn--block' : '')
@@ -11,5 +10,9 @@
     .merge({ class: classes })
     .toAttrs()
 }}>
-  {{{ buttonText }}}
+  @if(buttonTextFromSlot.trim())
+    {{{ buttonTextFromSlot }}}
+  @else
+    {{ $props.get('text') ?? '' }}
+  @end
 </button>

@@ -5,7 +5,8 @@
   <h1 class="auth__title">Potwierdź adres e-mail</h1>
   <p class="auth__sub">
     Wysłaliśmy kod na
-    <strong>{{ email }}</strong>. Wpisz go poniżej, aby aktywować konto.
+    <strong>{{ email }}</strong>. Wpisz go poniżej, aby
+    {{ isEmailChange ? 'potwierdzić nowy adres' : 'aktywować konto' }}.
   </p>
   @form({
     route: 'email_verification.store',
@@ -39,12 +40,14 @@
       @!field.error()
     @end
     @!button({
-      text: 'Aktywuj konto',
+      text: isEmailChange ? 'Potwierdź nowy adres' : 'Aktywuj konto',
       type: 'submit',
       block: true,
       class: 'auth__submit',
       'x-bind:disabled': 'submitting',
-      'x-text': "submitting ? 'Sprawdzam…' : 'Aktywuj konto'",
+      'x-text': isEmailChange
+        ? "submitting ? 'Sprawdzam…' : 'Potwierdź nowy adres'"
+        : "submitting ? 'Sprawdzam…' : 'Aktywuj konto'",
     })
   @end
 
@@ -69,8 +72,14 @@
   </div>
 
   <p class="auth__foot">
-    @link({ route: 'session.create', class: 'il' })
-      Wróć do logowania
+    @if(isEmailChange)
+      @link({ route: 'account.index', class: 'il' })
+        Wróć do ustawień konta
+      @end
+    @else
+      @link({ route: 'session.create', class: 'il' })
+        Wróć do logowania
+      @end
     @end
   </p>
 @end

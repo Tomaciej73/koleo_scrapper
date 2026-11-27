@@ -1,6 +1,9 @@
 @layouts.auth()
   <h1 class="auth__title">Witaj ponownie</h1>
   <p class="auth__sub">Zaloguj się, aby zobaczyć monitorowane połączenia.</p>
+  <p class="auth__sub">
+    Jeśli przerwano potwierdzanie e-maila, zaloguj się adresem konta i hasłem. Wrócisz do wpisywania kodu.
+  </p>
   @form({
     route: 'session.store',
     method: 'POST',
@@ -14,6 +17,7 @@
         type: 'email',
         autocomplete: 'username',
         placeholder: 'ty@example.com',
+        maxlength: emailMaxLength,
       })
       @!field.error()
     @end
@@ -23,6 +27,7 @@
         type: 'password',
         autocomplete: 'current-password',
         placeholder: '••••••••',
+        maxlength: passwordMaxLength,
       })
       @!field.error()
     @end
@@ -43,9 +48,7 @@
   </p>
 
   <p class="auth__foot">
-
     Nie masz konta?
-
     @link({ route: 'new_account.create', class: 'il' })
       Załóż konto
     @end

@@ -8,7 +8,9 @@ import SecurityEventService from '#services/security_event_service'
 
 export default class PasswordResetController {
   async create({ view }: HttpContext) {
-    return view.render('pages/auth/forgot_password')
+    return view.render('pages/auth/forgot_password', {
+      emailMaxLength: env.get('EMAIL_MAX_LENGTH'),
+    })
   }
 
   async store({ request, response, session, logger }: HttpContext) {
