@@ -17,6 +17,8 @@ import {
   checkNowUserThrottle,
   otpAccountThrottle,
   emailChangeUserThrottle,
+  phoneIpThrottle,
+  phoneUserThrottle,
   otpIpThrottle,
   searchIpThrottle,
   searchUserThrottle,
@@ -33,6 +35,7 @@ const MetricsController = () => import('#controllers/metrics_controller')
 const PasswordResetController = () => import('#controllers/password_reset_controller')
 const CspReportsController = () => import('#controllers/csp_reports_controller')
 const AccountController = () => import('#controllers/account_controller')
+const PhoneController = () => import('#controllers/phone_controller')
 
 router.get('/health/live', [HealthController, 'live'])
 router.get('/health/ready', [HealthController, 'ready'])
@@ -95,6 +98,21 @@ router
       .use(authIpThrottle)
       .use(emailChangeUserThrottle)
     router.delete('/account', [AccountController, 'destroy']).as('account.destroy')
+    router
+      .post('/account/phone', [PhoneController, 'request'])
+      .as('account.phone.request')
+      .use(phoneIpThrottle)
+      .use(phoneUserThrottle)
+    router
+      .post('/account/phone/verify', [PhoneController, 'verify'])
+      .as('account.phone.verify')
+      .use(phoneIpThrottle)
+      .use(phoneUserThrottle)
+    router
+      .post('/account/phone/remove', [PhoneController, 'remove'])
+      .as('account.phone.remove')
+      .use(phoneIpThrottle)
+      .use(phoneUserThrottle)
     router
       .post('/account/sessions/revoke', [AccountController, 'revokeSession'])
       .as('account.sessions.revoke')

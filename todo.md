@@ -1,6 +1,6 @@
 # Plan i stan prac
 
-Ostatnia aktualizacja: 2026-11-26
+Ostatnia aktualizacja: 2026-11-27
 
 ## Wykonane
 
@@ -62,7 +62,7 @@ Ostatnia aktualizacja: 2026-11-26
 - [x] Dodano wybór KOLEO/ČD, podpowiedzi stacji, kursy i ceny CZK z publicznej wyszukiwarki.
 - [x] Dodano migrację źródła obserwacji, wspólny worker i alerty zmian cen w odpowiedniej walucie.
 - [x] Potwierdzono publiczny odczyt ceny ČD bez logowania; test offline i build WWW przechodzą.
-- [ ] Uzupełnić `CD_*` w nieśledzonym `web/.env`, wdrożyć migrację i sprawdzić pełny cykl obserwacji na VPS.
+- [ ] Uzupełnić `CD_*` w nieśledzonym `.env_conf`, wdrożyć migrację i sprawdzić pełny cykl obserwacji na VPS.
 - [ ] Monitorować zmiany publicznego kontraktu strony ČD.
 
 ## Bieżąca zmiana: polskie nazwy stacji ČD i kurs NBP (2026-11-26)
@@ -90,7 +90,7 @@ Ostatnia aktualizacja: 2026-11-26
 - [x] Test offline obejmuje kurs po północy, nakładające się strony i pojedyncze pobranie ceny dla każdego kursu.
 - [x] Dobrowolny test sieciowy publicznej wyszukiwarki ČD przeszedł dla Brno hl.n. → Wrocław Główny, 27.11.2026, bez podanej godziny, przy `--timeout=30000`.
 - [x] Po końcowej zmianie przeszły lint, typecheck, pełne testy offline 60/60 i build produkcyjny.
-- [ ] Użytkownik wdroży nowy obraz na VPS, opcjonalnie ustawi `CD_SEARCH_MAX_PAGES=6` w `web/.env` i potwierdzi wynik w aplikacji.
+- [ ] Użytkownik wdroży nowy obraz na VPS, opcjonalnie ustawi `CD_SEARCH_MAX_PAGES=6` w `.env_conf` i potwierdzi wynik w aplikacji.
 
 ## Bieżąca zmiana: progi cenowe w PLN dla KOLEO i ČD (2026-11-26)
 
@@ -130,3 +130,22 @@ Ostatnia aktualizacja: 2026-11-26
 - [x] Zamieniono wszystkie wystąpienia znaku Unicode U+2014 w źródłach, widokach, tematach e-maili, testach i dokumentacji na zwykły znak `-` (U+002D).
 - [x] Wyszukiwanie w repozytorium nie wykazuje pozostałych wystąpień U+2014; testy offline 65/65, lint, typecheck i build produkcyjny przeszły.
 - [ ] Po wdrożeniu sprawdzić tytuły kart i tematy nowo wysyłanych e-maili; wiadomości wysłane wcześniej nie zmienią się.
+
+## Bieżąca zmiana: alerty SMS (2026-11-27)
+
+- [x] Dodano konfigurację bramki SMS Gateway for Android w `.env_conf`, przykładzie środowiska i Compose; domyślnie SMS pozostaje wyłączony.
+- [x] Dodano potwierdzanie polskiego numeru kodem SMS po sprawdzeniu aktualnego hasła, limit prób, czas ważności, ograniczenie ponownego wysłania i rate limiting.
+- [x] Użytkownik może wybrać e-mail, SMS lub oba kanały dla obserwacji KOLEO/ČD. Numer i adres pochodzą z potwierdzonych danych konta, nie z pól odbiorcy w formularzu.
+- [x] Dodano osobny wpis `alert_outbox` dla każdego kanału, stabilny identyfikator SMS przy ponowieniach oraz limit wiadomości liczony dla obu kanałów.
+- [x] Usunięcie numeru przestawia obserwacje na e-mail; interfejs maskuje numer.
+- [x] Testy offline 72/72, lint, typecheck, build i `docker compose config --quiet` przez WSL przeszły.
+- [ ] Użytkownik wdroży obraz na VPS, ustawi dane bramki w nieśledzonym `.env_conf`, skonfiguruje telefon i potwierdzi realną dostawę SMS na własny numer.
+- [ ] Opcjonalnie dodać synchronizację końcowego statusu dostarczenia SMS z API bramki; obecne `sent` oznacza przyjęcie żądania przez bramkę.
+
+## Bieżąca zmiana: jeden plik konfiguracji `.env_conf` (2026-11-27)
+
+- [x] Scalono lokalne ustawienia aplikacji, Compose i sekrety z ignorowanego `web/.env` do ignorowanego `.env_conf`, bez zmiany istniejącego `APP_KEY`.
+- [x] Compose montuje `.env_conf` jako jedyny plik środowiska aplikacji i używa go jako sekretu wyłącznie podczas budowania; usunięto powielone zmienne i argumenty budowania.
+- [x] Polecenia lokalne ładują `.env_conf`; izolowane testy używają `web/.env.test`. Usunięto lokalny `web/.env` po sprawdzeniu przeniesienia wszystkich jego kluczy.
+- [x] Uzupełniono README i AGENTS.md; `npm run dev`, build, lint, typecheck, 72/72 testów offline, `docker compose config --quiet` i próbny build obrazu przeszły bez `web/.env`. Próbny obraz usunięto.
+- [ ] Na VPS zarchiwizować dotychczasowe pliki, przenieść brakujące sekrety z serwerowego `web/.env` do serwerowego `.env_conf`, ustawić `APP_ENV_FILE=./.env_conf` i dopiero po weryfikacji usunąć stary plik.

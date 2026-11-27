@@ -63,6 +63,39 @@
 
     <section class="account-section">
       <div>
+        <span class="eyebrow">Powiadomienia</span>
+        <h2>Numer do alertów SMS</h2>
+        <p>Potwierdź numer kodem SMS, aby móc wybrać go przy obserwacji połączenia.</p>
+      </div>
+      @if(user.phoneNumber && user.phoneVerifiedAt)
+        <p>Potwierdzony numer telefonu kończy się na {{ user.phoneNumber.slice(-3) }}.</p>
+      @end
+      @if(smsEnabled)
+        @form({ route: 'account.phone.request', method: 'POST', class: 'account-form' })
+          <label><span>Polski numer telefonu</span><input type="tel" name="phoneNumber" autocomplete="tel" maxlength="24" placeholder="+48 500 600 700" required /></label>
+          <label><span>Aktualne hasło</span><input type="password" name="currentPassword" autocomplete="current-password" maxlength="{{ passwordMaxLength }}" required /></label>
+          <button type="submit" class="btn btn--primary">Wyślij kod SMS</button>
+        @end
+      @else
+        <p>Bramka SMS nie jest jeszcze skonfigurowana. Powiadomienia e-mail pozostają dostępne.</p>
+      @end
+      @if(pendingPhone)
+        <p>Kod wysłano na numer kończący się na {{ pendingPhone.slice(-3) }}.</p>
+        @form({ route: 'account.phone.verify', method: 'POST', class: 'account-form' })
+          <label><span>Kod z SMS</span><input type="text" name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6,8}" maxlength="8" required /></label>
+          <button type="submit" class="btn btn--primary">Potwierdź numer</button>
+        @end
+      @end
+      @if(user.phoneNumber)
+        @form({ route: 'account.phone.remove', method: 'POST', class: 'account-form' })
+          <label><span>Aktualne hasło, aby usunąć numer</span><input type="password" name="currentPassword" autocomplete="current-password" maxlength="{{ passwordMaxLength }}" required /></label>
+          <button type="submit" class="btn btn--secondary">Usuń numer telefonu</button>
+        @end
+      @end
+    </section>
+
+    <section class="account-section">
+      <div>
         <span class="eyebrow">Bezpieczeństwo</span>
         <h2>Aktywne sesje</h2>
         <p>Możesz wylogować pojedyncze urządzenie albo wszystkie sesje naraz.</p>

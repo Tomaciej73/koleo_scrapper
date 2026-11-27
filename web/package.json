@@ -8,12 +8,12 @@
     "node": ">=24.0.0"
   },
   "scripts": {
-    "start": "node bin/server.js",
-    "build": "node ace build",
-    "dev": "node ace serve --hmr",
-    "alerts:check": "node ace alerts:check",
-    "alerts:worker": "node ace alerts:worker",
-    "mail:test": "node ace mail:test",
+    "start": "node --env-file-if-exists=../.env_conf bin/server.js",
+    "build": "node --env-file-if-exists=../.env_conf ace build",
+    "dev": "node --env-file=../.env_conf -e \"process.env.NODE_ENV='development'; process.argv=[process.argv[0],'ace','serve','--hmr']; import('./ace.js')\"",
+    "alerts:check": "node --env-file=../.env_conf ace alerts:check",
+    "alerts:worker": "node --env-file=../.env_conf ace alerts:worker",
+    "mail:test": "node --env-file=../.env_conf ace mail:test",
     "test": "node ace test",
     "lint": "eslint .",
     "format": "prettier --write .",

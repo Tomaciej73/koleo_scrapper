@@ -3,6 +3,7 @@ import hash from '@adonisjs/core/services/hash'
 import { compose } from '@adonisjs/core/helpers'
 import { withAuthFinder } from '@adonisjs/auth/mixins/lucid'
 import { beforeSave, column } from '@adonisjs/lucid/orm'
+import { DateTime } from 'luxon'
 
 /**
  * User model represents a user in the application.
@@ -28,6 +29,12 @@ export default class User extends compose(UserSchema, withAuthFinder(hash)) {
 
   @column({ serializeAs: null })
   declare pendingEmail: string | null
+
+  @column({ serializeAs: null })
+  declare phoneNumber: string | null
+
+  @column.dateTime()
+  declare phoneVerifiedAt: DateTime | null
 
   /**
    * Get the user's initials from their full name or email.

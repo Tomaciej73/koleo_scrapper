@@ -75,6 +75,18 @@ export const emailChangeUserThrottle = byUser(
   authWindow,
   blockSeconds
 )
+export const phoneIpThrottle = byIp(
+  'phone_ip',
+  env.get('RATE_LIMIT_PHONE_REQUESTS') ?? env.get('RATE_LIMIT_OTP_REQUESTS'),
+  authWindow,
+  blockSeconds
+)
+export const phoneUserThrottle = byUser(
+  'phone_user',
+  env.get('RATE_LIMIT_PHONE_REQUESTS') ?? env.get('RATE_LIMIT_OTP_REQUESTS'),
+  authWindow,
+  blockSeconds
+)
 export const searchIpThrottle = byIp(
   'search_ip',
   env.get('RATE_LIMIT_SEARCH_REQUESTS'),

@@ -15,7 +15,7 @@ połączeń i obserwowania zmian cen KOLEO lub ČD.
 - edycja progu i interwału oraz pauza/wznowienie obserwacji,
 - ręczne oraz cykliczne sprawdzanie alertów z osobnym interwałem dla każdej obserwacji,
 - powiadomienia e-mail przez konfigurowalny serwer SMTP,
-- przygotowane kanały SMS i WhatsApp, oczekujące na wybór dostawcy.
+- opcjonalne alerty SMS przez bramkę SMS Gateway for Android po potwierdzeniu numeru; WhatsApp nie jest jeszcze obsługiwany,
 - wybór źródła KOLEO/ČD w wyszukiwarce; osobne identyfikatory kursów i waluty
   PLN/CZK w obserwacjach, historii oraz wiadomościach e-mail. Ceny ČD mają
   orientacyjny odpowiednik PLN według datowanego kursu średniego NBP.
@@ -29,21 +29,26 @@ bez zewnętrznych danych dostępowych.
 Wymagane są Node.js 24 lub nowszy oraz npm 11 lub nowszy.
 
 ```powershell
+Set-Location -LiteralPath 'M:\GIT\koleo_scrapper'
+# Edytuj wyłącznie istniejący, nieśledzony plik .env_conf.
+# W nowej instalacji utwórz go lokalnie i ustaw APP_KEY.
 Set-Location -LiteralPath 'M:\GIT\koleo_scrapper\web'
-Copy-Item -LiteralPath '.env.example' -Destination '.env'
 npm install
-node ace generate:key
-node ace migration:run
+node --env-file=../.env_conf ace migration:run
 npm run dev
 ```
 
 Następnie otwórz `http://localhost:3333`, utwórz konto i wyszukaj połączenie.
-Jeżeli plik `.env` już istnieje, nie kopiuj go ponownie i nie nadpisuj klucza
-`APP_KEY`.
+Nie twórz `web/.env`. Klucz `APP_KEY` jest w `.env_conf`; w nowej instalacji
+można wygenerować go poleceniem `node ace generate:key --show` z katalogu
+`web` i ręcznie wpisać do `.env_conf`. Nie zmieniaj istniejącego klucza na
+działającej instancji. `APP_URL` podaj jako pełny adres, np.
+`http://localhost:3333` lokalnie albo adres HTTPS na VPS; nie używaj w nim
+`${HOST}`/`${PORT}`, ponieważ lokalne polecenia ładują plik przez Node.
 
 ## Test zmiany ceny bez dostępu do KOLEO
 
-1. Zostaw `PRICE_PROVIDER=demo` w `.env` i zapisz wynik jako obserwowany.
+1. Zostaw `PRICE_PROVIDER=demo` w `.env_conf` i zapisz wynik jako obserwowany.
 2. Ustaw np. `DEMO_PRICE_OFFSET_CENTS=-1000` oraz `ALERTS_ENABLED=true`.
 3. Uruchom jednorazowe sprawdzenie:
 
@@ -130,12 +135,12 @@ danych pasażerów użytkownika.
 
 ### Publiczne ceny ČD
 
-W `web/.env` ustaw `CD_ENABLED=true` oraz `CD_WEB_BASE_URL`,
+W `.env_conf` ustaw `CD_ENABLED=true` oraz `CD_WEB_BASE_URL`,
 `CD_STATION_AUTOCOMPLETE_URL`, `CD_STATION_COMBINATION` i
 `CD_STATION_LANGUAGE` według `web/.env.example`. Przy `PRICE_PROVIDER=koleo`
 formularz pokaże dwa źródła; `PRICE_PROVIDER=demo` zachowuje bezpieczny tryb
 domyślny. Skonfiguruj też `CD_REQUEST_TIMEOUT_MS` i `CD_WEB_MAX_REDIRECTS`.
-W Dockerze te ustawienia pozostają w montowanym `web/.env`; nie wpisuj ich do
+W Dockerze te ustawienia pozostają w montowanym `.env_conf`; nie wpisuj ich do
 obrazu. Po wdrożeniu uruchom migrację i odtwórz kontenery WWW i workera.
 
 Nazwy polskich stacji można wpisywać z polskimi znakami (np. „Wrocław Główny”).
@@ -152,12 +157,12 @@ wyszukiwarka ČD potrafi odrzucić zapytania blisko północy.
 Adapter pobiera kolejne strony wyników tak jak przycisk „Późniejsze” na stronie
 ČD, usuwa nakładające się kursy i zatrzymuje się po `SEARCH_RESULT_LIMIT`
 wynikach, końcu dnia lub `CD_SEARCH_MAX_PAGES` stronach. Ustaw limit stron
-w `web/.env` odpowiednio do ruchu i potrzeb; jeśli go nie ustawisz, limit
+w `.env_conf` odpowiednio do ruchu i potrzeb; jeśli go nie ustawisz, limit
 zostanie obliczony z liczby wyników na pierwszej stronie i
 `SEARCH_RESULT_LIMIT`. Worker nadal pobiera cenę tylko obserwowanego kursu.
 Nie używa partnerskiego Ticket API wymagającego `X-User`, nie tworzy rezerwacji
 i nie kupuje biletu. Cena dotyczy domyślnego jednego dorosłego pasażera w
-drugiej klasie, bez zniżek. ČD podaje ją w CZK. W `web/.env` ustaw `NBP_*`
+drugiej klasie, bez zniżek. ČD podaje ją w CZK. W `.env_conf` ustaw `NBP_*`
 według `web/.env.example`: aplikacja obok ceny CZK pokazuje orientacyjną kwotę
 PLN według ostatniego kursu średniego NBP, wraz z datą tabeli. Nowy próg
 alertu podajesz i zapisujesz w PLN dla obu źródeł. Worker przelicza cenę ČD
@@ -196,7 +201,7 @@ w pełni offline. Dla testu sieciowego podnieś limit czasu Japa przez
 `--timeout=30000`; domyślne 2 sekundy nie wystarczają na kilka stron i ceny.
 
 Na serwerze z publicznym adresem `https://koleowatch.dpdns.org` sprawdź, czy
-ignorowany przez Git `web/.env` zawiera co najmniej:
+ignorowany przez Git `.env_conf` zawiera co najmniej:
 
 ```dotenv
 APP_URL=https://koleowatch.dpdns.org
@@ -293,9 +298,42 @@ obsługiwany wariant. Nie używamy JavaScript ani zewnętrznych arkuszy CSS,
 ponieważ klienci pocztowi mogą je usuwać. Treści dynamiczne w szablonach są
 automatycznie escapowane przez Edge.
 
-Alert cenowy jest zawsze wysyłany na aktualny, potwierdzony adres e-mail
-właściciela konta. Formularz nie przyjmuje dowolnego adresu odbiorcy. Kanały
-SMS i WhatsApp pozostają wyłączone do czasu dodania osobnej weryfikacji numeru.
+Adres e-mail alertu pochodzi wyłącznie z konta użytkownika, nie z formularza.
+W ustawieniach konta można dodać polski numer telefonu i potwierdzić go kodem
+SMS. Dopiero wtedy przy danej obserwacji dostępny jest wybór: e-mail, SMS lub
+oba kanały. Usunięcie numeru przestawia obserwacje SMS na e-mail i anuluje
+oczekujące SMS-y. WhatsApp nie jest obsługiwany.
+
+### Konfiguracja SMS
+
+Integracja używa [API SMS Gateway for Android](https://docs.sms-gate.app/features/sending-messages/)
+(`POST /3rdparty/v1/messages`) przez HTTPS. Potrzebny jest telefon Android
+z aplikacją i aktywną kartą SIM, ewentualnie własna bramka zgodna z tym API.
+Ustaw w nieśledzonym `.env_conf` (nie w `compose.yaml`):
+
+```dotenv
+SMS_ENABLED=true
+SMS_GATEWAY_MESSAGES_URL=https://api.sms-gate.app/3rdparty/v1/messages
+SMS_GATEWAY_USERNAME=<nazwa-z-bramki>
+SMS_GATEWAY_PASSWORD=<haslo-z-bramki>
+```
+
+Pozostałe `SMS_*` i `RATE_LIMIT_PHONE_REQUESTS` mają przykładowe wartości w
+`.env.example` oraz `.env_conf`. Dla własnego serwera ustaw jego pełny adres
+HTTPS. Nie commituj danych dostępowych ani numerów telefonu. Po zmianie
+`.env_conf` odtwórz kontenery `web` i `worker`, żeby pobrały nowe środowisko.
+Na serwerze uruchom migracje (`migrate` w Compose) przed udostępnieniem
+formularza SMS. Skonfiguruj telefon/bramkę, następnie potwierdź swój numer
+w ustawieniach konta i wykonaj próbę na własnej obserwacji.
+
+`alert_outbox` przechowuje osobny wpis na kanał; wybór „e-mail i SMS” zużywa
+dwa miejsca z dziennego limitu wiadomości. Ponowienia używają tego samego
+identyfikatora SMS. Status `sent` oznacza przyjęcie żądania przez bramkę,
+**nie** potwierdzenie dostarczenia na telefon. Samo API obsługuje odrębne
+[śledzenie statusu](https://docs.sms-gate.app/features/status-tracking/),
+którego ta wersja aplikacji jeszcze nie synchronizuje. Wybór publicznej chmury
+oznacza przekazanie treści i numerów dostawcy; do bardziej wrażliwych danych
+wybierz prywatną instancję bramki.
 
 Wiadomości cenowe trafiają najpierw do tabeli `alert_outbox`. Każdy alert ma
 unikalny identyfikator i stabilny nagłówek `Message-ID`. Wysyłka jest atomowo
@@ -360,8 +398,8 @@ offline i produkcyjny build.
 ## Prawdziwe dane
 
 `PRICE_PROVIDER=koleo` przełącza wyszukiwanie na klienta z katalogu głównego.
-Wymaga to uzupełnienia wszystkich zmiennych `KOLEO_*` w `.env_conf` (Docker)
-lub `web/.env` (uruchomienie bez Dockera). URL API, identyfikacja klienta,
+Wymaga to uzupełnienia wszystkich zmiennych `KOLEO_*` w `.env_conf` zarówno
+w Dockerze, jak i przy uruchomieniu bez Dockera. URL API, identyfikacja klienta,
 timeout, liczba retry, opóźnienia backoff i maksymalna równoległość nie są
 zaszyte w kodzie. Ponawiane są tylko odczyty oraz wyszukiwanie połączeń;
 operacje logowania nie są automatycznie powtarzane.
@@ -442,20 +480,20 @@ server {
 }
 ```
 
-W `web/.env` ustaw publiczny adres z HTTPS, np.
+W `.env_conf` ustaw publiczny adres z HTTPS, np.
 `APP_URL=https://koleo.example.pl`. Jeżeli przed Nginx działa jeszcze CDN lub
 load balancer, najpierw skonfiguruj `set_real_ip_from` wyłącznie dla jego
 oficjalnych zakresów; nie kopiuj dowolnego nagłówka klienta jako prawdziwego IP.
 
 ## Docker Compose
 
-Obraz zawiera produkcyjny build aplikacji, ale nie zawiera `.env`. Compose
-udostępnia ten plik jako sekret podczas budowania i montuje go tylko do odczytu
-podczas działania kontenerów. Przed wdrożeniem ustaw w `web/.env` co najmniej
-produkcyjne `APP_KEY`, publiczny `APP_URL`, konfigurację SMTP oraz provider cen.
-Ustawienia samego Compose znajdują się w ignorowanym przez Git pliku
-`.env_conf`; skopiuj go osobno na serwer razem z `web/.env`.
-Przy tej aktualizacji dopisz do serwerowego `.env_conf`:
+Jedynym plikiem konfiguracyjnym do edycji jest ignorowany przez Git
+`.env_conf` w katalogu głównym repozytorium. Zawiera ustawienia Compose i
+aplikacji (`APP_KEY`, `APP_URL`, SMTP, SMS, dostawców cen itd.). Compose używa
+go do interpolacji, udostępnia jako sekret podczas budowania i montuje ten sam
+plik tylko do odczytu w kontenerach. Plik nie trafia do obrazu. Nie twórz
+oddzielnego `web/.env` ani nie kopiuj go na serwer. Przed wdrożeniem upewnij
+się, że w `.env_conf` znajdują się także:
 
 ```dotenv
 EMAIL_MAX_LENGTH=254
@@ -464,10 +502,19 @@ FULL_NAME_MAX_LENGTH=120
 
 Hasła nadal ograniczają istniejące `PASSWORD_MIN_LENGTH` i `PASSWORD_MAX_LENGTH`.
 
-Parametry operacyjne wymagane także podczas kompilacji, takie jak typ bazy,
-limity parsera i zakres sprzedaży, są przekazywane z `.env_conf` jako build
-args. Nie trzeba ich powielać w `web/.env`; sekret ten nadal przechowuje klucz
-aplikacji, SMTP i pozostałe ustawienia wrażliwe.
+W `.env_conf` ustaw `APP_ENV_FILE=./.env_conf`. Compose przekazuje do kontenera
+tylko wartości specyficzne dla kontenera (`HOST`, `PORT`, ścieżki bazy i kopii,
+strefę czasu procesu); resztę Adonis czyta z montowanego pliku. Dzięki temu
+hasła nie są powielane w `compose.yaml` ani argumentach budowania.
+
+Przy aktualizacji istniejącego VPS najpierw zrób prywatne kopie dotychczasowych
+`.env_conf` i `web/.env`. Dopisz do serwerowego `.env_conf` wszystkie brakujące
+klucze z `web/.env`, zachowując dotychczasowy `APP_KEY` oraz hasła, i zmień
+`APP_ENV_FILE` na `./.env_conf`. Nie nadpisuj serwerowych sekretów wartościami
+z komputera deweloperskiego. Po sprawdzeniu `docker compose --env-file
+.env_conf config --quiet`, przebudowaniu obrazu i poprawnym uruchomieniu
+kontenerów można usunąć stary `web/.env` z VPS. `web/.env.test` pozostaje
+jedynie izolowaną konfiguracją automatycznych testów.
 
 Uruchomienie z katalogu głównego repozytorium:
 
@@ -540,8 +587,7 @@ potrzebne do szczegółowego debugowania. Ustaw `LOG_LEVEL=debug`, aby dopuści�
 komunikaty DEBUG. Dla Loki, ELK albo innego parsera logów ustaw
 `LOG_FORMAT=json` i `LOG_COLORIZE=false`.
 
-Na VPS z Docker Compose zmień **w `/opt/koleo_scrapper/.env_conf`** (a nie
-wyłącznie w `web/.env`) tymczasowo:
+Na VPS z Docker Compose zmień **w `/opt/koleo_scrapper/.env_conf`** tymczasowo:
 
 ```dotenv
 LOG_LEVEL=debug
@@ -560,7 +606,7 @@ podają etap, HTTP, liczbę prób, czas i klasyfikację odpowiedzi. Nie zawieraj
 cookies, tokenu CSRF, pełnego URL, adresu IP zwróconego przez ČD ani e-maila.
 Wpis `connection_search_failed` ma kod błędu także przy
 `LOG_SHOW_CONTEXT=false`. Przed przesłaniem logów ustaw w serwerowym
-`web/.env` `AUDIT_LOG_PERSONAL_DATA=false` lub zamaskuj dane konta i trasy.
+`.env_conf` `AUDIT_LOG_PERSONAL_DATA=false` lub zamaskuj dane konta i trasy.
 Po diagnozie przywróć `LOG_LEVEL=info` i `LOG_SHOW_CONTEXT=false`, a potem
 ponownie odtwórz oba kontenery. Nie zmieniaj `NODE_ENV` na `development` na
 publicznym serwerze.
@@ -569,7 +615,7 @@ Logowanie i wyszukiwanie mają czytelny opis także bez `LOG_SHOW_CONTEXT`: ID
 użytkownika, zamaskowany e-mail, identyfikatory stacji, datę, godzinę, filtr,
 liczbę wyników i czas odpowiedzi. Jeśli na potrzeby audytu trzeba zobaczyć
 pełny adres konta i nazwy stacji, ustaw `AUDIT_LOG_PERSONAL_DATA=true` w
-serwerowym `web/.env` i odtwórz kontener WWW. Domyślnie jest `false`, ponieważ
+serwerowym `.env_conf` i odtwórz kontener WWW. Domyślnie jest `false`, ponieważ
 pełny e-mail i trasa powiązana z użytkownikiem są danymi osobowymi. Ogranicz
 dostęp i retencję takich logów; nigdy nie trafiają do nich hasła, kody ani
 tokeny. Nie ustawiaj `LOG_SHOW_CONTEXT=true` tylko po to, by zobaczyć te

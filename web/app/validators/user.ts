@@ -67,3 +67,19 @@ export const accountDeleteValidator = vine.create({
 export const sessionRevocationValidator = vine.create({
   sessionId: vine.string().trim().minLength(1).maxLength(255),
 })
+
+export const phoneRequestValidator = vine.create({
+  phoneNumber: vine.string().trim().minLength(9).maxLength(24),
+  currentPassword: existingPassword(),
+})
+
+export const phoneVerifyValidator = vine.create({
+  code: vine
+    .string()
+    .trim()
+    .regex(/^\d{6,8}$/),
+})
+
+export const phoneRemoveValidator = vine.create({
+  currentPassword: existingPassword(),
+})

@@ -15,6 +15,7 @@ export const connectionSearchValidator = vine.create({
 })
 
 export const priceWatchValidator = vine.create({
+  notificationChannel: vine.enum(['email', 'sms', 'both'] as const).optional(),
   provider: vine.enum(['demo', 'koleo', 'cd'] as const).optional(),
   origin: vine.string().trim().minLength(2).maxLength(120),
   originStationId: vine.number().withoutDecimals().positive(),
@@ -38,6 +39,7 @@ export const priceWatchIntervalValidator = vine.create({
 })
 
 export const priceWatchSettingsValidator = vine.create({
+  notificationChannel: vine.enum(['email', 'sms', 'both'] as const).optional(),
   targetPrice: vine.number().min(0),
   checkIntervalMinutes: vine.number().withoutDecimals().min(1).max(10_080),
 })

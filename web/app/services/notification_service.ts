@@ -5,6 +5,7 @@ import env from '#start/env'
 import mail from '@adonisjs/mail/services/main'
 import type { CzkExchangeRate } from '#services/nbp_exchange_rate_service'
 import { formatPrice, formatPriceWithConversion } from '#services/price_format_service'
+import SmsGatewayService from '#services/sms_gateway_service'
 
 export interface NotificationResult {
   delivered: boolean
@@ -175,6 +176,12 @@ export default class NotificationService {
   }
 
   async sendQueuedAlert(alert: AlertOutbox, recipient: string): Promise<NotificationResult> {
+    if (alert.channel === 'sms') {
+      const maxLength = Math.max(60, env.get('SMS_ALERT_MAX_LENGTH') ?? 300)
+      const smsText = alert.body.split(/\r?\n/).slice(0, 2).join(' ').slice(0, maxLength)
+      await new SmsGatewayService().send(recipient, smsText, alert.deliveryId)
+      return { delivered: true }
+    }
     if (!(env.get('MAIL_ENABLED') ?? false)) {
       return { delivered: false, reason: 'Powiadomienia e-mail są wyłączone.' }
     }

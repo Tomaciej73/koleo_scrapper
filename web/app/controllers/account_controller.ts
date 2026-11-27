@@ -16,6 +16,8 @@ import type { HttpContext } from '@adonisjs/core/http'
 import { errors as authErrors } from '@adonisjs/auth'
 import { DateTime } from 'luxon'
 import env from '#start/env'
+import PhoneVerificationService from '#services/phone_verification_service'
+import SmsGatewayService from '#services/sms_gateway_service'
 
 export default class AccountController {
   async index({ auth, session, view }: HttpContext) {
@@ -25,8 +27,11 @@ export default class AccountController {
     if (!sessions.some((item) => item.current)) {
       sessions.unshift(sessionService.describeCurrent(session))
     }
+    const pendingPhone = await new PhoneVerificationService().pending(user.id)
     return view.render('pages/settings/account', {
       user,
+      smsEnabled: SmsGatewayService.configured(),
+      pendingPhone: pendingPhone?.phone_number ?? null,
       sessions: sessions.map((item) => ({
         ...item,
         createdAtLabel: this.dateLabel(item.createdAt),
@@ -70,6 +75,8 @@ export default class AccountController {
         email: user.email,
         fullName: user.fullName,
         emailVerifiedAt: user.emailVerifiedAt?.toISO() ?? null,
+        phoneNumber: user.phoneNumber,
+        phoneVerifiedAt: user.phoneVerifiedAt?.toISO() ?? null,
         createdAt: user.createdAt.toISO(),
         updatedAt: user.updatedAt?.toISO() ?? null,
       },

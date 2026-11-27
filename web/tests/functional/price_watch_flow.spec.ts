@@ -117,7 +117,7 @@ test.group('Price watch flow', (group) => {
         trainName: 'POŁĄCZENIE DEMO 100',
         priceCents: '7900',
         targetPrice: '65.00',
-        notificationChannel: 'sms',
+        notificationChannel: 'email',
         notificationDestination: 'attacker@example.test',
         checkIntervalMinutes: '30',
       })

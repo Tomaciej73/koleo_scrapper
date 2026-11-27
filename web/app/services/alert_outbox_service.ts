@@ -9,6 +9,7 @@ import { randomUUID } from 'node:crypto'
 import { DateTime } from 'luxon'
 import NbpExchangeRateService from '#services/nbp_exchange_rate_service'
 import type { CzkExchangeRate } from '#services/nbp_exchange_rate_service'
+import SmsGatewayService from '#services/sms_gateway_service'
 
 export interface OutboxProcessingSummary {
   delivered: number
@@ -51,10 +52,20 @@ export default class AlertOutboxService {
         .firstOrFail()
 
       const existing = await AlertOutbox.query({ client: trx })
-        .where('idempotencyKey', idempotencyKey)
+        .whereIn('idempotencyKey', [idempotencyKey, `${idempotencyKey}:sms`])
         .first()
       if (existing) {
         return 'duplicate'
+      }
+
+      const channels: Array<'email' | 'sms'> =
+        watch.notificationChannel === 'both'
+          ? ['email', 'sms']
+          : watch.notificationChannel === 'sms'
+            ? ['sms']
+            : ['email']
+      if (channels.includes('sms') && (!user.phoneNumber || !user.phoneVerifiedAt)) {
+        throw new Error('Numer telefonu do alertów SMS nie jest potwierdzony.')
       }
 
       const dailyCount = await AlertOutbox.query({ client: trx })
@@ -64,37 +75,43 @@ export default class AlertOutboxService {
         .firstOrFail()
         .then((row) => Number(row.$extras.total))
 
-      if (dailyCount >= env.get('ALERT_DAILY_MAX_MESSAGES_PER_USER')) {
+      if (dailyCount + channels.length > env.get('ALERT_DAILY_MAX_MESSAGES_PER_USER')) {
         return 'daily_limit'
       }
 
-      await AlertOutbox.create(
-        {
-          deliveryId: randomUUID(),
-          idempotencyKey,
-          userId: user.id,
-          priceWatchId: watch.id,
-          priceCents: currentPriceCents,
-          previousPriceCents,
-          subject: message.subject,
-          body: message.content,
-          status: 'pending',
-          attemptCount: 0,
-          availableAt: DateTime.utc(),
-          lockToken: null,
-          lockedAt: null,
-          sentAt: null,
-          lastError: null,
-        },
-        { client: trx }
-      )
+      for (const channel of channels) {
+        await AlertOutbox.create(
+          {
+            deliveryId: randomUUID(),
+            idempotencyKey: channel === 'email' ? idempotencyKey : `${idempotencyKey}:sms`,
+            channel,
+            userId: user.id,
+            priceWatchId: watch.id,
+            priceCents: currentPriceCents,
+            previousPriceCents,
+            subject: message.subject,
+            body: message.content,
+            status: 'pending',
+            attemptCount: 0,
+            availableAt: DateTime.utc(),
+            lockToken: null,
+            lockedAt: null,
+            sentAt: null,
+            lastError: null,
+          },
+          { client: trx }
+        )
+      }
       return 'queued'
     })
   }
 
   async processPending(userId?: number): Promise<OutboxProcessingSummary> {
     const summary: OutboxProcessingSummary = { delivered: 0, errors: 0 }
-    if (!(env.get('MAIL_ENABLED') ?? false)) {
+    const activeChannels: Array<'email' | 'sms'> = []
+    if (env.get('MAIL_ENABLED') ?? false) activeChannels.push('email')
+    if (SmsGatewayService.configured()) activeChannels.push('sms')
+    if (activeChannels.length === 0) {
       return summary
     }
 
@@ -102,6 +119,7 @@ export default class AlertOutboxService {
     const staleAt = now.minus({ seconds: env.get('ALERT_OUTBOX_LOCK_TIMEOUT_SECONDS') })
     const candidates = AlertOutbox.query()
       .select('id')
+      .whereIn('channel', activeChannels)
       .where((query) => {
         query
           .where((available) => {
@@ -159,7 +177,11 @@ export default class AlertOutboxService {
 
       try {
         const user = await User.findOrFail(alert.userId)
-        const delivery = await new NotificationService().sendQueuedAlert(alert, user.email)
+        if (alert.channel === 'sms' && (!user.phoneNumber || !user.phoneVerifiedAt)) {
+          throw new Error('Numer telefonu do alertu SMS nie jest już potwierdzony.')
+        }
+        const recipient = alert.channel === 'sms' ? user.phoneNumber! : user.email
+        const delivery = await new NotificationService().sendQueuedAlert(alert, recipient)
         if (!delivery.delivered) {
           throw new Error(delivery.reason ?? 'Wiadomość nie została dostarczona.')
         }
@@ -191,6 +213,7 @@ export default class AlertOutboxService {
             event: 'price_alert_delivered',
             outboxId: alert.id,
             deliveryId: alert.deliveryId,
+            channel: alert.channel,
             watchId: alert.priceWatchId,
             previousPriceCents: alert.previousPriceCents,
             currentPriceCents: alert.priceCents,

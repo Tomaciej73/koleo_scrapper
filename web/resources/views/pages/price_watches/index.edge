@@ -40,6 +40,10 @@
         <span>Wysyłka e-mail</span>
         <strong>{{ mailEnabled ? 'Aktywna' : 'Czeka na SMTP' }}</strong>
       </div>
+      <div class="status-card">
+        <span>Wysyłka SMS</span>
+        <strong>{{ smsEnabled ? 'Aktywna' : 'Nieskonfigurowana' }}</strong>
+      </div>
     </div>
     @if(providerMode === 'koleo')
       <p class="availability-disclaimer">
@@ -395,6 +399,21 @@
                           required
                         />
                       </label>
+                      <label>
+                        <span>Kanał powiadomień</span>
+                        <select name="notificationChannel">
+                          <option value="email" {{ watch.notificationChannel === 'email' ? 'selected' : '' }}>E-mail</option>
+                          @if(smsEnabled && phoneVerified)
+                            <option value="sms" {{ watch.notificationChannel === 'sms' ? 'selected' : '' }}>SMS</option>
+                            <option value="both" {{ watch.notificationChannel === 'both' ? 'selected' : '' }}>E-mail i SMS</option>
+                          @end
+                        </select>
+                        @if(!phoneVerified)
+                          <small>SMS wymaga potwierdzenia numeru w ustawieniach konta.</small>
+                        @elseif(!smsEnabled)
+                          <small>SMS wymaga skonfigurowania bramki przez administratora.</small>
+                        @end
+                      </label>
                       <button
                         type="submit"
                         class="btn btn--primary btn--block"
@@ -413,7 +432,7 @@
             <div class="watch-card__footer">
               <span>
                 @svg('lucide:send', { width: 14, height: 14 })
-                {{ watch.notificationChannel }}
+                {{ watch.notificationChannel === 'both' ? 'e-mail i SMS' : watch.notificationChannel === 'sms' ? 'SMS' : 'e-mail' }}
                  ·
                 {{ item.maskedDestination }}
               </span>

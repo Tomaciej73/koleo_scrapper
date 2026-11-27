@@ -26,9 +26,11 @@ import {
   formatPrice,
   formatPriceWithConversion,
 } from '#services/price_format_service'
+import SmsGatewayService from '#services/sms_gateway_service'
 
 export default class PriceWatchesController {
   async index({ auth, view }: HttpContext) {
+    const user = auth.getUserOrFail()
     const watches = await PriceWatch.query()
       .where('userId', auth.user!.id)
       .orderBy('status', 'asc')
@@ -123,10 +125,14 @@ export default class PriceWatchesController {
         watch,
         arrivalDate,
         arrivalDayOffset,
-        maskedDestination: this.maskDestination(
-          watch.notificationDestination,
-          watch.notificationChannel
-        ),
+        maskedDestination: [
+          watch.notificationChannel !== 'sms' ? this.maskDestination(user.email, 'email') : null,
+          watch.notificationChannel !== 'email' && user.phoneNumber
+            ? this.maskDestination(user.phoneNumber, 'sms')
+            : null,
+        ]
+          .filter(Boolean)
+          .join(' + '),
         targetPriceValue:
           watch.targetPriceCents === null
             ? '0'
@@ -154,6 +160,8 @@ export default class PriceWatchesController {
       cdEnabled: env.get('CD_ENABLED') ?? false,
       alertsEnabled: env.get('ALERTS_ENABLED') ?? false,
       mailEnabled: env.get('MAIL_ENABLED') ?? false,
+      smsEnabled: SmsGatewayService.configured(),
+      phoneVerified: Boolean(user.phoneNumber && user.phoneVerifiedAt),
       minimumCheckInterval: env.get('ALERT_MIN_CHECK_INTERVAL_MINUTES') ?? 5,
       maximumCheckInterval: env.get('ALERT_MAX_CHECK_INTERVAL_MINUTES') ?? 1_440,
       appTimezone: env.get('APP_TIMEZONE') ?? 'Europe/Warsaw',
@@ -163,6 +171,14 @@ export default class PriceWatchesController {
 
   async store({ auth, request, response, session }: HttpContext) {
     const payload = await request.validateUsing(priceWatchValidator)
+    const notificationChannel = payload.notificationChannel ?? 'email'
+    if (notificationChannel !== 'email' && !this.smsAvailable(auth.user!)) {
+      session.flash(
+        'error',
+        'Najpierw potwierdź numer telefonu w ustawieniach konta i skonfiguruj bramkę SMS.'
+      )
+      return response.redirect().back()
+    }
     let provider
     try {
       provider = resolvePriceProvider(payload.provider)
@@ -235,7 +251,7 @@ export default class PriceWatchesController {
       lowestPriceCents: priceCents,
       targetPriceCents: payload.targetPrice ? Math.round(payload.targetPrice * 100) : null,
       targetPriceCurrency: 'PLN',
-      notificationChannel: 'email',
+      notificationChannel,
       notificationDestination: auth.user!.email,
       checkIntervalMinutes,
       nextCheckAt: DateTime.utc(),
@@ -350,6 +366,18 @@ export default class PriceWatchesController {
       .where('id', params.id)
       .where('userId', auth.user!.id)
       .firstOrFail()
+    const notificationChannel = payload.notificationChannel ?? watch.notificationChannel
+    if (
+      notificationChannel !== 'email' &&
+      notificationChannel !== watch.notificationChannel &&
+      !this.smsAvailable(auth.user!)
+    ) {
+      session.flash(
+        'error',
+        'Najpierw potwierdź numer telefonu w ustawieniach konta i skonfiguruj bramkę SMS.'
+      )
+      return response.redirect().back()
+    }
 
     const targetPriceCents =
       payload.targetPrice === 0 ? null : Math.round(payload.targetPrice * 100)
@@ -358,11 +386,22 @@ export default class PriceWatchesController {
     }
     watch.targetPriceCents = targetPriceCents
     watch.targetPriceCurrency = 'PLN'
+    watch.notificationChannel = notificationChannel
     watch.checkIntervalMinutes = this.normalizeCheckInterval(payload.checkIntervalMinutes)
     if (watch.status === 'active') {
       watch.nextCheckAt = DateTime.utc()
     }
     await watch.save()
+    const excludedChannel =
+      notificationChannel === 'email' ? 'sms' : notificationChannel === 'sms' ? 'email' : null
+    if (excludedChannel) {
+      await db
+        .from('alert_outbox')
+        .where('price_watch_id', watch.id)
+        .where('channel', excludedChannel)
+        .whereIn('status', ['pending', 'retry'])
+        .update({ status: 'failed', last_error: 'Kanał powiadomień został zmieniony.' })
+    }
 
     session.flash('success', 'Ustawienia obserwacji zostały zapisane.')
     return response.redirect().toRoute('price_watches.index')
@@ -435,6 +474,10 @@ export default class PriceWatchesController {
     const maximum = Math.max(minimum, env.get('ALERT_MAX_CHECK_INTERVAL_MINUTES') ?? 1_440)
     const defaultInterval = env.get('ALERT_CHECK_INTERVAL_MINUTES') ?? 15
     return Math.min(maximum, Math.max(minimum, value ?? defaultInterval))
+  }
+
+  private smsAvailable(user: User) {
+    return SmsGatewayService.configured() && Boolean(user.phoneNumber && user.phoneVerifiedAt)
   }
 
   private maskDestination(destination: string, channel: string) {

@@ -13,10 +13,13 @@ import type { HttpContext } from '@adonisjs/core/http'
 import { DateTime } from 'luxon'
 import SecurityEventService from '#services/security_event_service'
 import NbpExchangeRateService from '#services/nbp_exchange_rate_service'
+import SmsGatewayService from '#services/sms_gateway_service'
 
 export default class SearchController {
-  async index({ view }: HttpContext) {
+  async index({ view, auth }: HttpContext) {
     return view.render('pages/dashboard', {
+      smsEnabled: SmsGatewayService.configured(),
+      phoneVerified: Boolean(auth.user?.phoneNumber && auth.user?.phoneVerifiedAt),
       czkRate: null,
       defaultDate: this.defaultDate(),
       providerMode: env.get('PRICE_PROVIDER') ?? 'demo',
@@ -47,6 +50,8 @@ export default class SearchController {
       provider = resolvePriceProvider(payload.provider)
     } catch (error) {
       return view.render('pages/dashboard', {
+        smsEnabled: SmsGatewayService.configured(),
+        phoneVerified: Boolean(auth.user?.phoneNumber && auth.user?.phoneVerifiedAt),
         czkRate: null,
         defaultDate: this.defaultDate(),
         providerMode: env.get('PRICE_PROVIDER') ?? 'demo',
@@ -123,6 +128,8 @@ export default class SearchController {
       }
 
       return view.render('pages/dashboard', {
+        smsEnabled: SmsGatewayService.configured(),
+        phoneVerified: Boolean(auth.user?.phoneNumber && auth.user?.phoneVerifiedAt),
         defaultDate: this.defaultDate(),
         providerMode: service.provider,
         koleoEnabled: (env.get('PRICE_PROVIDER') ?? 'demo') === 'koleo',
@@ -171,6 +178,8 @@ export default class SearchController {
       }
 
       return view.render('pages/dashboard', {
+        smsEnabled: SmsGatewayService.configured(),
+        phoneVerified: Boolean(auth.user?.phoneNumber && auth.user?.phoneVerifiedAt),
         czkRate: null,
         defaultDate: this.defaultDate(),
         providerMode: service.provider,

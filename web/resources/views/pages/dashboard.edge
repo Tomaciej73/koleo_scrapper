@@ -512,8 +512,23 @@
                           />
                         </label>
                         <p class="field__hint">
-                          Alert zostanie wysłany na potwierdzony adres e-mail przypisany do Twojego konta.
+                          Wybierz e-mail, SMS albo oba kanały. Alert trafi tylko na potwierdzone dane kontaktowe konta.
                         </p>
+                        <label>
+                          <span>Kanał powiadomień</span>
+                          <select name="notificationChannel">
+                            <option value="email">E-mail</option>
+                            @if(smsEnabled && phoneVerified)
+                              <option value="sms">SMS</option>
+                              <option value="both">E-mail i SMS</option>
+                            @end
+                          </select>
+                          @if(!phoneVerified)
+                            <small>SMS wymaga potwierdzenia numeru w ustawieniach konta.</small>
+                          @elseif(!smsEnabled)
+                            <small>SMS wymaga skonfigurowania bramki przez administratora.</small>
+                          @end
+                        </label>
                         <button
                           type="submit"
                           class="btn btn--primary btn--block"

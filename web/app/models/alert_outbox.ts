@@ -32,6 +32,9 @@ export default class AlertOutbox extends BaseModel {
   declare body: string
 
   @column()
+  declare channel: 'email' | 'sms'
+
+  @column()
   declare status: string
 
   @column()

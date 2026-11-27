@@ -59,8 +59,11 @@ powiązany z KOLEO ani PKP. Kod został zaimportowany z projektu
 - Nie zmieniaj konfiguracji `origin` ani repozytoryjnego aliasu SSH.
 - Aplikacja WWW ma startować z `PRICE_PROVIDER=demo`, `ALERTS_ENABLED=false`
   i `MAIL_ENABLED=false`. Nie zmieniaj bezpiecznych wartości domyślnych.
-- Cała konfiguracja aplikacji WWW należy do `web/.env`; w repozytorium może
-  znajdować się wyłącznie pozbawiony sekretów plik `web/.env.example`.
+- Jedynym lokalnym plikiem konfiguracyjnym do edycji jest ignorowany przez Git
+  `.env_conf` w katalogu repozytorium. Docker Compose używa go do interpolacji
+  i montuje ten sam plik do aplikacji; nie twórz odrębnego `web/.env`.
+  `web/.env.example` jest wyłącznie pozbawioną sekretów dokumentacją kluczy,
+  a `web/.env.test` izolowanym zestawem wartości testowych.
 - Ścieżki bazy danych rozwiązuj względem katalogu aplikacji przez AdonisJS.
   Nie dodawaj bezwzględnych ścieżek do kodu ani konfiguracji.
 
