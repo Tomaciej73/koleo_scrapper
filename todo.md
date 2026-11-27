@@ -108,3 +108,11 @@ Ostatnia aktualizacja: 2026-11-26
 - [x] Historia istotnych odczytów przechowuje użyty kurs, datę i numer tabeli NBP, przeliczoną kwotę, próg oraz wynik porównania. Treść e-maila używa kursu z tego samego sprawdzenia.
 - [x] Testy offline 63/63, lint, typecheck i build produkcyjny przeszły; nowy test obejmuje dwa przekroczenia progu, powtórny odczyt, chwilowy brak NBP i istniejącą obserwację po migracji.
 - [ ] Wdrożyć migrację na VPS po wykonaniu kopii bazy i sprawdzić jeden pełny cykl zmiany kursu oraz widok historii.
+
+## Bieżąca zmiana: favicon i tytuły stron (2026-11-27)
+
+- [x] Dodano własny favicon SVG nawiązujący do znaku pociągu i kolorystyki aplikacji; jest używany w widokach publicznych, konta i po zalogowaniu.
+- [x] Ujednolicono tytuły kart przeglądarki dla wyszukiwania, monitorowanych połączeń, konta, rejestracji, weryfikacji e-mail, odzyskiwania hasła i stron błędów.
+- [x] Zmieniono widoczny nagłówek i nawigację z „Obserwowane” na „Monitorowane”.
+- [x] Testy offline 64/64, lint, typecheck i build produkcyjny przeszły; favicon jest kopiowany do obrazu aplikacji.
+- [ ] Po własnym wdrożeniu na VPS potwierdzić wygląd favicon i tytułów kart w przeglądarce; w razie starej ikony odświeżyć pamięć przeglądarki.

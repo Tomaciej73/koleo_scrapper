@@ -3,8 +3,8 @@
   app, and it shows up in the navigation bar with its active state handled.
 --}}
 @let(nav = [
-  { label: 'Wyszukiwarka', route: 'dashboard', icon: 'lucide:search' },
-  { label: 'Obserwowane', route: 'price_watches.index', icon: 'lucide:bell-ring' },
+  { label: 'Wyszukiwanie', route: 'dashboard', icon: 'lucide:search' },
+  { label: 'Monitorowane', route: 'price_watches.index', icon: 'lucide:bell-ring' },
   { label: 'Konto', route: 'account.index', icon: 'lucide:user-round-cog' },
 ])
 @let(pageTitle = $props.get('title'))
@@ -21,7 +21,8 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{{ pageTitle ? `${pageTitle} — Koleo Watch` : 'Koleo Watch' }}</title>
+    <title>{{ pageTitle ? `${pageTitle} — Koleo Watch` : 'Panel użytkownika - Koleo Watch' }}</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @stack('dumper')
   </head>

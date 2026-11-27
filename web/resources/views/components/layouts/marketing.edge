@@ -1,3 +1,4 @@
+@let(pageTitle = $props.get('title') ?? 'Monitoring cen biletów kolejowych')
 <!DOCTYPE html>
 <html
   lang="pl"
@@ -11,7 +12,8 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Koleo Watch — połączenia i alerty cenowe</title>
+    <title>{{ pageTitle }} - Koleo Watch</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @stack('dumper')
   </head>
