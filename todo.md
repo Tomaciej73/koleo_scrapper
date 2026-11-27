@@ -149,3 +149,14 @@ Ostatnia aktualizacja: 2026-11-27
 - [x] Polecenia lokalne ładują `.env_conf`; izolowane testy używają `web/.env.test`. Usunięto lokalny `web/.env` po sprawdzeniu przeniesienia wszystkich jego kluczy.
 - [x] Uzupełniono README i AGENTS.md; `npm run dev`, build, lint, typecheck, 72/72 testów offline, `docker compose config --quiet` i próbny build obrazu przeszły bez `web/.env`. Próbny obraz usunięto.
 - [ ] Na VPS zarchiwizować dotychczasowe pliki, przenieść brakujące sekrety z serwerowego `web/.env` do serwerowego `.env_conf`, ustawić `APP_ENV_FILE=./.env_conf` i dopiero po weryfikacji usunąć stary plik.
+
+## Bieżąca zmiana: dostawca SMSAPI (2026-11-27)
+
+- [x] Dodano wybór `SMS_PROVIDER=android|smsapi` bez zmiany istniejącego domyślnego dostawcy.
+- [x] Dodano adapter SMSAPI dla `POST /sms.do` z tokenem API (zalecane) albo starszym loginem i 32-znakowym hasłem MD5, polem nadawcy, bezpiecznym parsowaniem odpowiedzi i timeoutem.
+- [x] Zweryfikowano działający broker: jego biblioteka przyjmuje `smsApiClient` i zwykłe `smsApiPassword`, wylicza MD5 i uwierzytelnia się przez HTTP Basic. Dodano zgodne `SMSAPI_CLIENT` i `SMSAPI_PASSWORD` bez konieczności przygotowania MD5 przez użytkownika.
+- [x] Dodano puste klucze SMSAPI do ignorowanego `.env_conf`; `SMS_ENABLED=false` pozostaje bez zmiany do czasu uzupełnienia danych i kontrolowanego testu. Testy offline 77/77, lint, typecheck, build i walidacja Compose przeszły.
+- [x] Ponowienia używają stabilnego `idx` oraz `check_idx=1`; treść i dane uwierzytelniające nie trafiają do adresu URL ani komunikatów błędów.
+- [x] Zaktualizowano przykład środowiska i README. Testy offline 75/75, lint, typecheck, build i kontrola konfiguracji Compose w WSL przeszły.
+- [ ] Użytkownik musi uzupełnić po swojej stronie ignorowany `.env_conf` poprawnymi danymi SMSAPI, wdrożyć obraz i wykonać kontrolowany test na własnym numerze; nie wykonywano rzeczywistej wysyłki ani wdrożenia VPS.
+- [ ] Opcjonalnie pobierać raport doręczenia SMSAPI; obecnie sukces oznacza tylko przyjęcie wiadomości przez API.

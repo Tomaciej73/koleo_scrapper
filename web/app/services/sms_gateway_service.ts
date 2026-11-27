@@ -1,4 +1,5 @@
 import env from '#start/env'
+import SmsApiService from '#services/smsapi_service'
 
 export class SmsGatewayError extends Error {}
 
@@ -8,9 +9,22 @@ export default class SmsGatewayService {
   }
 
   static configured() {
+    if (!this.enabled()) return false
+    if (env.get('SMS_PROVIDER') === 'smsapi') {
+      const apiUrl = env.get('SMSAPI_API_URL')
+      const client = env.get('SMSAPI_CLIENT') || env.get('SMSAPI_USERNAME')
+      const password = env.get('SMSAPI_PASSWORD')?.release()
+      const passwordMd5 = env.get('SMSAPI_PASSWORD_MD5')?.release()
+      return Boolean(
+        apiUrl &&
+        new URL(apiUrl).protocol === 'https:' &&
+        env.get('SMSAPI_SENDER') &&
+        (env.get('SMSAPI_API_TOKEN')?.release() ||
+          (client && (password || (passwordMd5 && /^[a-f\d]{32}$/i.test(passwordMd5)))))
+      )
+    }
     const messagesUrl = env.get('SMS_GATEWAY_MESSAGES_URL')
     return Boolean(
-      this.enabled() &&
       messagesUrl &&
       new URL(messagesUrl).protocol === 'https:' &&
       env.get('SMS_GATEWAY_USERNAME') &&
@@ -33,6 +47,18 @@ export default class SmsGatewayService {
   async send(recipient: string, message: string, messageId: string): Promise<void> {
     if (!SmsGatewayService.configured()) {
       throw new SmsGatewayError('Wysyłka SMS nie jest skonfigurowana.')
+    }
+    if (env.get('SMS_PROVIDER') === 'smsapi') {
+      await new SmsApiService({
+        url: env.get('SMSAPI_API_URL')!,
+        sender: env.get('SMSAPI_SENDER')!,
+        token: env.get('SMSAPI_API_TOKEN')?.release(),
+        username: env.get('SMSAPI_CLIENT') || env.get('SMSAPI_USERNAME'),
+        password: env.get('SMSAPI_PASSWORD')?.release(),
+        passwordMd5: env.get('SMSAPI_PASSWORD_MD5')?.release(),
+        timeoutMs: Math.max(1, env.get('SMS_REQUEST_TIMEOUT_MS') ?? 10_000),
+      }).send(recipient, message, messageId)
+      return
     }
     const endpoint = new URL(env.get('SMS_GATEWAY_MESSAGES_URL')!)
     if (endpoint.protocol !== 'https:') {

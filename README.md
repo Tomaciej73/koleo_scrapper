@@ -306,17 +306,62 @@ oczekujące SMS-y. WhatsApp nie jest obsługiwany.
 
 ### Konfiguracja SMS
 
-Integracja używa [API SMS Gateway for Android](https://docs.sms-gate.app/features/sending-messages/)
+Integracja obsługuje dwa warianty. Domyślny `android` używa
+[API SMS Gateway for Android](https://docs.sms-gate.app/features/sending-messages/)
 (`POST /3rdparty/v1/messages`) przez HTTPS. Potrzebny jest telefon Android
 z aplikacją i aktywną kartą SIM, ewentualnie własna bramka zgodna z tym API.
 Ustaw w nieśledzonym `.env_conf` (nie w `compose.yaml`):
 
 ```dotenv
 SMS_ENABLED=true
+SMS_PROVIDER=android
 SMS_GATEWAY_MESSAGES_URL=https://api.sms-gate.app/3rdparty/v1/messages
 SMS_GATEWAY_USERNAME=<nazwa-z-bramki>
 SMS_GATEWAY_PASSWORD=<haslo-z-bramki>
 ```
+
+Alternatywa bez telefonu to [SMSAPI](https://www.smsapi.pl/docs/). Jego aktualny
+punkt wysyłki to `https://api.smsapi.pl/sms.do`; `ssl.smsapi.pl` jest adresem
+panelu klienta, a nie adresem wysyłki. Zalecane jest wygenerowanie w panelu
+tokenu API z prawem wysyłki SMS. Zweryfikuj i aktywuj pole nadawcy w SMSAPI.
+
+```dotenv
+SMS_ENABLED=true
+SMS_PROVIDER=smsapi
+SMSAPI_API_URL=https://api.smsapi.pl/sms.do
+SMSAPI_API_TOKEN=<token-z-panelu-smsapi>
+SMSAPI_SENDER=<zatwierdzone-pole-nadawcy>
+```
+
+Jeśli masz działającą konfigurację brokera powiadomień z polami
+`powiadomienia.smsApiClient`, `powiadomienia.smsApiPassword` i
+`powiadomienia.smsApiSender`, ustaw ich odpowiedniki w `.env_conf`:
+
+```dotenv
+SMS_ENABLED=true
+SMS_PROVIDER=smsapi
+SMSAPI_API_URL=https://api.smsapi.pl/sms.do
+SMSAPI_CLIENT=<wartosc-smsApiClient>
+SMSAPI_PASSWORD=<zwykle-haslo-API-z-smsApiPassword>
+SMSAPI_SENDER=<wartosc-smsApiSender>
+```
+
+`SMSAPI_PASSWORD` oznacza zwykłe hasło **do API**, a nie hasło do panelu.
+Aplikacja sama wylicza MD5, tak jak biblioteka brokera, i wysyła wynik w
+uwierzytelnieniu HTTP Basic przez HTTPS. Nie kopiuj tych danych do Git ani do
+logów. Alternatywnie nadal działają `SMSAPI_USERNAME` i
+`SMSAPI_PASSWORD_MD5` dla już skonfigurowanej starszej integracji. Token ma
+pierwszeństwo, jeżeli oba sposoby uwierzytelniania są skonfigurowane.
+SMSAPI pobiera opłatę
+za wysyłki po wykorzystaniu pakietu testowego.
+
+Wysyłka SMSAPI jest żądaniem POST z danymi w treści (nie w adresie URL),
+z `idx` i `check_idx=1` w celu zabezpieczenia ponowień przed podwójną wysyłką
+w 24-godzinnym oknie obsługiwanym przez dostawcę. Aplikacja uznaje odpowiedź
+o przyjęciu wiadomości do kolejki za sukces, ale nie pobiera jeszcze raportów
+faktycznego doręczenia. Testuj najpierw potwierdzenie własnego numeru w
+ustawieniach konta; samego adresu ani danych dostępowych nie wystarczy zmienić
+bez wdrożenia tej wersji kodu.
 
 Pozostałe `SMS_*` i `RATE_LIMIT_PHONE_REQUESTS` mają przykładowe wartości w
 `.env.example` oraz `.env_conf`. Dla własnego serwera ustaw jego pełny adres
