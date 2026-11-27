@@ -1,6 +1,7 @@
 import User from '#models/user'
 import PhoneVerificationService from '#services/phone_verification_service'
 import SmsGatewayService from '#services/sms_gateway_service'
+import { SmsApiError } from '#services/smsapi_service'
 import { phoneRemoveValidator, phoneRequestValidator, phoneVerifyValidator } from '#validators/user'
 import type { HttpContext } from '@adonisjs/core/http'
 import { errors as authErrors } from '@adonisjs/auth'
@@ -48,7 +49,12 @@ export default class PhoneController {
         { err: error, event: 'phone_verification_delivery_failed', userId: user.id },
         'Nie udało się wysłać kodu potwierdzającego numer'
       )
-      session.flash('error', 'Nie udało się wysłać kodu SMS. Spróbuj później.')
+      session.flash(
+        'error',
+        error instanceof SmsApiError && error.code === 14
+          ? 'Nie udało się wysłać kodu SMS: pole nadawcy nie jest akceptowane przez SMSAPI. Zgłoś problem administratorowi.'
+          : 'Nie udało się wysłać kodu SMS. Spróbuj później.'
+      )
     }
     return response.redirect().toRoute('account.index')
   }

@@ -1,4 +1,4 @@
-import SmsApiService from '#services/smsapi_service'
+import SmsApiService, { SmsApiError } from '#services/smsapi_service'
 import { test } from '@japa/runner'
 
 const configuration = {
@@ -52,6 +52,22 @@ test.group('SMSAPI delivery', () => {
       () => rejected.send('+48500600700', 'Test', 'delivery-3'),
       /SMSAPI odrzuciło wiadomość \(kod 101\)/
     )
+  })
+
+  test('preserves the SMSAPI error code without exposing provider details', async ({ assert }) => {
+    const rejected = new SmsApiService(
+      { ...configuration, token: 'private-test-token' },
+      async () => Response.json({ error: 14, message: 'private provider detail' }, { status: 400 })
+    )
+
+    try {
+      await rejected.send('+48500600700', 'Test', 'delivery-sender-error')
+      assert.fail('SMSAPI should reject an invalid sender')
+    } catch (error) {
+      assert.instanceOf(error, SmsApiError)
+      assert.equal((error as SmsApiError).code, 14)
+      assert.notInclude((error as Error).message, 'private provider detail')
+    }
   })
 
   test('supports the legacy API password only in the POST body', async ({ assert }) => {

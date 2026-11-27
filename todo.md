@@ -160,3 +160,11 @@ Ostatnia aktualizacja: 2026-11-27
 - [x] Zaktualizowano przykład środowiska i README. Testy offline 75/75, lint, typecheck, build i kontrola konfiguracji Compose w WSL przeszły.
 - [ ] Użytkownik musi uzupełnić po swojej stronie ignorowany `.env_conf` poprawnymi danymi SMSAPI, wdrożyć obraz i wykonać kontrolowany test na własnym numerze; nie wykonywano rzeczywistej wysyłki ani wdrożenia VPS.
 - [ ] Opcjonalnie pobierać raport doręczenia SMSAPI; obecnie sukces oznacza tylko przyjęcie wiadomości przez API.
+
+## Formularze SMS i diagnoza błędu 14 (2026-11-27)
+
+- [x] Ujednolicono pola numeru, hasła i kodu SMS z komponentami formularza konta; powiązano etykiety z unikalnymi identyfikatorami i zablokowano wielokrotne wysłanie.
+- [x] Kod 14 SMSAPI rozpoznawany jest jako nieprawidłowe pole nadawcy; formularz pokazuje czytelny komunikat bez ujawniania odpowiedzi dostawcy.
+- [x] Po jednoznacznym odrzuceniu wiadomości przez SMSAPI usuwany jest niewysłany kod weryfikacyjny, aby użytkownik mógł ponowić próbę po poprawieniu konfiguracji.
+- [x] Walidacja lokalna: lint, typecheck, 79/79 testów offline i build produkcyjny przeszły.
+- [ ] Na VPS sprawdzić aktywację pola nadawcy na koncie SMSAPI, skuteczną konfigurację `SMSAPI_SENDER` oraz ewentualny token z innego konta. Lokalny `.env_conf` nie zawiera danych dostępowych; realnej wysyłki nie testowano.

@@ -1,5 +1,6 @@
 import User from '#models/user'
 import SmsGatewayService from '#services/sms_gateway_service'
+import { SmsApiError } from '#services/smsapi_service'
 import env from '#start/env'
 import hash from '@adonisjs/core/services/hash'
 import db from '@adonisjs/lucid/services/db'
@@ -37,11 +38,24 @@ export default class PhoneVerificationService {
       sent_at: now.toSQL(),
       attempts: 0,
     })
-    await new SmsGatewayService().send(
-      phoneNumber,
-      `Koleo Watch: kod potwierdzenia numeru ${code}. Wazny ${env.get('SMS_VERIFICATION_TTL_MINUTES') ?? 10} min. Jesli nie prosiles o kod, zignoruj SMS.`,
-      randomUUID()
-    )
+    try {
+      await new SmsGatewayService().send(
+        phoneNumber,
+        `Koleo Watch: kod potwierdzenia numeru ${code}. Wazny ${env.get('SMS_VERIFICATION_TTL_MINUTES') ?? 10} min. Jesli nie prosiles o kod, zignoruj SMS.`,
+        randomUUID()
+      )
+    } catch (error) {
+      // A definitive provider rejection means no code was sent. Do not leave
+      // a pending verification that would block the next attempt by cooldown.
+      if (error instanceof SmsApiError && error.code !== undefined) {
+        await db
+          .from('phone_verifications')
+          .where('user_id', user.id)
+          .where('code_hash', codeHash)
+          .delete()
+      }
+      throw error
+    }
     return { sent: true, retryAfterSeconds: 0 }
   }
 

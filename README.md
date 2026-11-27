@@ -357,11 +357,20 @@ za wysyłki po wykorzystaniu pakietu testowego.
 
 Wysyłka SMSAPI jest żądaniem POST z danymi w treści (nie w adresie URL),
 z `idx` i `check_idx=1` w celu zabezpieczenia ponowień przed podwójną wysyłką
-w 24-godzinnym oknie obsługiwanym przez dostawcę. Aplikacja uznaje odpowiedź
+w oknie obsługiwanym przez dostawcę. Aplikacja uznaje odpowiedź
 o przyjęciu wiadomości do kolejki za sukces, ale nie pobiera jeszcze raportów
 faktycznego doręczenia. Testuj najpierw potwierdzenie własnego numeru w
 ustawieniach konta; samego adresu ani danych dostępowych nie wystarczy zmienić
 bez wdrożenia tej wersji kodu.
+
+Jeśli SMSAPI zwróci kod błędu `14`, sprawdź `SMSAPI_SENDER`: nazwa pola nadawcy
+musi być aktywna i zweryfikowana na koncie, którego używa `SMSAPI_CLIENT` albo
+`SMSAPI_API_TOKEN`. W brokerze nadawca może zostać nadpisany przez konkretne
+powiadomienie, więc samo skopiowanie `powiadomienia.smsApiSender` nie dowodzi,
+że ta nazwa jest dopuszczona przez SMSAPI. Kod `14` oznacza odrzucenie przez
+dostawcę przed wysyłką; po poprawieniu konfiguracji można ponowić próbę
+weryfikacji numeru. Nie umieszczaj pełnych danych dostępowych ani numeru
+odbiorcy w zgłoszeniu błędu.
 
 Pozostałe `SMS_*` i `RATE_LIMIT_PHONE_REQUESTS` mają przykładowe wartości w
 `.env.example` oraz `.env_conf`. Dla własnego serwera ustaw jego pełny adres

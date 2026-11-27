@@ -3,6 +3,8 @@ import PriceWatch from '#models/price_watch'
 import User from '#models/user'
 import AlertOutboxService from '#services/alert_outbox_service'
 import SmsGatewayService from '#services/sms_gateway_service'
+import { SmsApiError } from '#services/smsapi_service'
+import PhoneVerificationService from '#services/phone_verification_service'
 import testUtils from '@adonisjs/core/services/test_utils'
 import limiter from '@adonisjs/limiter/services/main'
 import mail from '@adonisjs/mail/services/main'
@@ -61,6 +63,17 @@ test.group('SMS notifications', (group) => {
       await user.refresh()
       assert.isNull(user.phoneNumber)
 
+      const pendingAccount = await client
+        .get('/account')
+        .withSession({ authVersion: user.authVersion })
+        .loginAs(user)
+      pendingAccount.assertStatus(200)
+      for (const fieldId of ['smsPhoneNumber', 'smsCurrentPassword', 'smsVerificationCode']) {
+        assert.include(pendingAccount.text(), `id="${fieldId}"`)
+        assert.include(pendingAccount.text(), `for="${fieldId}"`)
+      }
+      assert.include(pendingAccount.text(), 'class="field__input"')
+
       const invalid = await client
         .post('/account/phone/verify')
         .redirects(0)
@@ -91,6 +104,8 @@ test.group('SMS notifications', (group) => {
       account.assertStatus(200)
       account.assertTextIncludes('kończy się na 700')
       assert.notInclude(account.text(), '+48500600700')
+      assert.include(account.text(), 'id="removePhonePassword"')
+      assert.include(account.text(), 'for="removePhonePassword"')
 
       const watch = await PriceWatch.create({
         userId: user.id,
@@ -127,6 +142,36 @@ test.group('SMS notifications', (group) => {
       assert.equal(watch.notificationChannel, 'email')
     } finally {
       globalThis.fetch = originalFetch
+    }
+  })
+
+  test('clears a rejected SMS verification so the user can retry after fixing the sender', async ({
+    client,
+    assert,
+  }) => {
+    const user = await User.create({
+      email: 'sms-rejected@example.test',
+      password: 'Qa-Test-2026!',
+      emailVerifiedAt: DateTime.utc(),
+    })
+    const originalSend = SmsGatewayService.prototype.send
+    SmsGatewayService.prototype.send = async () => {
+      throw new SmsApiError('SMSAPI odrzuciło wiadomość (kod 14).', 14)
+    }
+
+    try {
+      const rejected = await client
+        .post('/account/phone')
+        .redirects(0)
+        .withSession({ authVersion: user.authVersion })
+        .loginAs(user)
+        .withCsrfToken()
+        .form({ phoneNumber: '+48 500 600 700', currentPassword: 'Qa-Test-2026!' })
+      rejected.assertStatus(302)
+      const pending = await new PhoneVerificationService().pending(user.id)
+      assert.isNull(pending)
+    } finally {
+      SmsGatewayService.prototype.send = originalSend
     }
   })
 

@@ -10,7 +10,14 @@ export interface SmsApiConfiguration {
   timeoutMs: number
 }
 
-export class SmsApiError extends Error {}
+export class SmsApiError extends Error {
+  constructor(
+    message: string,
+    public readonly code?: number
+  ) {
+    super(message)
+  }
+}
 
 export default class SmsApiService {
   constructor(
@@ -82,11 +89,12 @@ export default class SmsApiService {
     }
     const errorCode = Number(result.error)
     // With check_idx=1, error 53 means the same message was already accepted
-    // during the preceding 24 hours (for example, before a lost HTTP reply).
+    // within the provider's duplicate-check window (for example, before a lost HTTP reply).
     if (errorCode === 53) return
     if (result.error !== null && result.error !== undefined) {
       throw new SmsApiError(
-        `SMSAPI odrzuciło wiadomość (kod ${Number.isInteger(errorCode) ? errorCode : 'nieznany'}).`
+        `SMSAPI odrzuciło wiadomość (kod ${Number.isInteger(errorCode) ? errorCode : 'nieznany'}).`,
+        Number.isInteger(errorCode) ? errorCode : undefined
       )
     }
     if (
