@@ -940,38 +940,31 @@ input {
   font-size: 13px;
 }
 
-.phone-action {
+.account-action {
   max-width: 520px;
 }
 
-.phone-action > summary {
+.account-action > summary {
   width: fit-content;
   cursor: pointer;
   list-style: none;
 }
 
-.phone-action > summary::marker {
+.account-action > summary::marker {
   content: '';
 }
 
-.phone-action > summary::-webkit-details-marker {
+.account-action > summary::-webkit-details-marker {
   display: none;
 }
 
-.phone-action[open] > summary {
+.account-action[open] > summary {
   margin-bottom: 14px;
 }
 
-.phone-action > p {
+.account-action > p {
   margin: 0 0 14px;
   font-size: 13px;
-}
-
-.account-section--danger {
-  padding: 20px;
-  border: 1px solid color-mix(in srgb, #b42318 42%, var(--line));
-  border-radius: var(--r-lg);
-  background: color-mix(in srgb, var(--danger-soft) 46%, var(--card));
 }
 
 .session-list {

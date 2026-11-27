@@ -26,39 +26,56 @@
           </div>
         </div>
       @end
-      @form({
-        route: 'account.email',
-        method: 'POST',
-        class: 'account-form',
-        'x-data': 'submittingForm',
-        'x-on:submit': 'handleSubmit($event)',
-      })
-        @field.root({ name: 'email' })
-          @!field.label({ text: 'Nowy adres e-mail' })
-          @!input.control({
-            type: 'email',
-            value: user.email,
-            autocomplete: 'email',
-            maxlength: emailMaxLength,
+      <details
+        class="account-action"
+        id="change-email"
+        {{
+          html.attrs({
+            open:
+              old('accountAction') === 'email' ||
+              flashMessages.get('accountAction') === 'email',
           })
-          @!field.error()
-        @end
-        @field.root({ name: 'currentPassword' })
-          @!field.label({ text: 'Aktualne hasło' })
-          @!input.control({
-            type: 'password',
-            autocomplete: 'current-password',
-            maxlength: passwordMaxLength,
-          })
-          @!field.error()
-        @end
-        @!button({
-          text: 'Zmień adres e-mail',
-          type: 'submit',
-          class: 'btn--primary',
-          'x-bind:disabled': 'submitting',
+        }}
+      >
+        <summary class="btn btn--secondary">
+          @svg('lucide:mail', { width: 16, height: 16 })
+          Zmień adres e-mail
+        </summary>
+        @form({
+          route: 'account.email',
+          method: 'POST',
+          class: 'account-form',
+          'x-data': 'submittingForm',
+          'x-on:submit': 'handleSubmit($event)',
         })
-      @end
+          <input type="hidden" name="accountAction" value="email" />
+          @field.root({ name: 'email' })
+            @!field.label({ text: 'Nowy adres e-mail' })
+            @!input.control({
+              type: 'email',
+              value: user.email,
+              autocomplete: 'email',
+              maxlength: emailMaxLength,
+            })
+            @!field.error()
+          @end
+          @field.root({ name: 'currentPassword' })
+            @!field.label({ text: 'Aktualne hasło' })
+            @!input.control({
+              type: 'password',
+              autocomplete: 'current-password',
+              maxlength: passwordMaxLength,
+            })
+            @!field.error()
+          @end
+          @!button({
+            text: 'Wyślij kod na nowy adres',
+            type: 'submit',
+            class: 'btn--primary',
+            'x-bind:disabled': 'submitting',
+          })
+        @end
+      </details>
     </section>
 
     <section class="account-section">
@@ -119,7 +136,7 @@
       @end
       @if(smsEnabled)
         @if(user.phoneNumber && user.phoneVerifiedAt)
-          <details class="phone-action" id="change-phone">
+          <details class="account-action" id="change-phone">
             <summary class="btn btn--secondary">
               @svg('lucide:refresh-cw', { width: 16, height: 16 })
               Zmień numer telefonu
@@ -134,7 +151,7 @@
         <p>Bramka SMS nie jest jeszcze skonfigurowana. Powiadomienia e-mail pozostają dostępne.</p>
       @end
       @if(user.phoneNumber && user.phoneVerifiedAt)
-        <details class="phone-action" id="remove-phone">
+        <details class="account-action" id="remove-phone">
           <summary class="btn btn--secondary">
             @svg('lucide:trash-2', { width: 16, height: 16 })
             Usuń numer telefonu
@@ -238,40 +255,57 @@
       </a>
     </section>
 
-    <section class="account-section account-section--danger">
+    <section class="account-section">
       <div>
         <span class="eyebrow">Strefa niebezpieczna</span>
         <h2>Usuń konto</h2>
         <p>Operacja trwale usuwa konto, obserwacje i historię cen. Nie można jej cofnąć.</p>
       </div>
-      @form({
-        route: 'account.destroy',
-        method: 'DELETE',
-        class: 'account-form',
-        'x-data': 'submittingForm',
-        'x-on:submit':
-          "if (!confirm('Czy na pewno trwale usunąć konto?')) { $event.preventDefault(); return }; handleSubmit($event)",
-      })
-        @field.root({ name: 'password' })
-          @!field.label({ text: 'Aktualne hasło' })
-          @!input.control({
-            type: 'password',
-            autocomplete: 'current-password',
-            maxlength: passwordMaxLength,
+      <details
+        class="account-action"
+        id="delete-account"
+        {{
+          html.attrs({
+            open:
+              old('accountAction') === 'delete' ||
+              flashMessages.get('accountAction') === 'delete',
           })
-          @!field.error()
-        @end
-        @field.root({ name: 'confirmation' })
-          @!field.label({ text: 'Wpisz USUŃ' })
-          @!input.control({ autocomplete: 'off', placeholder: 'USUŃ' })
-          @!field.error()
-        @end
-
-        <button type="submit" class="btn btn--danger" x-bind:disabled="submitting">
+        }}
+      >
+        <summary class="btn btn--secondary">
           @svg('lucide:trash-2', { width: 16, height: 16 })
-          Usuń konto na zawsze
-        </button>
-      @end
+          Usuń konto
+        </summary>
+        @form({
+          route: 'account.destroy',
+          method: 'DELETE',
+          class: 'account-form',
+          'x-data': 'submittingForm',
+          'data-confirm': 'Czy na pewno trwale usunąć konto?',
+          'x-on:submit': 'handleSubmit($event)',
+        })
+          <input type="hidden" name="accountAction" value="delete" />
+          @field.root({ name: 'password' })
+            @!field.label({ text: 'Aktualne hasło' })
+            @!input.control({
+              type: 'password',
+              autocomplete: 'current-password',
+              maxlength: passwordMaxLength,
+            })
+            @!field.error()
+          @end
+          @field.root({ name: 'confirmation' })
+            @!field.label({ text: 'Wpisz USUŃ' })
+            @!input.control({ autocomplete: 'off', placeholder: 'USUŃ' })
+            @!field.error()
+          @end
+
+          <button type="submit" class="btn btn--danger" x-bind:disabled="submitting">
+            @svg('lucide:trash-2', { width: 16, height: 16 })
+            Usuń konto na zawsze
+          </button>
+        @end
+      </details>
     </section>
   </div>
 @end

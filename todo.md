@@ -181,3 +181,10 @@ Ostatnia aktualizacja: 2026-11-27
 - [x] Podczas zmiany stary numer pozostaje aktywny do potwierdzenia nowego; komunikaty i logi odróżniają dodanie od zmiany numeru.
 - [x] Dodano test zmiany numeru i dwa testy przeglądarkowe sprawdzające widoczność formularzy; 83/83 testów offline, lint, typecheck i build przeszły.
 - [ ] Po wdrożeniu sprawdzić na własnym koncie wygląd obu stanów, w tym zmianę numeru przy oczekującym kodzie.
+
+## Rozwijane akcje konta (2026-11-27)
+
+- [x] Zmiana adresu e-mail i usunięcie konta otwierają formularz dopiero po kliknięciu przycisku, tak jak akcje dotyczące numeru telefonu.
+- [x] Formularz pozostaje otwarty po błędzie walidacji lub błędnym haśle. Potwierdzenie usunięcia korzysta z mechanizmu zgodnego z Alpine CSP.
+- [x] Testy offline 87/87, lint, typecheck i build przeszły.
+- [ ] Po wdrożeniu na VPS sprawdzić wygląd akcji na telefonie i komputerze oraz potwierdzenie usunięcia konta na koncie testowym.

@@ -91,6 +91,7 @@ export default class AccountController {
     const normalizedEmail = email.trim().toLocaleLowerCase('en-US')
     if (!(await this.credentialsValid(user, currentPassword))) {
       session.flash('error', 'Aktualne hasło jest nieprawidłowe.')
+      session.flash('accountAction', 'email')
       return response.redirect().back()
     }
     if (normalizedEmail === user.email) {
@@ -108,6 +109,7 @@ export default class AccountController {
         .first()
     ) {
       session.flash('error', 'Nie można użyć tego adresu e-mail.')
+      session.flash('accountAction', 'email')
       return response.redirect().back()
     }
     if (normalizedEmail === user.pendingEmail) {
@@ -129,6 +131,7 @@ export default class AccountController {
         (error as { code?: string }).code === '23505'
       ) {
         session.flash('error', 'Nie można użyć tego adresu e-mail.')
+        session.flash('accountAction', 'email')
         return response.redirect().back()
       }
       throw error
@@ -174,6 +177,7 @@ export default class AccountController {
     const { password, confirmation } = await request.validateUsing(accountDeleteValidator)
     if (confirmation !== 'USUŃ' || !(await this.credentialsValid(user, password))) {
       session.flash('error', 'Nieprawidłowe hasło lub potwierdzenie usunięcia konta.')
+      session.flash('accountAction', 'delete')
       return response.redirect().back()
     }
 
