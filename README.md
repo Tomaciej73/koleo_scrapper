@@ -380,6 +380,10 @@ Wysłanie kodu, wpisanie kodu i usunięcie numeru mają osobne liczniki żądań
 Wyczerpanie limitu wysyłki nie blokuje potwierdzenia otrzymanego już SMS-a.
 Liczba błędnych kodów jest dodatkowo ograniczona dla samego kodu przez
 `SMS_VERIFICATION_MAX_ATTEMPTS`.
+Po potwierdzeniu numeru formularz dodania jest ukryty. Użytkownik może
+świadomie rozwinąć akcję zmiany numeru; dotychczasowy numer pozostaje aktywny
+do potwierdzenia nowego kodem SMS. Usunięcie numeru wymaga aktualnego hasła
+i przełącza obserwacje na e-mail.
 Na serwerze uruchom migracje (`migrate` w Compose) przed udostępnieniem
 formularza SMS. Skonfiguruj telefon/bramkę, następnie potwierdź swój numer
 w ustawieniach konta i wykonaj próbę na własnej obserwacji.

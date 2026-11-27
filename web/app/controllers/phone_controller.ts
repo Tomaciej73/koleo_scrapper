@@ -38,10 +38,13 @@ export default class PhoneController {
     }
     try {
       const result = await new PhoneVerificationService().request(user, phoneNumber)
+      const changingNumber = Boolean(user.phoneNumber && user.phoneVerifiedAt)
       session.flash(
         result.sent ? 'success' : 'error',
         result.sent
-          ? 'Wysłaliśmy kod potwierdzający na podany numer.'
+          ? changingNumber
+            ? 'Wysłaliśmy kod na nowy numer. Dotychczasowy pozostaje aktywny do potwierdzenia zmiany.'
+            : 'Wysłaliśmy kod potwierdzający na podany numer.'
           : `Poczekaj ${result.retryAfterSeconds} s przed ponowną wysyłką kodu.`
       )
     } catch (error) {
@@ -61,6 +64,7 @@ export default class PhoneController {
 
   async verify({ auth, request, response, session, logger }: HttpContext) {
     const user = auth.getUserOrFail()
+    const changingNumber = Boolean(user.phoneNumber && user.phoneVerifiedAt)
     const { code } = await request.validateUsing(phoneVerifyValidator)
     let result
     try {
@@ -74,10 +78,17 @@ export default class PhoneController {
     }
     if (result === 'verified') {
       logger.info(
-        { event: 'phone_verified', userId: user.id },
-        'Potwierdzono numer telefonu użytkownika'
+        { event: changingNumber ? 'phone_changed' : 'phone_verified', userId: user.id },
+        changingNumber
+          ? 'Zmieniono numer telefonu użytkownika'
+          : 'Potwierdzono numer telefonu użytkownika'
       )
-      session.flash('success', 'Numer telefonu został potwierdzony. Możesz wybrać alerty SMS.')
+      session.flash(
+        'success',
+        changingNumber
+          ? 'Nowy numer został potwierdzony. Alerty SMS będą wysyłane na niego.'
+          : 'Numer telefonu został potwierdzony. Możesz wybrać alerty SMS.'
+      )
     } else {
       const message =
         {

@@ -910,6 +910,63 @@ input {
   justify-self: start;
 }
 
+.phone-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 520px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--card);
+}
+
+.phone-status > svg {
+  flex: none;
+  color: var(--accent-ink);
+}
+
+.phone-status > div {
+  display: grid;
+  gap: 3px;
+}
+
+.phone-status strong {
+  font-size: 14px;
+}
+
+.phone-status span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.phone-action {
+  max-width: 520px;
+}
+
+.phone-action > summary {
+  width: fit-content;
+  cursor: pointer;
+  list-style: none;
+}
+
+.phone-action > summary::marker {
+  content: '';
+}
+
+.phone-action > summary::-webkit-details-marker {
+  display: none;
+}
+
+.phone-action[open] > summary {
+  margin-bottom: 14px;
+}
+
+.phone-action > p {
+  margin: 0 0 14px;
+  font-size: 13px;
+}
+
 .account-section--danger {
   padding: 20px;
   border: 1px solid color-mix(in srgb, #b42318 42%, var(--line));

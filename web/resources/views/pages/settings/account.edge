@@ -65,49 +65,34 @@
       <div>
         <span class="eyebrow">Powiadomienia</span>
         <h2>Numer do alertów SMS</h2>
-        <p>Potwierdź numer kodem SMS, aby móc wybrać go przy obserwacji połączenia.</p>
+        <p>
+          @if(user.phoneNumber && user.phoneVerifiedAt)
+            Zmieniaj numer tylko wtedy, gdy chcesz przenieść alerty SMS na inny telefon.
+          @else
+            Potwierdź numer kodem SMS, aby móc wybrać go przy obserwacji połączenia.
+          @end
+        </p>
       </div>
       @if(user.phoneNumber && user.phoneVerifiedAt)
-        <p>Potwierdzony numer telefonu kończy się na {{ user.phoneNumber.slice(-3) }}.</p>
-      @end
-      @if(smsEnabled)
-        @form({
-          route: 'account.phone.request',
-          method: 'POST',
-          class: 'account-form',
-          'x-data': 'submittingForm',
-          'x-on:submit': 'handleSubmit($event)',
-        })
-          @field.root({ name: 'phoneNumber', id: 'smsPhoneNumber' })
-            @!field.label({ text: 'Polski numer telefonu' })
-            @!input.control({
-              type: 'tel',
-              autocomplete: 'tel',
-              maxlength: 24,
-              placeholder: '+48 500 600 700',
-              required: true,
-            })
-            @!field.error()
-          @end
-          @field.root({ name: 'currentPassword', id: 'smsCurrentPassword' })
-            @!field.label({ text: 'Aktualne hasło' })
-            @!input.control({
-              type: 'password',
-              autocomplete: 'current-password',
-              maxlength: passwordMaxLength,
-              required: true,
-            })
-            @!field.error()
-          @end
-          <button type="submit" class="btn btn--primary" x-bind:disabled="submitting">
-            Wyślij kod SMS
-          </button>
-        @end
-      @else
-        <p>Bramka SMS nie jest jeszcze skonfigurowana. Powiadomienia e-mail pozostają dostępne.</p>
+        <div class="phone-status">
+          @svg('lucide:shield-check', { width: 20, height: 20 })
+          <div>
+            <strong>Numer potwierdzony</strong>
+            <span>Numer telefonu kończy się na {{ user.phoneNumber.slice(-3) }}.</span>
+          </div>
+        </div>
       @end
       @if(pendingPhone)
-        <p>Kod wysłano na numer kończący się na {{ pendingPhone.slice(-3) }}.</p>
+        <div class="notice notice--info">
+          @svg('lucide:message-square-code', { width: 18, height: 18 })
+          <div>
+            <strong>{{ user.phoneVerifiedAt ? 'Zmiana numeru oczekuje na potwierdzenie' : 'Potwierdź numer telefonu' }}</strong>
+            <span>Kod wysłano na numer kończący się na {{ pendingPhone.slice(-3) }}.</span>
+            @if(user.phoneNumber && user.phoneVerifiedAt)
+              <span>Dotychczasowy numer pozostaje aktywny do potwierdzenia nowego.</span>
+            @end
+          </div>
+        </div>
         @form({
           route: 'account.phone.verify',
           method: 'POST',
@@ -132,28 +117,51 @@
           </button>
         @end
       @end
-      @if(user.phoneNumber)
-        @form({
-          route: 'account.phone.remove',
-          method: 'POST',
-          class: 'account-form',
-          'x-data': 'submittingForm',
-          'x-on:submit': 'handleSubmit($event)',
-        })
-          @field.root({ name: 'currentPassword', id: 'removePhonePassword' })
-            @!field.label({ text: 'Aktualne hasło, aby usunąć numer' })
-            @!input.control({
-              type: 'password',
-              autocomplete: 'current-password',
-              maxlength: passwordMaxLength,
-              required: true,
-            })
-            @!field.error()
-          @end
-          <button type="submit" class="btn btn--secondary" x-bind:disabled="submitting">
-            Usuń numer telefonu
-          </button>
+      @if(smsEnabled)
+        @if(user.phoneNumber && user.phoneVerifiedAt)
+          <details class="phone-action" id="change-phone">
+            <summary class="btn btn--secondary">
+              @svg('lucide:refresh-cw', { width: 16, height: 16 })
+              Zmień numer telefonu
+            </summary>
+            <p>Wpisz nowy numer. Dotychczasowy pozostanie aktywny, aż potwierdzisz nowy kodem SMS.</p>
+            @include('partials/phone_request_form')
+          </details>
+        @else
+          @include('partials/phone_request_form')
         @end
+      @else
+        <p>Bramka SMS nie jest jeszcze skonfigurowana. Powiadomienia e-mail pozostają dostępne.</p>
+      @end
+      @if(user.phoneNumber && user.phoneVerifiedAt)
+        <details class="phone-action" id="remove-phone">
+          <summary class="btn btn--secondary">
+            @svg('lucide:trash-2', { width: 16, height: 16 })
+            Usuń numer telefonu
+          </summary>
+          <p>Alerty SMS dla obserwowanych połączeń zostaną przestawione na e-mail.</p>
+          @form({
+            route: 'account.phone.remove',
+            method: 'POST',
+            class: 'account-form',
+            'x-data': 'submittingForm',
+            'x-on:submit': 'handleSubmit($event)',
+          })
+            @field.root({ name: 'currentPassword', id: 'removePhonePassword' })
+              @!field.label({ text: 'Aktualne hasło, aby usunąć numer' })
+              @!input.control({
+                type: 'password',
+                autocomplete: 'current-password',
+                maxlength: passwordMaxLength,
+                required: true,
+              })
+              @!field.error()
+            @end
+            <button type="submit" class="btn btn--secondary" x-bind:disabled="submitting">
+              Potwierdź usunięcie numeru
+            </button>
+          @end
+        </details>
       @end
     </section>
 

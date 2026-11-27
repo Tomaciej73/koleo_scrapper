@@ -174,3 +174,10 @@ Ostatnia aktualizacja: 2026-11-27
 - [x] Wysyłka kodu, jego potwierdzenie i usunięcie numeru mają niezależne liczniki per IP i per użytkownik; dotychczasowy limit wysyłki nie blokuje już wpisania otrzymanego SMS-a.
 - [x] Dodano test funkcjonalny potwierdzający kod po wyczerpaniu limitu wysyłki; testy offline 80/80, lint, typecheck i build przeszły.
 - [ ] Po wdrożeniu na VPS sprawdzić potwierdzenie ważnego kodu, nawet gdy licznik wysyłki jest zablokowany. Kod wygasły po czasie ważności wymaga ponownej wysyłki.
+
+## Czytelne zarządzanie potwierdzonym numerem (2026-11-27)
+
+- [x] Po potwierdzeniu numeru widoczna jest tylko zamaskowana końcówka; formularz wpisania nowego numeru i formularz usunięcia są zamknięte do wybrania odpowiednich akcji.
+- [x] Podczas zmiany stary numer pozostaje aktywny do potwierdzenia nowego; komunikaty i logi odróżniają dodanie od zmiany numeru.
+- [x] Dodano test zmiany numeru i dwa testy przeglądarkowe sprawdzające widoczność formularzy; 83/83 testów offline, lint, typecheck i build przeszły.
+- [ ] Po wdrożeniu sprawdzić na własnym koncie wygląd obu stanów, w tym zmianę numeru przy oczekującym kodzie.

@@ -1,0 +1,32 @@
+@form({
+  route: 'account.phone.request',
+  method: 'POST',
+  class: 'account-form',
+  'x-data': 'submittingForm',
+  'x-on:submit': 'handleSubmit($event)',
+})
+  @field.root({ name: 'phoneNumber', id: 'smsPhoneNumber' })
+    @!field.label({ text: 'Polski numer telefonu' })
+    @!input.control({
+      type: 'tel',
+      autocomplete: 'tel',
+      maxlength: 24,
+      placeholder: '+48 500 600 700',
+      required: true,
+    })
+    @!field.error()
+  @end
+  @field.root({ name: 'currentPassword', id: 'smsCurrentPassword' })
+    @!field.label({ text: 'Aktualne hasło' })
+    @!input.control({
+      type: 'password',
+      autocomplete: 'current-password',
+      maxlength: passwordMaxLength,
+      required: true,
+    })
+    @!field.error()
+  @end
+  <button type="submit" class="btn btn--primary" x-bind:disabled="submitting">
+    Wyślij kod SMS
+  </button>
+@end

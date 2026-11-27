@@ -105,6 +105,8 @@ test.group('SMS notifications', (group) => {
       account.assertStatus(200)
       account.assertTextIncludes('kończy się na 700')
       assert.notInclude(account.text(), '+48500600700')
+      assert.include(account.text(), 'id="change-phone"')
+      assert.include(account.text(), 'Zmień numer telefonu')
       assert.include(account.text(), 'id="removePhonePassword"')
       assert.include(account.text(), 'for="removePhonePassword"')
 
@@ -143,6 +145,70 @@ test.group('SMS notifications', (group) => {
       assert.equal(watch.notificationChannel, 'email')
     } finally {
       globalThis.fetch = originalFetch
+    }
+  })
+
+  test('keeps the verified phone active until the replacement is confirmed', async ({
+    client,
+    assert,
+  }) => {
+    const user = await User.create({
+      email: 'sms-change@example.test',
+      password: 'Qa-Test-2026!',
+      emailVerifiedAt: DateTime.utc(),
+      phoneNumber: '+48500111111',
+      phoneVerifiedAt: DateTime.utc(),
+    })
+    const originalSend = SmsGatewayService.prototype.send
+    let code: string | undefined
+    SmsGatewayService.prototype.send = async (_recipient, message) => {
+      code = /kod potwierdzenia numeru (\d+)/.exec(message)?.[1]
+    }
+
+    try {
+      const requested = await client
+        .post('/account/phone')
+        .redirects(0)
+        .withSession({ authVersion: user.authVersion })
+        .loginAs(user)
+        .withCsrfToken()
+        .form({ phoneNumber: '+48 500 600 700', currentPassword: 'Qa-Test-2026!' })
+      requested.assertStatus(302)
+      assert.isDefined(code)
+      await user.refresh()
+      assert.equal(user.phoneNumber, '+48500111111')
+
+      const pending = await client
+        .get('/account')
+        .withSession({ authVersion: user.authVersion })
+        .loginAs(user)
+      pending.assertStatus(200)
+      pending.assertTextIncludes('Zmiana numeru oczekuje na potwierdzenie')
+      pending.assertTextIncludes('Dotychczasowy numer pozostaje aktywny')
+      pending.assertTextIncludes('kończy się na 111')
+      pending.assertTextIncludes('kończący się na 700')
+
+      const verified = await client
+        .post('/account/phone/verify')
+        .redirects(0)
+        .withSession({ authVersion: user.authVersion })
+        .loginAs(user)
+        .withCsrfToken()
+        .form({ code })
+      verified.assertStatus(302)
+      await user.refresh()
+      assert.equal(user.phoneNumber, '+48500600700')
+      assert.isNotNull(user.phoneVerifiedAt)
+
+      const account = await client
+        .get('/account')
+        .withSession({ authVersion: user.authVersion })
+        .loginAs(user)
+      account.assertStatus(200)
+      account.assertTextIncludes('kończy się na 700')
+      assert.notInclude(account.text(), 'kończy się na 111')
+    } finally {
+      SmsGatewayService.prototype.send = originalSend
     }
   })
 
