@@ -376,6 +376,10 @@ Pozostałe `SMS_*` i `RATE_LIMIT_PHONE_REQUESTS` mają przykładowe wartości w
 `.env.example` oraz `.env_conf`. Dla własnego serwera ustaw jego pełny adres
 HTTPS. Nie commituj danych dostępowych ani numerów telefonu. Po zmianie
 `.env_conf` odtwórz kontenery `web` i `worker`, żeby pobrały nowe środowisko.
+Wysłanie kodu, wpisanie kodu i usunięcie numeru mają osobne liczniki żądań.
+Wyczerpanie limitu wysyłki nie blokuje potwierdzenia otrzymanego już SMS-a.
+Liczba błędnych kodów jest dodatkowo ograniczona dla samego kodu przez
+`SMS_VERIFICATION_MAX_ATTEMPTS`.
 Na serwerze uruchom migracje (`migrate` w Compose) przed udostępnieniem
 formularza SMS. Skonfiguruj telefon/bramkę, następnie potwierdź swój numer
 w ustawieniach konta i wykonaj próbę na własnej obserwacji.

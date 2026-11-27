@@ -168,3 +168,9 @@ Ostatnia aktualizacja: 2026-11-27
 - [x] Po jednoznacznym odrzuceniu wiadomości przez SMSAPI usuwany jest niewysłany kod weryfikacyjny, aby użytkownik mógł ponowić próbę po poprawieniu konfiguracji.
 - [x] Walidacja lokalna: lint, typecheck, 79/79 testów offline i build produkcyjny przeszły.
 - [ ] Na VPS sprawdzić aktywację pola nadawcy na koncie SMSAPI, skuteczną konfigurację `SMSAPI_SENDER` oraz ewentualny token z innego konta. Lokalny `.env_conf` nie zawiera danych dostępowych; realnej wysyłki nie testowano.
+
+## Oddzielne limity wysyłki i potwierdzania numeru (2026-11-27)
+
+- [x] Wysyłka kodu, jego potwierdzenie i usunięcie numeru mają niezależne liczniki per IP i per użytkownik; dotychczasowy limit wysyłki nie blokuje już wpisania otrzymanego SMS-a.
+- [x] Dodano test funkcjonalny potwierdzający kod po wyczerpaniu limitu wysyłki; testy offline 80/80, lint, typecheck i build przeszły.
+- [ ] Po wdrożeniu na VPS sprawdzić potwierdzenie ważnego kodu, nawet gdy licznik wysyłki jest zablokowany. Kod wygasły po czasie ważności wymaga ponownej wysyłki.

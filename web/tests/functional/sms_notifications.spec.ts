@@ -5,6 +5,7 @@ import AlertOutboxService from '#services/alert_outbox_service'
 import SmsGatewayService from '#services/sms_gateway_service'
 import { SmsApiError } from '#services/smsapi_service'
 import PhoneVerificationService from '#services/phone_verification_service'
+import env from '#start/env'
 import testUtils from '@adonisjs/core/services/test_utils'
 import limiter from '@adonisjs/limiter/services/main'
 import mail from '@adonisjs/mail/services/main'
@@ -170,6 +171,57 @@ test.group('SMS notifications', (group) => {
       rejected.assertStatus(302)
       const pending = await new PhoneVerificationService().pending(user.id)
       assert.isNull(pending)
+    } finally {
+      SmsGatewayService.prototype.send = originalSend
+    }
+  })
+
+  test('can verify a received code after exhausting the SMS request limit', async ({
+    client,
+    assert,
+  }) => {
+    const user = await User.create({
+      email: 'sms-limit@example.test',
+      password: 'Qa-Test-2026!',
+      emailVerifiedAt: DateTime.utc(),
+    })
+    const originalSend = SmsGatewayService.prototype.send
+    let code: string | undefined
+    SmsGatewayService.prototype.send = async (_recipient, message) => {
+      code = /kod potwierdzenia numeru (\d+)/.exec(message)?.[1]
+    }
+
+    const requestCode = () =>
+      client
+        .post('/account/phone')
+        .redirects(0)
+        .withSession({ authVersion: user.authVersion })
+        .loginAs(user)
+        .withCsrfToken()
+        .form({ phoneNumber: '+48 500 600 700', currentPassword: 'Qa-Test-2026!' })
+
+    try {
+      const requestLimit =
+        env.get('RATE_LIMIT_PHONE_REQUESTS') ?? env.get('RATE_LIMIT_OTP_REQUESTS')
+      for (let attempt = 0; attempt < requestLimit; attempt++) {
+        const result = await requestCode()
+        result.assertStatus(302)
+      }
+      assert.isDefined(code)
+      const blocked = await requestCode()
+      blocked.assertStatus(429)
+
+      const verified = await client
+        .post('/account/phone/verify')
+        .redirects(0)
+        .withSession({ authVersion: user.authVersion })
+        .loginAs(user)
+        .withCsrfToken()
+        .form({ code })
+      verified.assertStatus(302)
+      await user.refresh()
+      assert.equal(user.phoneNumber, '+48500600700')
+      assert.isNotNull(user.phoneVerifiedAt)
     } finally {
       SmsGatewayService.prototype.send = originalSend
     }

@@ -19,6 +19,10 @@ import {
   emailChangeUserThrottle,
   phoneIpThrottle,
   phoneUserThrottle,
+  phoneVerifyIpThrottle,
+  phoneVerifyUserThrottle,
+  phoneRemoveIpThrottle,
+  phoneRemoveUserThrottle,
   otpIpThrottle,
   searchIpThrottle,
   searchUserThrottle,
@@ -106,13 +110,13 @@ router
     router
       .post('/account/phone/verify', [PhoneController, 'verify'])
       .as('account.phone.verify')
-      .use(phoneIpThrottle)
-      .use(phoneUserThrottle)
+      .use(phoneVerifyIpThrottle)
+      .use(phoneVerifyUserThrottle)
     router
       .post('/account/phone/remove', [PhoneController, 'remove'])
       .as('account.phone.remove')
-      .use(phoneIpThrottle)
-      .use(phoneUserThrottle)
+      .use(phoneRemoveIpThrottle)
+      .use(phoneRemoveUserThrottle)
     router
       .post('/account/sessions/revoke', [AccountController, 'revokeSession'])
       .as('account.sessions.revoke')

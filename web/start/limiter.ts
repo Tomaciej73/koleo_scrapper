@@ -87,6 +87,30 @@ export const phoneUserThrottle = byUser(
   authWindow,
   blockSeconds
 )
+export const phoneVerifyIpThrottle = byIp(
+  'phone_verify_ip',
+  env.get('RATE_LIMIT_OTP_REQUESTS'),
+  authWindow,
+  blockSeconds
+)
+export const phoneVerifyUserThrottle = byUser(
+  'phone_verify_user',
+  env.get('RATE_LIMIT_OTP_REQUESTS'),
+  authWindow,
+  blockSeconds
+)
+export const phoneRemoveIpThrottle = byIp(
+  'phone_remove_ip',
+  env.get('RATE_LIMIT_AUTH_REQUESTS'),
+  authWindow,
+  blockSeconds
+)
+export const phoneRemoveUserThrottle = byUser(
+  'phone_remove_user',
+  env.get('RATE_LIMIT_AUTH_REQUESTS'),
+  authWindow,
+  blockSeconds
+)
 export const searchIpThrottle = byIp(
   'search_ip',
   env.get('RATE_LIMIT_SEARCH_REQUESTS'),
