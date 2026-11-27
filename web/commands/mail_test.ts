@@ -27,7 +27,7 @@ export default class MailTest extends BaseCommand {
     await mail.send((message) => {
       message
         .to(this.recipient)
-        .subject('Test SMTP — Koleo Watch')
+        .subject('Test SMTP - Koleo Watch')
         .text('Konfiguracja SMTP Koleo Watch działa poprawnie.')
         .htmlView('emails/smtp_test')
     })

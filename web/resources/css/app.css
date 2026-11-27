@@ -325,7 +325,7 @@ input {
 }
 
 /* ==========================================================================
-   Marketing — floating header + centered prose card
+   Marketing - floating header + centered prose card
    ========================================================================== */
 /* --- header: shared by the marketing and app layouts --- */
 .header__inner {
@@ -561,7 +561,7 @@ input {
 }
 
 /* ==========================================================================
-   Auth — split, form left, colophon + Plus pitch right
+   Auth - split, form left, colophon + Plus pitch right
    ========================================================================== */
 .auth {
   display: grid;

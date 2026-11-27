@@ -124,3 +124,9 @@ Ostatnia aktualizacja: 2026-11-26
 - [x] Dodano testy renderowania HTML i escapowania niezaufanej treści alertu.
 - [x] Lokalnie przeszły testy offline 65/65, lint, typecheck i build produkcyjny.
 - [ ] Po wdrożeniu wysłać `mail:test` na własny adres i sprawdzić wygląd wiadomości w używanym kliencie pocztowym.
+
+## Bieżąca zmiana: zwykły łącznik w tekstach (2026-11-27)
+
+- [x] Zamieniono wszystkie wystąpienia znaku Unicode U+2014 w źródłach, widokach, tematach e-maili, testach i dokumentacji na zwykły znak `-` (U+002D).
+- [x] Wyszukiwanie w repozytorium nie wykazuje pozostałych wystąpień U+2014; testy offline 65/65, lint, typecheck i build produkcyjny przeszły.
+- [ ] Po wdrożeniu sprawdzić tytuły kart i tematy nowo wysyłanych e-maili; wiadomości wysłane wcześniej nie zmienią się.

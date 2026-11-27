@@ -257,7 +257,7 @@ export default class ConnectionSearchService {
         priceCents,
         purchasable: false,
         ticketAvailability: 'unavailable' as const,
-        availabilityMessage: 'Tryb demonstracyjny — zakup biletu nie jest dostępny.',
+        availabilityMessage: 'Tryb demonstracyjny - zakup biletu nie jest dostępny.',
         provider: 'demo',
       }
     })

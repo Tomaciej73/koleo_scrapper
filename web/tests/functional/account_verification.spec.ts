@@ -36,14 +36,14 @@ test.group('Account verification', (group) => {
     const sentMessages = fakeMailer.messages.sent()
     assert.lengthOf(sentMessages, 1)
     sentMessages[0].assertTo(user.email)
-    sentMessages[0].assertSubject('Kod aktywacyjny — Koleo Watch')
+    sentMessages[0].assertSubject('Kod aktywacyjny - Koleo Watch')
 
     const content = String(sentMessages[0].nodeMailerMessage.text)
     const code = content.match(/\b\d{6}\b/)?.[0]
     assert.match(code ?? '', /^\d{6}$/)
     const html = String(sentMessages[0].nodeMailerMessage.html)
     assert.include(html, '<html lang="pl">')
-    assert.include(html, '<title>Potwierdź adres e-mail — Koleo Watch</title>')
+    assert.include(html, '<title>Potwierdź adres e-mail - Koleo Watch</title>')
     assert.include(html, code!)
     assert.include(html, 'style=')
 

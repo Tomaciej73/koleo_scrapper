@@ -27,7 +27,7 @@ export default class NotificationService {
       mail.send((message) => {
         message
           .to(recipient)
-          .subject('Kod aktywacyjny — Koleo Watch')
+          .subject('Kod aktywacyjny - Koleo Watch')
           .text(
             [
               'Dokończ zakładanie konta w Koleo Watch.',
@@ -58,7 +58,7 @@ export default class NotificationService {
       mail.send((message) => {
         message
           .to(recipient)
-          .subject('Reset hasła — Koleo Watch')
+          .subject('Reset hasła - Koleo Watch')
           .text(
             [
               'Otrzymaliśmy prośbę o zmianę hasła w Koleo Watch.',
@@ -85,7 +85,7 @@ export default class NotificationService {
       mail.send((message) => {
         message
           .to(recipient)
-          .subject('Hasło zostało zmienione — Koleo Watch')
+          .subject('Hasło zostało zmienione - Koleo Watch')
           .text(
             [
               'Hasło do Twojego konta Koleo Watch zostało zmienione.',

@@ -239,7 +239,7 @@ curl -fsS https://koleowatch.dpdns.org/health/worker
 W panelu wyszukaj ČD: „Brno hl.n.” → „Wrocław Główny”, wybierz stacje z listy,
 otwórz wynik z ceną CZK i sprawdź kwotę PLN oraz datę kursu NBP. Dodaj
 testową obserwację i zweryfikuj worker oraz e-mail po rzeczywistej zmianie ceny.
-Nie używaj `docker compose down -v` — usunęłoby wolumen z bazą.
+Nie używaj `docker compose down -v` - usunęłoby wolumen z bazą.
 
 ## Powiadomienia
 
@@ -379,8 +379,8 @@ limitu HTTP zwraca `429 Too Many Requests` z nagłówkiem `Retry-After`.
 Shield wysyła politykę CSP konfigurowaną przez `CSP_*`. Pierwsze wdrożenie
 powinno mieć `CSP_ENABLED=true` i `CSP_REPORT_ONLY=true`. Naruszenia trafiają do
 `CSP_REPORT_URI` i są zapisywane w logach bez query stringów. Log pokazuje teraz
-naruszoną dyrektywę, zablokowane źródło, ścieżkę strony i — jeśli przeglądarka
-ją poda — plik oraz numer linii. Dzięki temu szczegóły są widoczne również przy
+naruszoną dyrektywę, zablokowane źródło, ścieżkę strony i - jeśli przeglądarka
+ją poda - plik oraz numer linii. Dzięki temu szczegóły są widoczne również przy
 `LOG_SHOW_CONTEXT=false`. Sama zmiana publicznej domeny nie wymaga dopisywania
 jej do dyrektyw z `'self'`. Jeśli produkcja wysyła nagłówek
 `Content-Security-Policy` zamiast `Content-Security-Policy-Report-Only`, ustaw

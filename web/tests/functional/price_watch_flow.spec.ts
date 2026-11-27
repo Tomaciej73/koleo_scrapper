@@ -148,7 +148,7 @@ test.group('Price watch flow', (group) => {
       .withSession({ authVersion: user.authVersion })
       .loginAs(user)
     favorites.assertStatus(200)
-    favorites.assertTextIncludes('<title>Monitorowane połączenia — Koleo Watch</title>')
+    favorites.assertTextIncludes('<title>Monitorowane połączenia - Koleo Watch</title>')
     favorites.assertTextIncludes('<link rel="icon" type="image/svg+xml" href="/favicon.svg" />')
     favorites.assertTextIncludes('Wrocław Główny')
     favorites.assertTextIncludes('79,00')

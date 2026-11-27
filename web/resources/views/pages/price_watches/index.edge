@@ -45,7 +45,7 @@
       <p class="availability-disclaimer">
         @svg('lucide:info', { width: 14, height: 14 })
         Worker śledzi publiczne ceny wybranego źródła dla jednego pasażera bez ulgi.
-        Każda zmiana ceny — wzrost albo spadek — uruchamia
+        Każda zmiana ceny - wzrost albo spadek - uruchamia
         alert; ustawiony próg jest dodatkowym warunkiem powiadomienia.
       </p>
     @end
@@ -56,7 +56,7 @@
           Kwoty PLN w nawiasach są orientacyjne: kurs średni NBP z {{ czkRate.effectiveDate }}
           (1 CZK = {{ czkRate.mid }} PLN). Historia cen ČD pozostaje w CZK; nowe progi podajesz w PLN.
         @else
-          Kurs NBP jest chwilowo niedostępny — ceny ČD pokazujemy w CZK, a ocena progów PLN czeka na kurs.
+          Kurs NBP jest chwilowo niedostępny - ceny ČD pokazujemy w CZK, a ocena progów PLN czeka na kurs.
         @end
       </p>
     @end
@@ -122,7 +122,7 @@
               <div><strong>{{ watch.departureTime }}</strong><span>{{ watch.origin }}</span></div>
               <div class="watch-card__line"><span></span></div>
               <div class="connection-time--right">
-                <strong>{{ watch.arrivalTime || '—' }}</strong>
+                <strong>{{ watch.arrivalTime || '-' }}</strong>
                 @if(watch.arrivalTime && item.arrivalDayOffset > 0)
                   <small class="arrival-next-day">
                     +{{ item.arrivalDayOffset }}
@@ -281,7 +281,7 @@
                             <small>
                               Ocena: {{ formatPrice(entry.comparedPriceCents, entry.targetPriceCurrency === 'CZK' ? 'cd' : 'koleo') }}
                               wobec progu {{ formatPrice(entry.targetPriceCents, entry.targetPriceCurrency === 'CZK' ? 'cd' : 'koleo') }}
-                              — {{ entry.targetMet ? 'próg osiągnięty' : 'próg nieosiągnięty' }}
+                              - {{ entry.targetMet ? 'próg osiągnięty' : 'próg nieosiągnięty' }}
                             </small>
                           @end
                         </div>

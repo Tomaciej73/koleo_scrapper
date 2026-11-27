@@ -48,7 +48,7 @@ test.group('Password reset and browser security', (group) => {
 
     const resetMessage = fakeMailer.messages.sent()[0]
     resetMessage.assertTo(user.email)
-    resetMessage.assertSubject('Reset hasła — Koleo Watch')
+    resetMessage.assertSubject('Reset hasła - Koleo Watch')
     const resetBody = String(resetMessage.nodeMailerMessage.text)
     const token = resetBody.match(/\/reset-password#token=([a-f0-9]{64})/)?.[1]
     assert.match(token ?? '', /^[a-f0-9]{64}$/)
