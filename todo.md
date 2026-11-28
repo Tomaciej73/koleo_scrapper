@@ -1,6 +1,6 @@
 # Plan i stan prac
 
-Ostatnia aktualizacja: 2026-11-27
+Ostatnia aktualizacja: 2026-11-28
 
 ## Wykonane
 
@@ -188,3 +188,10 @@ Ostatnia aktualizacja: 2026-11-27
 - [x] Formularz pozostaje otwarty po błędzie walidacji lub błędnym haśle. Potwierdzenie usunięcia korzysta z mechanizmu zgodnego z Alpine CSP.
 - [x] Testy offline 87/87, lint, typecheck i build przeszły.
 - [ ] Po wdrożeniu na VPS sprawdzić wygląd akcji na telefonie i komputerze oraz potwierdzenie usunięcia konta na koncie testowym.
+
+## Filtrowanie monitorowanych połączeń (2026-11-28)
+
+- [x] Dodano boczne menu jak w ustawieniach konta: Wszystkie, Aktywne, Wstrzymane, Nieodnalezione i Zakończone, z licznikami i widocznym aktywnym filtrem.
+- [x] Filtrowanie działa po stronie serwera przez parametr `status`; historia cen i kurs NBP są pobierane tylko dla widocznych obserwacji. Na wąskich ekranach menu przewija się poziomo.
+- [x] Dodano test statusów, nieznanego parametru i pustej kategorii. Testy offline 88/88, lint, typecheck i build przeszły.
+- [ ] Po wdrożeniu na VPS sprawdzić wygląd i nawigację filtrów na komputerze oraz telefonie.

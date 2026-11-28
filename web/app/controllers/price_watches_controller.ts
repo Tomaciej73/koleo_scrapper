@@ -29,22 +29,59 @@ import {
 import SmsGatewayService from '#services/sms_gateway_service'
 
 export default class PriceWatchesController {
-  async index({ auth, view }: HttpContext) {
+  async index({ auth, request, view }: HttpContext) {
     const user = auth.getUserOrFail()
     const watches = await PriceWatch.query()
       .where('userId', auth.user!.id)
       .orderBy('status', 'asc')
       .orderBy('travelDate', 'asc')
       .orderBy('departureTime', 'asc')
-    const czkRate = watches.some((watch) => watch.provider === 'cd')
+    const requestedStatus = request.input('status')
+    const selectedStatus =
+      typeof requestedStatus === 'string' &&
+      ['active', 'paused', 'connection_missing', 'expired'].includes(requestedStatus)
+        ? requestedStatus
+        : 'all'
+    const watchFilters = [
+      { status: 'all', label: 'Wszystkie', icon: 'lucide:layout-list', count: watches.length },
+      {
+        status: 'active',
+        label: 'Aktywne',
+        icon: 'lucide:bell-ring',
+        count: watches.filter((watch) => watch.status === 'active').length,
+      },
+      {
+        status: 'paused',
+        label: 'Wstrzymane',
+        icon: 'lucide:pause-circle',
+        count: watches.filter((watch) => watch.status === 'paused').length,
+      },
+      {
+        status: 'connection_missing',
+        label: 'Nieodnalezione',
+        icon: 'lucide:triangle-alert',
+        count: watches.filter((watch) => watch.status === 'connection_missing').length,
+      },
+      {
+        status: 'expired',
+        label: 'Zakończone',
+        icon: 'lucide:calendar-check',
+        count: watches.filter((watch) => watch.status === 'expired').length,
+      },
+    ]
+    const visibleWatches =
+      selectedStatus === 'all'
+        ? watches
+        : watches.filter((watch) => watch.status === selectedStatus)
+    const czkRate = visibleWatches.some((watch) => watch.provider === 'cd')
       ? await new NbpExchangeRateService().getCzkRate()
       : null
 
-    const observations = watches.length
+    const observations = visibleWatches.length
       ? await PriceObservation.query()
           .whereIn(
             'priceWatchId',
-            watches.map((watch) => watch.id)
+            visibleWatches.map((watch) => watch.id)
           )
           .orderBy('observedAt', 'asc')
       : []
@@ -56,7 +93,7 @@ export default class PriceWatchesController {
     }
 
     const historyLimit = Math.max(2, env.get('PRICE_HISTORY_DISPLAY_LIMIT') ?? 30)
-    const watchItems = watches.map((watch) => {
+    const watchItems = visibleWatches.map((watch) => {
       const legacyCzkTarget =
         watch.provider === 'cd' &&
         watch.targetPriceCurrency === 'CZK' &&
@@ -156,6 +193,9 @@ export default class PriceWatchesController {
 
     return view.render('pages/price_watches/index', {
       watchItems,
+      watchFilters,
+      selectedStatus,
+      totalWatches: watches.length,
       providerMode: env.get('PRICE_PROVIDER') ?? 'demo',
       cdEnabled: env.get('CD_ENABLED') ?? false,
       alertsEnabled: env.get('ALERTS_ENABLED') ?? false,

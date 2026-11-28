@@ -64,7 +64,29 @@
         @end
       </p>
     @end
-    @if(watchItems.length === 0)
+    <div class="sidebar-layout watch-filter-layout">
+      <nav class="sidebar-layout__nav" aria-label="Filtruj monitorowane połączenia">
+        <ul class="watch-filter__list">
+          @each(filter in watchFilters)
+            <li>
+              <a
+                class="sidebar-layout__item watch-filter__item"
+                href="{{ filter.status === 'all' ? urlFor('price_watches.index') : `${urlFor('price_watches.index')}?status=${filter.status}` }}"
+                {{ html.attrs({ 'aria-current': selectedStatus === filter.status ? 'page' : false }) }}
+              >
+                @svg(filter.icon, { width: 16, height: 16 })
+                <span>{{ filter.label }}</span>
+                <span class="watch-filter__count">{{ filter.count }}</span>
+              </a>
+            </li>
+          @end
+        </ul>
+      </nav>
+      <div class="sidebar-layout__content">
+        <h2 class="watch-filter__heading">
+          {{ watchFilters.find((filter) => filter.status === selectedStatus).label }} połączenia
+        </h2>
+    @if(totalWatches === 0)
       <div class="empty-state empty-state--large">
         @svg('lucide:bell-off', { width: 32, height: 32 })
         <h2>Nie obserwujesz jeszcze żadnego połączenia</h2>
@@ -72,6 +94,15 @@
         @link({ route: 'dashboard', class: 'btn btn--primary' })
           Przejdź do wyszukiwarki
         @end
+      </div>
+    @elseif(watchItems.length === 0)
+      <div class="empty-state empty-state--large">
+        @svg('lucide:list-filter', { width: 32, height: 32 })
+        <h3>Brak połączeń w tej kategorii</h3>
+        <p>Wybierz inny filtr, aby zobaczyć swoje obserwacje.</p>
+        <a class="btn btn--secondary" href="{{ urlFor('price_watches.index') }}">
+          Pokaż wszystkie
+        </a>
       </div>
     @else
       <div class="watch-list">
@@ -470,5 +501,7 @@
         @end
       </div>
     @end
+      </div>
+    </div>
   @end
 @end

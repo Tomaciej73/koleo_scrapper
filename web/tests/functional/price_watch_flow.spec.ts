@@ -156,6 +156,81 @@ test.group('Price watch flow', (group) => {
     assert.notInclude(favorites.text(), user.email)
   })
 
+  test('filters watched connections by status and keeps categories visible', async ({
+    client,
+    assert,
+  }) => {
+    const user = await User.create({
+      fullName: 'Konto filtrów',
+      email: 'filters@example.test',
+      password: 'Qa-Test-2026!',
+    })
+    const statuses = [
+      { status: 'active', train: 'Pociąg aktywny' },
+      { status: 'paused', train: 'Pociąg wstrzymany' },
+      { status: 'connection_missing', train: 'Pociąg nieodnaleziony' },
+      { status: 'expired', train: 'Pociąg zakończony' },
+    ]
+
+    for (const [index, item] of statuses.entries()) {
+      await PriceWatch.create({
+        userId: user.id,
+        origin: 'Wrocław Główny',
+        originStationId: 1,
+        destination: 'Olsztyn Główny',
+        destinationStationId: 4,
+        travelDate: DateTime.fromISO(futureDate()),
+        departureTime: `15:${String(index).padStart(2, '0')}`,
+        connectionUuid: `demo-filter-${index}`,
+        trainName: item.train,
+        notificationChannel: 'email',
+        notificationDestination: user.email,
+        status: item.status,
+      })
+    }
+
+    for (const item of statuses) {
+      const response = await client
+        .get(`/favorites?status=${item.status}`)
+        .withSession({ authVersion: user.authVersion })
+        .loginAs(user)
+
+      response.assertStatus(200)
+      response.assertTextIncludes(item.train)
+      response.assertTextIncludes('Filtruj monitorowane połączenia')
+      assert.match(
+        response.text(),
+        new RegExp(`href="/favorites\\?status=${item.status}"[^>]*aria-current="page"`)
+      )
+      for (const other of statuses.filter((candidate) => candidate !== item)) {
+        assert.notInclude(response.text(), other.train)
+      }
+    }
+
+    const all = await client
+      .get('/favorites')
+      .withSession({ authVersion: user.authVersion })
+      .loginAs(user)
+    all.assertStatus(200)
+    for (const item of statuses) all.assertTextIncludes(item.train)
+
+    const invalid = await client
+      .get('/favorites?status=unknown')
+      .withSession({ authVersion: user.authVersion })
+      .loginAs(user)
+    invalid.assertStatus(200)
+    for (const item of statuses) invalid.assertTextIncludes(item.train)
+
+    await PriceWatch.query().where('userId', user.id).where('status', 'paused').delete()
+    const emptyCategory = await client
+      .get('/favorites?status=paused')
+      .withSession({ authVersion: user.authVersion })
+      .loginAs(user)
+    emptyCategory.assertStatus(200)
+    emptyCategory.assertTextIncludes('Brak połączeń w tej kategorii')
+    emptyCategory.assertTextIncludes('Pokaż wszystkie')
+  })
+
   test('renders UTC watch timestamps in the configured application timezone', async ({
     client,
     assert,
