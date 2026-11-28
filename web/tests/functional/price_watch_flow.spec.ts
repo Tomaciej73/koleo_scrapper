@@ -231,6 +231,54 @@ test.group('Price watch flow', (group) => {
     emptyCategory.assertTextIncludes('Pokaż wszystkie')
   })
 
+  test('shows price movement when the price was unavailable at watch creation', async ({
+    client,
+    assert,
+  }) => {
+    const user = await User.create({
+      fullName: 'Konto historii bez ceny początkowej',
+      email: 'late-price@example.test',
+      password: 'Qa-Test-2026!',
+    })
+    const watch = await PriceWatch.create({
+      userId: user.id,
+      origin: 'Gdańsk Główny',
+      originStationId: 1,
+      destination: 'Wrocław Główny',
+      destinationStationId: 4,
+      travelDate: DateTime.fromISO(futureDate()),
+      departureTime: '22:25',
+      connectionUuid: 'demo-late-price',
+      lastPriceCents: 4_930,
+      lowestPriceCents: 3_740,
+      notificationChannel: 'email',
+      notificationDestination: user.email,
+      status: 'active',
+    })
+    await PriceObservation.create({
+      priceWatchId: watch.id,
+      priceCents: 3_740,
+      observedAt: DateTime.fromISO('2026-11-28T09:41:00Z'),
+    })
+    await PriceObservation.create({
+      priceWatchId: watch.id,
+      priceCents: 4_930,
+      observedAt: DateTime.fromISO('2026-11-28T14:12:00Z'),
+    })
+
+    const response = await client
+      .get('/favorites')
+      .withSession({ authVersion: user.authVersion })
+      .loginAs(user)
+
+    response.assertStatus(200)
+    response.assertTextIncludes('Pierwsza znana cena')
+    response.assertTextIncludes('37,40')
+    response.assertTextIncludes('Wzrost o')
+    response.assertTextIncludes('11,90')
+    assert.match(response.text(), /<title>49,30[^\r\n]*28\.11\.2026 15:12<\/title>/)
+  })
+
   test('renders UTC watch timestamps in the configured application timezone', async ({
     client,
     assert,
@@ -362,6 +410,44 @@ test.group('Price watch flow', (group) => {
         .then((row) => Number(row.$extras.total)),
       maximumWatches
     )
+  })
+
+  test('sets the baseline from the first available worker price', async ({ assert }) => {
+    const user = await User.create({
+      fullName: 'Konto pierwszej ceny',
+      email: 'first-price@example.test',
+      password: 'Qa-Test-2026!',
+    })
+    const [connection] = await new ConnectionSearchService().search({
+      origin: 'Wrocław Główny',
+      originStationId: 1,
+      destination: 'Olsztyn Główny',
+      destinationStationId: 4,
+      travelDate: futureDate(),
+      departureTime: '14:54',
+      onlyDirect: false,
+    })
+    const watch = await PriceWatch.create({
+      userId: user.id,
+      origin: 'Wrocław Główny',
+      originStationId: 1,
+      destination: 'Olsztyn Główny',
+      destinationStationId: 4,
+      travelDate: DateTime.fromISO(futureDate()),
+      departureTime: connection.departure,
+      connectionUuid: connection.uuid,
+      notificationChannel: 'email',
+      notificationDestination: user.email,
+      status: 'active',
+    })
+
+    const summary = await new PriceAlertService().checkForUser(user.id)
+    await watch.refresh()
+
+    assert.equal(summary.checked, 1)
+    assert.equal(summary.priceChanges, 0)
+    assert.equal(watch.baselinePriceCents, connection.priceCents)
+    assert.equal(watch.lastPriceCents, connection.priceCents)
   })
 
   test('detects a lower price and sends a fake notification', async ({ assert }) => {

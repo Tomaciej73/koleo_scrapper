@@ -264,6 +264,9 @@ export default class PriceAlertService {
           targetStateBeforeUnqueuedAlert = previousTargetMet
         }
 
+        if (watch.baselinePriceCents === null && storedPrice === null) {
+          watch.baselinePriceCents = connection.priceCents
+        }
         watch.lastPriceCents = connection.priceCents
         watch.lowestPriceCents = Math.min(
           watch.lowestPriceCents ?? connection.priceCents,

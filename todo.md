@@ -195,3 +195,10 @@ Ostatnia aktualizacja: 2026-11-28
 - [x] Filtrowanie działa po stronie serwera przez parametr `status`; historia cen i kurs NBP są pobierane tylko dla widocznych obserwacji. Na wąskich ekranach menu przewija się poziomo.
 - [x] Dodano test statusów, nieznanego parametru i pustej kategorii. Testy offline 88/88, lint, typecheck i build przeszły.
 - [ ] Po wdrożeniu na VPS sprawdzić wygląd i nawigację filtrów na komputerze oraz telefonie.
+
+## Cena odniesienia i opis wykresu (2026-11-28)
+
+- [x] Gdy dodawana obserwacja nie ma jeszcze ceny, worker zapisuje pierwszy późniejszy odczyt jako cenę początkową. Dla starszych wpisów bez tej wartości widok używa pierwszej zachowanej ceny z historii i pokazuje zmianę względem niej.
+- [x] Opisy punktów wykresu są jednowierszowe, a punkty mają odstęp od krawędzi wykresu, więc podpowiedź nie zawiera przypadkowych pustych linii.
+- [x] Testy offline 90/90, lint, typecheck i build przeszły.
+- [ ] Po wdrożeniu sprawdzić na VPS podpowiedź wykresu i obserwację z początkowo niedostępną ceną; lokalnie nie testowano danych produkcyjnych.

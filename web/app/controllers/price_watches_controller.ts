@@ -84,6 +84,7 @@ export default class PriceWatchesController {
             visibleWatches.map((watch) => watch.id)
           )
           .orderBy('observedAt', 'asc')
+          .orderBy('id', 'asc')
       : []
     const observationsByWatch = new Map<number, PriceObservation[]>()
     for (const observation of observations) {
@@ -103,7 +104,11 @@ export default class PriceWatchesController {
           ? czkToPlnCents(watch.targetPriceCents, czkRate)
           : null
         : watch.targetPriceCents
-      const storedHistory = (observationsByWatch.get(watch.id) ?? []).slice(-historyLimit)
+      const allStoredHistory = observationsByWatch.get(watch.id) ?? []
+      const firstKnownPriceCents = allStoredHistory[0]?.priceCents ?? null
+      const initialPriceCents =
+        watch.baselinePriceCents ?? firstKnownPriceCents ?? watch.lastPriceCents
+      const storedHistory = allStoredHistory.slice(-historyLimit)
       const priceHistory = storedHistory.map((observation) => ({
         priceCents: observation.priceCents,
         observedAt: observation.observedAt,
@@ -137,7 +142,7 @@ export default class PriceWatchesController {
       const minimumPrice = prices.length ? Math.min(...prices) : null
       const maximumPrice = prices.length ? Math.max(...prices) : null
       const chartDots = priceHistory.map((entry, index) => {
-        const x = priceHistory.length === 1 ? 50 : (index / (priceHistory.length - 1)) * 100
+        const x = priceHistory.length === 1 ? 50 : 3 + (index / (priceHistory.length - 1)) * 94
         const priceRange = (maximumPrice ?? 0) - (minimumPrice ?? 0)
         const y =
           priceRange === 0 ? 20 : 34 - ((entry.priceCents - minimumPrice!) / priceRange) * 28
@@ -160,6 +165,7 @@ export default class PriceWatchesController {
 
       return {
         watch,
+        initialPriceCents,
         arrivalDate,
         arrivalDayOffset,
         maskedDestination: [

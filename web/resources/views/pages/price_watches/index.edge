@@ -109,8 +109,8 @@
         @each(item in watchItems)
           @let(watch = item.watch)
           @let(priceChange =
-            watch.baselinePriceCents !== null && watch.lastPriceCents !== null
-              ? watch.lastPriceCents - watch.baselinePriceCents
+            item.initialPriceCents !== null && watch.lastPriceCents !== null
+              ? watch.lastPriceCents - item.initialPriceCents
               : null)
           <article class="watch-card">
             <div class="watch-card__status">
@@ -216,8 +216,8 @@
 
             <div class="watch-card__prices">
               <div>
-                <span>Cena początkowa</span><strong>
-                  {{ formatPriceWithConversion(watch.baselinePriceCents, watch.provider, czkRate) }}
+                <span>{{ watch.baselinePriceCents === null ? 'Pierwsza znana cena' : 'Cena początkowa' }}</span><strong>
+                  {{ formatPriceWithConversion(item.initialPriceCents, watch.provider, czkRate) }}
                 </strong>
               </div>
               <div>
@@ -276,15 +276,7 @@
                       @end
                       @each(dot in item.chartDots)
                         <circle cx="{{ dot.x }}" cy="{{ dot.y }}" r="1.8">
-                          <title>
-                            {{ formatPriceWithConversion(dot.priceCents, watch.provider, dot.nbpRate ?? czkRate) }}
-                            ·
-                            {{
-                              dot.observedAt
-                                .setZone(appTimezone)
-                                .toFormat('dd.LL.yyyy HH:mm')
-                            }}
-                          </title>
+                          <title>{{ formatPriceWithConversion(dot.priceCents, watch.provider, dot.nbpRate ?? czkRate) }} · {{ dot.observedAt.setZone(appTimezone).toFormat('dd.LL.yyyy HH:mm') }}</title>
                         </circle>
                       @end
                     </svg>
