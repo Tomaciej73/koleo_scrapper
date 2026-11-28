@@ -10,6 +10,7 @@ import { DateTime } from 'luxon'
 import { AUTH_VERSION_SESSION_KEY } from '#services/auth_session_service'
 import SecurityEventService from '#services/security_event_service'
 import SessionManagementService from '#services/session_management_service'
+import LoginSecurityService from '#services/login_security_service'
 
 export default class EmailVerificationController {
   async create({ auth, session, response, view }: HttpContext) {
@@ -52,10 +53,16 @@ export default class EmailVerificationController {
       session.forget(EMAIL_VERIFICATION_SESSION_KEY)
       if (result === 'email_changed') {
         await new SessionManagementService().destroyOthers(user.id, session.sessionId)
+        await new LoginSecurityService().forgetAllDevices(user.id)
       } else {
         await auth.use('web').login(user)
       }
       session.put(AUTH_VERSION_SESSION_KEY, user.authVersion)
+      const deviceId = await new LoginSecurityService().rememberDevice(
+        { request, response, session },
+        user.id
+      )
+      session.put('trustedDeviceId', deviceId)
       await new SessionManagementService().track(session, request, user.id)
       logger.info(
         {

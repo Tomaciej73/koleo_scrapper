@@ -12,6 +12,7 @@ interface SessionMetadata {
   lastSeenAt: string
   ipHash: string
   userAgent: string
+  trustedDeviceId: number | null
 }
 
 export interface ActiveUserSession extends SessionMetadata {
@@ -36,6 +37,7 @@ export default class SessionManagementService {
         request.header('user-agent') ?? 'Nieznane urządzenie',
         200
       ),
+      trustedDeviceId: Number(session.get('trustedDeviceId')) || null,
     }
     session.put(SESSION_METADATA_KEY, metadata)
     await session.tag(String(userId))
@@ -60,6 +62,7 @@ export default class SessionManagementService {
           lastSeenAt: metadata?.lastSeenAt ?? fallback,
           ipHash: metadata?.ipHash ?? 'brak',
           userAgent: metadata?.userAgent ?? 'Nieznane urządzenie',
+          trustedDeviceId: metadata?.trustedDeviceId ?? null,
         }
       })
       .sort((left, right) => right.lastSeenAt.localeCompare(left.lastSeenAt))
@@ -76,6 +79,7 @@ export default class SessionManagementService {
       lastSeenAt: metadata?.lastSeenAt ?? fallback,
       ipHash: metadata?.ipHash ?? 'brak',
       userAgent: metadata?.userAgent ?? 'Nieznane urządzenie',
+      trustedDeviceId: metadata?.trustedDeviceId ?? null,
     }
   }
 

@@ -34,6 +34,32 @@ export const loginValidator = vine.create({
   password: existingPassword(),
 })
 
+export const loginChallengeCodeValidator = vine.create({
+  code: vine
+    .string()
+    .trim()
+    .regex(/^\d{6,8}$|^[a-f0-9]{24}$/i),
+})
+
+export const totpSetupValidator = vine.create({
+  code: vine
+    .string()
+    .trim()
+    .regex(/^\d{6,8}$/),
+})
+
+export const totpBeginValidator = vine.create({
+  currentPassword: existingPassword(),
+})
+
+export const totpDisableValidator = vine.create({
+  currentPassword: existingPassword(),
+  code: vine
+    .string()
+    .trim()
+    .regex(/^\d{6,8}$|^[a-f0-9]{24}$/i),
+})
+
 export const emailVerificationValidator = vine.create({
   code: vine
     .string()

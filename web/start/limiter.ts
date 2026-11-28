@@ -29,10 +29,11 @@ const byPendingAccount = (
   name: string,
   requests: number,
   windowSeconds: number,
-  blockSeconds: number
+  blockSeconds: number,
+  sessionKey = 'pendingEmailVerificationUserId'
 ) =>
   limiter.define(name, ({ request, session }) => {
-    const pendingUserId = Number(session.get('pendingEmailVerificationUserId'))
+    const pendingUserId = Number(session.get(sessionKey))
     const key =
       Number.isSafeInteger(pendingUserId) && pendingUserId > 0
         ? `account:${pendingUserId}`
@@ -68,6 +69,19 @@ export const otpAccountThrottle = byPendingAccount(
   env.get('RATE_LIMIT_OTP_REQUESTS'),
   authWindow,
   blockSeconds
+)
+export const loginChallengeIpThrottle = byIp(
+  'login_challenge_ip',
+  env.get('RATE_LIMIT_OTP_REQUESTS'),
+  authWindow,
+  blockSeconds
+)
+export const loginChallengeAccountThrottle = byPendingAccount(
+  'login_challenge_account',
+  env.get('RATE_LIMIT_OTP_REQUESTS'),
+  authWindow,
+  blockSeconds,
+  'pendingLoginChallengeId'
 )
 export const emailChangeUserThrottle = byUser(
   'email_change_user',

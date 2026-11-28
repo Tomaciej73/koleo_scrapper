@@ -202,3 +202,13 @@ Ostatnia aktualizacja: 2026-11-28
 - [x] Opisy punktów wykresu są jednowierszowe, a punkty mają odstęp od krawędzi wykresu, więc podpowiedź nie zawiera przypadkowych pustych linii.
 - [x] Testy offline 90/90, lint, typecheck i build przeszły.
 - [ ] Po wdrożeniu sprawdzić na VPS podpowiedź wykresu i obserwację z początkowo niedostępną ceną; lokalnie nie testowano danych produkcyjnych.
+
+## Nowe logowanie, alert i TOTP (2026-11-28)
+
+- [x] Wymagany kod e-mail przed utworzeniem sesji z nierozpoznanej przeglądarki; rozpoznawanie opiera się na losowym ciasteczku i skrócie w bazie, nie na adresie IP.
+- [x] Alert e-mail o nowym logowaniu zawiera jednorazowy link „To nie ja” do potwierdzenia unieważnienia sesji i usunięcia zaufania do tej przeglądarki.
+- [x] Opcjonalne TOTP zgodne z RFC 6238 wymaga kodu przy każdym logowaniu. Dodano konfigurację w koncie, szyfrowany sekret, jednorazowe kody odzyskiwania oraz bezpieczne wyłączanie.
+- [x] Dodano limity i retencję technicznych rekordów, nowe klucze `.env_conf`/przykładu, testy offline i przeglądarkowe.
+- [x] Zweryfikowano wycofanie sesji z tej samej i innej przeglądarki, powtórne logowanie zaufanej przeglądarki, TOTP, jednorazowy kod odzyskiwania oraz odrzucenie starego kodu po unieważnieniu sesji.
+- [x] Lokalnie przeszły lint, typecheck, 98/98 testów offline i przeglądarkowych oraz build produkcyjny. Compose `config --quiet` przeszedł przez WSL; nie uruchamiano migracji ani kontenerów produkcyjnych na VPS.
+- [ ] Użytkownik dopisze nowe klucze do serwerowego `.env_conf`, wykona kopię bazy, migrację i wdrożenie na VPS. Należy sprawdzić dostawę e-maila, logowanie na drugim urządzeniu, link „To nie ja” oraz zapisać kody odzyskiwania.

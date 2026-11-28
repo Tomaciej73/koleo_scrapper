@@ -914,6 +914,12 @@ input {
   gap: 28px;
 }
 
+.totp-recovery-codes {
+  display: block;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
 .account-section {
   display: grid;
   gap: 18px;

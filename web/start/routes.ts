@@ -28,6 +28,8 @@ import {
   searchUserThrottle,
   passwordResetIpThrottle,
   cspReportIpThrottle,
+  loginChallengeIpThrottle,
+  loginChallengeAccountThrottle,
 } from '#start/limiter'
 
 const SearchController = () => import('#controllers/search_controller')
@@ -40,6 +42,8 @@ const PasswordResetController = () => import('#controllers/password_reset_contro
 const CspReportsController = () => import('#controllers/csp_reports_controller')
 const AccountController = () => import('#controllers/account_controller')
 const PhoneController = () => import('#controllers/phone_controller')
+const LoginChallengeController = () => import('#controllers/login_challenge_controller')
+const TotpController = () => import('#controllers/totp_controller')
 
 router.get('/health/live', [HealthController, 'live'])
 router.get('/health/ready', [HealthController, 'ready'])
@@ -48,6 +52,28 @@ router.get('/metrics', [MetricsController, 'index'])
 router.post(env.get('CSP_REPORT_URI'), [CspReportsController, 'store']).use(cspReportIpThrottle)
 
 router.on('/').render('pages/home').as('home')
+
+router.get('/login/confirm', [LoginChallengeController, 'create']).as('login_challenge.create')
+router
+  .post('/login/confirm', [LoginChallengeController, 'store'])
+  .as('login_challenge.store')
+  .use(loginChallengeIpThrottle)
+  .use(loginChallengeAccountThrottle)
+router
+  .post('/login/confirm/resend', [LoginChallengeController, 'resend'])
+  .as('login_challenge.resend')
+  .use(loginChallengeIpThrottle)
+  .use(loginChallengeAccountThrottle)
+router
+  .post('/login/confirm/cancel', [LoginChallengeController, 'cancel'])
+  .as('login_challenge.cancel')
+router
+  .get('/login-alert/revoke', [LoginChallengeController, 'revokePage'])
+  .as('login_alert.revoke_page')
+router
+  .post('/login-alert/revoke', [LoginChallengeController, 'revoke'])
+  .as('login_alert.revoke')
+  .use(loginChallengeIpThrottle)
 
 router.get('/verify-email', [EmailVerificationController, 'create']).as('email_verification.create')
 router
@@ -95,6 +121,18 @@ router
       .use(searchUserThrottle)
     router.get('/favorites', [PriceWatchesController, 'index']).as('price_watches.index')
     router.get('/account', [AccountController, 'index']).as('account.index')
+    router
+      .post('/account/totp/begin', [TotpController, 'begin'])
+      .as('account.totp.begin')
+      .use(authIpThrottle)
+    router
+      .post('/account/totp/confirm', [TotpController, 'confirm'])
+      .as('account.totp.confirm')
+      .use(otpIpThrottle)
+    router
+      .post('/account/totp/disable', [TotpController, 'disable'])
+      .as('account.totp.disable')
+      .use(authIpThrottle)
     router.get('/account/export', [AccountController, 'export']).as('account.export')
     router
       .post('/account/email', [AccountController, 'updateEmail'])

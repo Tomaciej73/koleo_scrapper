@@ -26,6 +26,7 @@
           </div>
         </div>
       @end
+
       <details
         class="account-action"
         id="change-email"
@@ -39,7 +40,11 @@
       >
         <summary class="btn btn--secondary">
           @svg('lucide:mail', { width: 16, height: 16 })
+
+
           Zmień adres e-mail
+
+
         </summary>
         @form({
           route: 'account.email',
@@ -103,7 +108,13 @@
         <div class="notice notice--info">
           @svg('lucide:message-square-code', { width: 18, height: 18 })
           <div>
-            <strong>{{ user.phoneVerifiedAt ? 'Zmiana numeru oczekuje na potwierdzenie' : 'Potwierdź numer telefonu' }}</strong>
+            <strong>
+              {{
+                user.phoneVerifiedAt
+                  ? 'Zmiana numeru oczekuje na potwierdzenie'
+                  : 'Potwierdź numer telefonu'
+              }}
+            </strong>
             <span>Kod wysłano na numer kończący się na {{ pendingPhone.slice(-3) }}.</span>
             @if(user.phoneNumber && user.phoneVerifiedAt)
               <span>Dotychczasowy numer pozostaje aktywny do potwierdzenia nowego.</span>
@@ -129,6 +140,7 @@
             })
             @!field.error()
           @end
+
           <button type="submit" class="btn btn--primary" x-bind:disabled="submitting">
             Potwierdź numer
           </button>
@@ -139,9 +151,15 @@
           <details class="account-action" id="change-phone">
             <summary class="btn btn--secondary">
               @svg('lucide:refresh-cw', { width: 16, height: 16 })
+
+
               Zmień numer telefonu
+
+
             </summary>
-            <p>Wpisz nowy numer. Dotychczasowy pozostanie aktywny, aż potwierdzisz nowy kodem SMS.</p>
+            <p>
+              Wpisz nowy numer. Dotychczasowy pozostanie aktywny, aż potwierdzisz nowy kodem SMS.
+            </p>
             @include('partials/phone_request_form')
           </details>
         @else
@@ -154,7 +172,11 @@
         <details class="account-action" id="remove-phone">
           <summary class="btn btn--secondary">
             @svg('lucide:trash-2', { width: 16, height: 16 })
+
+
             Usuń numer telefonu
+
+
           </summary>
           <p>Alerty SMS dla obserwowanych połączeń zostaną przestawione na e-mail.</p>
           @form({
@@ -174,11 +196,108 @@
               })
               @!field.error()
             @end
+
             <button type="submit" class="btn btn--secondary" x-bind:disabled="submitting">
               Potwierdź usunięcie numeru
             </button>
           @end
         </details>
+      @end
+    </section>
+
+    <section class="account-section" id="account-totp">
+      <div>
+        <span class="eyebrow">Bezpieczeństwo</span>
+        <h2>Uwierzytelnianie dwuskładnikowe</h2>
+        <p>
+          Po włączeniu kod z aplikacji uwierzytelniającej będzie wymagany przy każdym logowaniu. Kody odzyskiwania zapiszesz tylko raz.
+        </p>
+      </div>
+      @if(totpRecoveryCodes)
+        <div class="notice notice--info">
+          <div>
+            <strong>Zapisz kody odzyskiwania w bezpiecznym miejscu</strong>
+            <p>Każdy kod działa tylko raz. Nie pokażemy ich ponownie.</p>
+            <code id="totp-recovery-codes" class="totp-recovery-codes">
+              {{ totpRecoveryCodes.join('  ') }}
+            </code>
+          </div>
+        </div>
+      @end
+      @if(user.totpSecret)
+        <div class="phone-status">
+          @svg('lucide:shield-check', { width: 20, height: 20 })
+          <strong>TOTP jest aktywne</strong>
+        </div>
+        <details class="account-action">
+          <summary class="btn btn--secondary">Wyłącz uwierzytelnianie dwuskładnikowe</summary>
+          @form({ route: 'account.totp.disable', method: 'POST', class: 'account-form' })
+            @field.root({ name: 'currentPassword' })
+              @!field.label({ text: 'Aktualne hasło' })
+              @!input.control({
+                type: 'password',
+                autocomplete: 'current-password',
+                maxlength: passwordMaxLength,
+                required: true,
+              })
+              @!field.error()
+            @end
+            @field.root({ name: 'code' })
+              @!field.label({ text: 'Kod TOTP lub kod odzyskiwania' })
+              @!input.control({
+                type: 'text',
+                autocomplete: 'one-time-code',
+                maxlength: 24,
+                required: true,
+              })
+              @!field.error()
+            @end
+
+            <button type="submit" class="btn btn--danger">Wyłącz TOTP</button>
+          @end
+        </details>
+      @elseif(pendingTotpSecret)
+        <div class="notice notice--info">
+          <div>
+            <strong>Dodaj konto w Google Authenticator lub innej aplikacji TOTP</strong>
+            <p>Wybierz „Wprowadź klucz konfiguracji”, podaj nazwę Koleo Watch i ten klucz:</p>
+            <code id="totp-setup-secret">{{ pendingTotpSecret }}</code>
+            <p>
+              Typ: czasowy. Alternatywnie użyj adresu otpauth:
+              <code>{{ pendingTotpUrl }}</code>
+            </p>
+          </div>
+        </div>
+        @form({ route: 'account.totp.confirm', method: 'POST', class: 'account-form' })
+          @field.root({ name: 'code' })
+            @!field.label({ text: 'Kod z aplikacji' })
+            @!input.control({
+              type: 'text',
+              inputmode: 'numeric',
+              autocomplete: 'one-time-code',
+              maxlength: totpDigits,
+              required: true,
+            })
+            @!field.error()
+          @end
+
+          <button type="submit" class="btn btn--primary">Włącz TOTP</button>
+        @end
+      @else
+        @form({ route: 'account.totp.begin', method: 'POST', class: 'account-form' })
+          @field.root({ name: 'currentPassword' })
+            @!field.label({ text: 'Aktualne hasło' })
+            @!input.control({
+              type: 'password',
+              autocomplete: 'current-password',
+              maxlength: passwordMaxLength,
+              required: true,
+            })
+            @!field.error()
+          @end
+
+          <button type="submit" class="btn btn--secondary">Skonfiguruj aplikację TOTP</button>
+        @end
       @end
     </section>
 
@@ -237,7 +356,11 @@
         })
           <button type="submit" class="btn btn--secondary" x-bind:disabled="submitting">
             @svg('lucide:log-out', { width: 16, height: 16 })
+
+
             Wyloguj wszystkie sesje
+
+
           </button>
         @end
       @end
@@ -251,7 +374,11 @@
       </div>
       <a class="btn btn--secondary" href="{{ urlFor('account.export') }}">
         @svg('lucide:download', { width: 16, height: 16 })
+
+
         Pobierz moje dane
+
+
       </a>
     </section>
 
@@ -274,7 +401,11 @@
       >
         <summary class="btn btn--secondary">
           @svg('lucide:trash-2', { width: 16, height: 16 })
+
+
           Usuń konto
+
+
         </summary>
         @form({
           route: 'account.destroy',
@@ -302,7 +433,11 @@
 
           <button type="submit" class="btn btn--danger" x-bind:disabled="submitting">
             @svg('lucide:trash-2', { width: 16, height: 16 })
+
+
             Usuń konto na zawsze
+
+
           </button>
         @end
       </details>

@@ -1,0 +1,43 @@
+@layouts.auth({ title: 'Potwierdź logowanie' })
+  <div class="verification-icon" aria-hidden="true">
+    @svg('lucide:shield-check', { width: 28, height: 28 })
+  </div>
+  <h1 class="auth__title">Potwierdź logowanie</h1>
+  @if(method === 'email')
+    <p class="auth__sub">
+      To nowa przeglądarka. Wpisz jednorazowy kod wysłany na
+      {{ maskedEmail }}. Dopiero wtedy uzyskasz dostęp do konta.
+    </p>
+  @else
+    <p class="auth__sub">
+      Wpisz kod z aplikacji uwierzytelniającej (np. Google Authenticator) albo jeden z zapisanych kodów odzyskiwania.
+    </p>
+  @end
+  @form({ route: 'login_challenge.store', method: 'POST', class: 'auth__form' })
+    @field.root({ name: 'code' })
+      @!field.label({ text: 'Kod jednorazowy' })
+      @!input.control({
+        type: 'text',
+        inputmode: method === 'email' ? 'numeric' : 'text',
+        autocomplete: 'one-time-code',
+        maxlength: 24,
+        required: true,
+      })
+      @!field.error()
+    @end
+    @!button({
+      text: 'Potwierdź i zaloguj się',
+      type: 'submit',
+      block: true,
+      class: 'auth__submit',
+    })
+  @end
+  @if(method === 'email')
+    @form({ route: 'login_challenge.resend', method: 'POST' })
+      <button type="submit" class="link-button">Wyślij nowy kod</button>
+    @end
+  @end
+  @form({ route: 'login_challenge.cancel', method: 'POST' })
+    <button type="submit" class="link-button">Anuluj logowanie</button>
+  @end
+@end

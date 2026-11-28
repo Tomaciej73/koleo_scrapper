@@ -15,6 +15,69 @@ export interface NotificationResult {
 export type PriceAlertReason = 'price_change' | 'target_reached' | 'exchange_rate_target_reached'
 
 export default class NotificationService {
+  async sendTwoFactorChanged(recipient: string, enabled: boolean): Promise<NotificationResult> {
+    if (!(env.get('MAIL_ENABLED') ?? false))
+      return { delivered: false, reason: 'Powiadomienia e-mail są wyłączone.' }
+    const messageText = enabled
+      ? 'Włączono uwierzytelnianie dwuskładnikowe TOTP.'
+      : 'Wyłączono uwierzytelnianie dwuskładnikowe TOTP.'
+    await this.sendMail(() =>
+      mail.send((message) => {
+        message
+          .to(recipient)
+          .subject('Zmiana zabezpieczeń konta - Koleo Watch')
+          .text(`${messageText}\nJeśli to nie Ty, niezwłocznie zmień hasło do konta.`)
+          .htmlView('emails/two_factor_changed', { messageText })
+      })
+    )
+    return { delivered: true }
+  }
+
+  async sendLoginCode(
+    recipient: string,
+    code: string,
+    validForMinutes: number
+  ): Promise<NotificationResult> {
+    if (!(env.get('MAIL_ENABLED') ?? false)) {
+      return { delivered: false, reason: 'Powiadomienia e-mail są wyłączone.' }
+    }
+    await this.sendMail(() =>
+      mail.send((message) => {
+        message
+          .to(recipient)
+          .subject('Kod potwierdzający logowanie - Koleo Watch')
+          .text(
+            `Kod potwierdzający logowanie: ${code}\nWażność: ${validForMinutes} min.\nJeśli to nie Ty, nie podawaj kodu i zmień hasło.`
+          )
+          .htmlView('emails/login_code', { code, validForMinutes })
+      })
+    )
+    return { delivered: true }
+  }
+
+  async sendNewLoginAlert(
+    recipient: string,
+    userAgent: string,
+    revokeUrl: string,
+    validForMinutes: number
+  ): Promise<NotificationResult> {
+    if (!(env.get('MAIL_ENABLED') ?? false)) {
+      return { delivered: false, reason: 'Powiadomienia e-mail są wyłączone.' }
+    }
+    await this.sendMail(() =>
+      mail.send((message) => {
+        message
+          .to(recipient)
+          .subject('Nowe logowanie do konta - Koleo Watch')
+          .text(
+            `Wykryto logowanie z nowej przeglądarki.\nPrzeglądarka: ${userAgent}\nJeśli to nie Ty, otwórz ${revokeUrl} i unieważnij tę sesję. Link jest ważny przez ${validForMinutes} min. Następnie zmień hasło.\nJeśli to Ty, nic nie musisz robić.`
+          )
+          .htmlView('emails/new_login', { userAgent, revokeUrl, validForMinutes })
+      })
+    )
+    return { delivered: true }
+  }
+
   async sendEmailVerification(
     recipient: string,
     code: string,

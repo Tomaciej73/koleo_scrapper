@@ -10,6 +10,7 @@ import { createHash, randomBytes, randomInt } from 'node:crypto'
 import { setTimeout as delay } from 'node:timers/promises'
 import { DateTime } from 'luxon'
 import SessionManagementService from '#services/session_management_service'
+import LoginSecurityService from '#services/login_security_service'
 
 export type PasswordResetResult = 'reset' | 'invalid'
 
@@ -119,6 +120,7 @@ export default class PasswordResetService {
     }
 
     await new SessionManagementService().destroyAll(user.id)
+    await new LoginSecurityService().forgetAllDevices(user.id)
 
     try {
       await new NotificationService().sendPasswordChanged(user.email)

@@ -1,0 +1,21 @@
+@layouts.email({
+  title: 'Nowe logowanie',
+  preheader: 'Nowa przeglądarka uzyskała dostęp do konta',
+})
+  <p>Do Twojego konta zalogowano się z nowej przeglądarki:</p>
+  <p style="padding: 14px; background: #f1f5f5; overflow-wrap: anywhere;">{{ userAgent }}</p>
+  <p>Jeśli to Ty, nie musisz nic robić. Jeśli nie, unieważnij tę sesję i zmień hasło.</p>
+  <p>
+    <a
+      href="{{ revokeUrl }}"
+      style="display: inline-block; padding: 12px 18px; background: #b42318; color: #ffffff; text-decoration: none; border-radius: 8px;"
+    >
+      To nie ja - unieważnij sesję
+    </a>
+  </p>
+  <p>
+    Link jest ważny przez
+    {{ validForMinutes }}
+    min. Samo otwarcie linku niczego nie unieważnia - operację potwierdza się na stronie.
+  </p>
+@end

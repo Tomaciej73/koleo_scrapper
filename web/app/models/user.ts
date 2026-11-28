@@ -36,6 +36,12 @@ export default class User extends compose(UserSchema, withAuthFinder(hash)) {
   @column.dateTime()
   declare phoneVerifiedAt: DateTime | null
 
+  @column({ serializeAs: null })
+  declare totpSecret: string | null
+
+  @column({ serializeAs: null })
+  declare totpLastCounter: number | null
+
   /**
    * Get the user's initials from their full name or email.
    * Returns the first letter of first and last name if available,

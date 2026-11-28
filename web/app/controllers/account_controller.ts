@@ -18,9 +18,13 @@ import { DateTime } from 'luxon'
 import env from '#start/env'
 import PhoneVerificationService from '#services/phone_verification_service'
 import SmsGatewayService from '#services/sms_gateway_service'
+import LoginSecurityService from '#services/login_security_service'
+import TotpService from '#services/totp_service'
+import { PENDING_TOTP_SECRET_KEY } from '#controllers/totp_controller'
 
 export default class AccountController {
-  async index({ auth, session, view }: HttpContext) {
+  async index({ auth, session, view, response }: HttpContext) {
+    response.header('Cache-Control', 'no-store')
     const user = auth.getUserOrFail()
     const sessionService = new SessionManagementService()
     const sessions = await sessionService.list(user.id, session.sessionId)
@@ -40,6 +44,13 @@ export default class AccountController {
       sessionTrackingAvailable: session.supportsTagging(),
       emailMaxLength: env.get('EMAIL_MAX_LENGTH'),
       passwordMaxLength: env.get('PASSWORD_MAX_LENGTH'),
+      pendingTotpSecret: session.get(PENDING_TOTP_SECRET_KEY),
+      pendingTotpUrl:
+        typeof session.get(PENDING_TOTP_SECRET_KEY) === 'string'
+          ? new TotpService().provisioningUrl(user, session.get(PENDING_TOTP_SECRET_KEY))
+          : null,
+      totpRecoveryCodes: session.flashMessages.get('totpRecoveryCodes') ?? null,
+      totpDigits: env.get('LOGIN_TOTP_DIGITS'),
     })
   }
 
@@ -191,6 +202,7 @@ export default class AccountController {
       'Użytkownik usunął konto'
     )
     await new SessionManagementService().destroyAll(user.id)
+    await new LoginSecurityService().forgetAllDevices(user.id)
     await auth.use('web').logout()
     await user.delete()
     session.clear()
@@ -200,7 +212,10 @@ export default class AccountController {
   async revokeSession({ auth, request, response, session, logger }: HttpContext) {
     const user = auth.getUserOrFail()
     const { sessionId } = await request.validateUsing(sessionRevocationValidator)
-    const removed = await new SessionManagementService().destroyOwned(user.id, sessionId)
+    const manager = new SessionManagementService()
+    const sessions = await manager.list(user.id, session.sessionId)
+    const target = sessions.find((item) => item.id === sessionId)
+    const removed = await manager.destroyOwned(user.id, sessionId)
     if (!removed) {
       session.flash('error', 'Nie znaleziono wskazanej sesji.')
       return response.redirect().back()
@@ -215,6 +230,9 @@ export default class AccountController {
       },
       'Użytkownik unieważnił sesję'
     )
+    if (target?.trustedDeviceId) {
+      await new LoginSecurityService().forgetDevice(user.id, target.trustedDeviceId)
+    }
     if (sessionId === session.sessionId) {
       await auth.use('web').logout()
       session.clear()
@@ -229,6 +247,7 @@ export default class AccountController {
     user.authVersion += 1
     await user.save()
     await new SessionManagementService().destroyAll(user.id)
+    await new LoginSecurityService().forgetAllDevices(user.id)
     logger.warn(
       {
         event: 'account_all_sessions_revoked',

@@ -444,6 +444,38 @@ resetu hasła i alertów. Po utracie sesji zaloguj się starym adresem i hasłem
 aby wrócić do ekranu kodu. Dopiero poprawny kod przełącza konto i obserwacje na
 nowy adres, unieważnia pozostałe sesje oraz wcześniejsze tokeny resetu.
 
+### Nowa przeglądarka i kody logowania
+
+Gdy `NEW_DEVICE_CHALLENGE_ENABLED=true`, logowanie z przeglądarki bez ważnego
+identyfikatora zaufania wymaga kodu e-mail **przed** utworzeniem sesji. Wymaga
+to `SESSION_DRIVER=database` w produkcji; przy magazynie bez listy sesji
+logowanie jest celowo wstrzymane, bo przycisk „To nie ja” nie mógłby unieważnić
+konkretnej sesji. Po potwierdzeniu przeglądarka jest rozpoznawana przez zaszyfrowane ciasteczko
+`HttpOnly`, a jego losowy identyfikator jest przechowywany w bazie tylko jako
+skrót. Zmiana sieci lub VPN sama w sobie nie wywołuje kodu. Zaufanie wygasa po
+`LOGIN_TRUSTED_DAYS` bez użycia. Użytkownik dostaje wiadomość o nowym logowaniu
+z przyciskiem „To nie ja”; link otwiera stronę potwierdzenia unieważnienia
+wskazanej sesji i jest jednorazowy. Po podejrzanym logowaniu należy też zmienić
+hasło. Unieważnienie sesji z ustawień oraz reset hasła usuwają związane zaufanie.
+
+W ustawieniach konta można opcjonalnie włączyć TOTP (Google Authenticator lub
+inna aplikacja zgodna z RFC 6238). Po włączeniu kod TOTP jest wymagany przy
+**każdym** logowaniu, także na zaufanym urządzeniu. Przy konfiguracji aplikacja
+pokazuje klucz do ręcznego wpisania oraz jednorazowe kody odzyskiwania; zapisz
+je offline. Kod e-mail nie zastępuje TOTP, gdy TOTP jest aktywne. Wyłączenie
+TOTP wymaga aktualnego hasła i kodu z aplikacji albo kodu odzyskiwania.
+Utrata aplikacji i wszystkich kodów bez aktywnej sesji wymaga bezpiecznej
+procedury odzyskania konta; sam reset hasła nie wyłącza TOTP.
+
+Na VPS dopisz do istniejącego, nieśledzonego `/opt/koleo_scrapper/.env_conf`
+wszystkie klucze `NEW_DEVICE_CHALLENGE_ENABLED` i `LOGIN_*` z `web/.env.example`.
+Włącz `NEW_DEVICE_CHALLENGE_ENABLED=true` dopiero gdy `MAIL_ENABLED=true` i
+SMTP naprawdę dostarcza wiadomości. W przeciwnym razie logowanie z nowej
+przeglądarki zostanie celowo wstrzymane. Zachowaj dotychczasowy `APP_KEY` -
+jego zmiana unieważni sesje i uniemożliwi odszyfrowanie sekretów TOTP.
+Przed wdrożeniem wykonaj kopię bazy; migracja dodaje tabele zaufanych
+przeglądarek, wyzwań logowania, linków alertowych i kodów odzyskiwania.
+
 Adresy e-mail są przed walidacją i zapisem obcinane z białych znaków oraz
 zamieniane na małe litery. Baza dodatkowo wymusza unikalność wartości
 `LOWER(TRIM(email))`.

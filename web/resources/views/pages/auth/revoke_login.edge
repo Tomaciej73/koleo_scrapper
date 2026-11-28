@@ -1,0 +1,10 @@
+@layouts.auth({ title: 'Unieważnij sesję' })
+  <div class="verification-icon" aria-hidden="true">@svg('lucide:shield-alert', { width: 28, height: 28 })</div>
+  <h1 class="auth__title">To nie Twoje logowanie?</h1>
+  <p class="auth__sub">Potwierdzenie unieważni sesję z wiadomości e-mail i usunie zaufanie do tej przeglądarki. Jeśli ktoś zna Twoje hasło, zmień je zaraz po tej operacji.</p>
+  @form({ route: 'login_alert.revoke', method: 'POST', class: 'auth__form' })
+    <input type="hidden" name="token" value="{{ token }}" />
+    @!button({ text: 'Unieważnij tę sesję', type: 'submit', block: true, class: 'auth__submit' })
+  @end
+  <p class="auth__foot">@link({ route: 'password_reset.create', class: 'il' })Zresetuj hasło@end</p>
+@end

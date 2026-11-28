@@ -1,0 +1,10 @@
+@layouts.email({ title: 'Potwierdź logowanie', preheader: 'Jednorazowy kod logowania' })
+  <p>Wpisz ten kod na stronie logowania. Nigdy nie podawaj go innej osobie.</p>
+  <p
+    style="padding: 18px; background: #e9f8f5; text-align: center; color: #0c625b; font-size: 30px; font-weight: 700; letter-spacing: 0.18em;"
+  >
+    {{ code }}
+  </p>
+  <p>Kod wygasa za {{ validForMinutes }} min.</p>
+  <p>Jeśli to nie Ty, zignoruj kod i zmień hasło do konta.</p>
+@end

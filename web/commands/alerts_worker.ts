@@ -63,17 +63,21 @@ export default class AlertsWorker extends BaseCommand {
       ])
       const resetDelivery = await new PasswordResetDeliveryService().processPending()
       const retention = await new OperationalRetentionService().pruneExpired()
+      const prunedOperationalRecords = Object.values(retention).reduce(
+        (sum, value) => sum + value,
+        0
+      )
       if (env.get('ALERTS_ENABLED') ?? false) {
         await new PriceObservationRetentionService().pruneExpired()
         const summary = await new PriceAlertService().checkAllActive('worker')
         const errors = summary.errors + resetDelivery.errors
-        const message = `Sprawdzono: ${summary.checked}, zmiany: ${summary.priceChanges} (spadki: ${summary.priceDrops}, wzrosty: ${summary.priceIncreases}), bez zmian: ${summary.unchanged}, alerty w kolejce: ${summary.alertsQueued}, alerty wysłane: ${summary.delivered}, resety hasła wysłane: ${resetDelivery.delivered}, usunięte stare wpisy: ${retention.alertOutbox + retention.passwordResetDeliveries}, błędy: ${errors}`
+        const message = `Sprawdzono: ${summary.checked}, zmiany: ${summary.priceChanges} (spadki: ${summary.priceDrops}, wzrosty: ${summary.priceIncreases}), bez zmian: ${summary.unchanged}, alerty w kolejce: ${summary.alertsQueued}, alerty wysłane: ${summary.delivered}, resety hasła wysłane: ${resetDelivery.delivered}, usunięte stare wpisy: ${prunedOperationalRecords}, błędy: ${errors}`
         const context = {
           event: 'worker_cycle_completed',
           ...summary,
           passwordResetsDelivered: resetDelivery.delivered,
           passwordResetErrors: resetDelivery.errors,
-          prunedOperationalRecords: retention.alertOutbox + retention.passwordResetDeliveries,
+          prunedOperationalRecords,
         }
         if (errors > 0) {
           logger.warn(context, message)
@@ -86,7 +90,7 @@ export default class AlertsWorker extends BaseCommand {
           event: 'worker_cycle_completed',
           passwordResetsDelivered: resetDelivery.delivered,
           passwordResetErrors: resetDelivery.errors,
-          prunedOperationalRecords: retention.alertOutbox + retention.passwordResetDeliveries,
+          prunedOperationalRecords,
         }
         if (resetDelivery.errors > 0) {
           logger.warn(context, message)

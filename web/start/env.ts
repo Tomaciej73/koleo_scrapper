@@ -44,6 +44,17 @@ export default await Env.create(new URL('../', import.meta.url), {
 
   // Session
   SESSION_DRIVER: Env.schema.enum(['cookie', 'memory', 'database'] as const),
+  NEW_DEVICE_CHALLENGE_ENABLED: Env.schema.boolean(),
+  LOGIN_TRUSTED_COOKIE_NAME: Env.schema.string(),
+  LOGIN_TRUSTED_DAYS: Env.schema.number(),
+  LOGIN_CHALLENGE_TTL_MINUTES: Env.schema.number(),
+  LOGIN_CHALLENGE_MAX_ATTEMPTS: Env.schema.number(),
+  LOGIN_EMAIL_CODE_LENGTH: Env.schema.number(),
+  LOGIN_ALERT_ACTION_TTL_MINUTES: Env.schema.number(),
+  LOGIN_TOTP_DIGITS: Env.schema.number(),
+  LOGIN_TOTP_PERIOD_SECONDS: Env.schema.number(),
+  LOGIN_TOTP_WINDOW_STEPS: Env.schema.number(),
+  LOGIN_RECOVERY_CODE_COUNT: Env.schema.number(),
 
   // Abuse protection
   LIMITER_STORE: Env.schema.enum(['database', 'memory'] as const),
